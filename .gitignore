@@ -1,0 +1,29 @@
+# Heavy media & real footage — NEVER publish
+references/
+app/workspace/
+finish_tests/
+scratch/
+*.mp4
+*.mov
+*.MP4
+*.MOV
+*.webm
+# (the small UI example thumbnails app/web/img/*.jpg are NOT video — they ship)
+
+# Local dev / internal — not for the public repo
+.claude/
+HANDOFF.md
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log

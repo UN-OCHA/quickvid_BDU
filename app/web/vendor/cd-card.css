@@ -1,0 +1,128 @@
+/**
+ * CD Card
+ * Source: common_design/libraries/cd-card/cd-card.css
+ *
+ * Variants:
+ *   - Optional image (rectangular or rounded)
+ *   - Optional footer
+ *   - Clickable (entire surface)
+ *
+ * Changes from CD:
+ *   - All colour values use --brand-* semantic tokens
+ */
+
+/**
+ * Card container
+ */
+.cd-card {
+  display: flex;
+  flex-flow: column nowrap;
+  border: 2px solid var(--brand-grey);
+  background-color: var(--cd-white);
+}
+
+/**
+ * Card image
+ */
+.cd-card__image img {
+  display: block;
+  width: 100%;
+  height: 13rem;
+  object-fit: cover;
+  object-position: 50% 50%;
+}
+
+.cd-card__image--rounded {
+  min-width: 7rem;
+  max-width: 13rem;
+  min-height: 7rem;
+  max-height: 13rem;
+  margin-top: 1rem;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.cd-card__image + .cd-card__container {
+  padding: 1rem 2rem;
+}
+
+/**
+ * Card contents
+ */
+.cd-card__container {
+  flex-grow: 1;
+  padding: 2rem 2rem 1rem;
+}
+
+.cd-card__title,
+.cd-card__title a {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.cd-card__description p:last-child {
+  margin-bottom: 0;
+}
+
+/**
+ * Card footer
+ */
+.cd-card__footer {
+  flex-shrink: 0;
+  padding: 0 2rem 2rem;
+}
+
+.cd-card__link {
+  padding: 1rem 0 0;
+  border-top: 1px solid var(--brand-grey);
+}
+
+/**
+ * Variant: Clickable
+ *
+ * The hyperlink within the title uses an invisible pseudo-element that
+ * stretches over the card so the entire surface is clickable/tappable.
+ */
+.cd-card--clickable {
+  position: relative;
+}
+
+.cd-card--clickable .cd-card__title a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.cd-card--clickable .cd-card__title a:hover {
+  color: inherit;
+}
+
+.cd-card--clickable .cd-card__title a:focus {
+  color: inherit;
+  outline: none;
+}
+
+/* Create and style the clickable pseudo-element. */
+.cd-card--clickable .cd-card__title a::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  content: "";
+}
+
+/* Hover/focus styles on clickable pseudo-element. */
+.cd-card--clickable .cd-card__title a:hover::after {
+  outline: 3px solid var(--brand-grey);
+}
+
+.cd-card--clickable .cd-card__title a:focus::after,
+.cd-card--clickable .cd-card__title a:active::after {
+  outline: 3px solid black;
+}
+
+/* Restore interactivity for elements after the title link in source. */
+.cd-card--clickable .cd-card__link {
+  position: relative;
+}

@@ -1,0 +1,23 @@
+# OCHA QuickVid — engine + local web app.
+# Install into a Python 3.11 venv (3.14 has no faster-whisper/ctranslate2 wheels yet):
+#   /opt/homebrew/bin/python3.11 -m venv .venv && source .venv/bin/activate
+#   pip install -r requirements.txt
+
+# --- Engine (proven) ---
+faster-whisper          # offline ASR (Whisper); pulls ctranslate2
+imageio-ffmpeg          # ffmpeg discovery fallback; honors IMAGEIO_FFMPEG_EXE
+
+# --- Rendering / branding layers ---
+# Text + graphics are composited as transparent PNG layers via `overlay`
+# (this Mac's ffmpeg has no drawtext/libfreetype). Pillow renders the PNGs.
+pillow
+
+# --- Subject-follow reframe (engine/reframe.py) ---
+# Haar face detection over sampled frames -> smoothed, velocity-capped crop path.
+# headless build = no GUI libs; numpy ships with it.
+opencv-python-headless
+
+# --- Local web app (FastAPI backend + static SPA) ---
+fastapi
+uvicorn[standard]
+python-multipart        # form/multipart parsing for the instruction POST

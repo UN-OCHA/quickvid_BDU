@@ -1,0 +1,63 @@
+/**
+ * CD Alert
+ * Source: common_design/libraries/cd-alert/cd-alert.css
+ *
+ * Four variants: info (default), error, warning, status.
+ * Uses --cd-alert-color and --cd-alert-color-bg custom properties
+ * so each variant only needs to set two values.
+ */
+
+.cd-alert {
+  --cd-flow-space: 0.5rem;
+  --cd-alert-color: var(--brand-info);
+  --cd-alert-color-bg: var(--brand-primary--lightest);
+
+  margin: 1rem 0 2rem;
+  padding: 1rem;
+  color: var(--brand-default-text-color);
+  border: 1px solid var(--cd-alert-color);
+  border-radius: 0.25rem;
+  background-color: var(--cd-alert-color-bg);
+  box-shadow: -8px 0 0 var(--cd-alert-color);
+}
+
+.cd-alert > div[role] {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.cd-alert svg {
+  flex: 0 0 1.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: var(--cd-alert-color);
+}
+
+.cd-alert__message p {
+  margin: 0;
+}
+
+.cd-alert__message a,
+.cd-alert__message a:hover,
+.cd-alert__message a:focus {
+  color: inherit;
+}
+
+/* Error */
+.cd-alert--error {
+  --cd-alert-color: var(--brand-error);
+  --cd-alert-color-bg: var(--cd-red--light);
+}
+
+/* Warning */
+.cd-alert--warning {
+  --cd-alert-color: var(--brand-warning);
+  --cd-alert-color-bg: var(--cd-orange--light);
+}
+
+/* Status / success */
+.cd-alert--status {
+  --cd-alert-color: var(--brand-success);
+  --cd-alert-color-bg: var(--cd-green--light);
+}

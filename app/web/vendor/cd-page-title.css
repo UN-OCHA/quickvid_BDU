@@ -1,0 +1,17 @@
+/**
+ * CD Page Title
+ * Source: common_design/libraries/cd-page-title/cd-page-title.css
+ */
+
+.cd-page-title {
+  margin-top: 0;
+  margin-bottom: 2rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--brand-grey);
+}
+
+.cd-page-title--landing {
+  text-transform: uppercase;
+  font-size: var(--cd-font-size--2xbase);
+  font-weight: 700;
+}

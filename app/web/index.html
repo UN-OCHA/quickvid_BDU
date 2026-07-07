@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OCHA QuickVid</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=8" />
+
+  <!-- OCHA brand font (Roboto); falls back to Arial offline -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,400&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Font Awesome (free) — the DS's UI-chrome icon library. Loaded from CDN:
+       only heavy video work must stay local; light UI assets can be online. -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <!-- OCHA App Kit — the shared design system (tokens + components).
+       Synced from …/OCHA_design_system/…/app-kit/. Do not hand-edit; change the kit. -->
+  <link rel="stylesheet" href="/static/vendor/ocha-app-kit.css?v=8" />
+  <!-- QuickVid layout only -->
+  <link rel="stylesheet" href="/static/style.css?v=8" />
+</head>
+<body>
+  <a class="cd-skip-link" href="#main">Skip to main content</a>
+
+  <header class="app-header">
+    <img class="app-header__logo" src="/static/vendor/ocha-logo.svg" alt="OCHA" />
+    <div class="app-header__titles">
+      <h1 class="app-header__title">QuickVid</h1>
+      <p class="app-header__subtitle">OCHA-branded videos in a few clicks</p>
+    </div>
+  </header>
+
+  <main id="main" class="app-main cd-flow">
+    <h2 class="cd-page-title">Create a video</h2>
+
+    <!-- Mode selector: full edit vs. add titles & branding to a finished video -->
+    <div class="mode-tabs" role="tablist" aria-label="What do you want to do?">
+      <button class="mode-tab is-active" id="tab-finish" role="tab" aria-selected="true" type="button">
+        <i class="fa-solid fa-closed-captioning" aria-hidden="true"></i>
+        Titles &amp; branding
+      </button>
+      <button class="mode-tab" id="tab-edit" role="tab" aria-selected="false" type="button">
+        <i class="fa-solid fa-scissors" aria-hidden="true"></i>
+        Edit
+      </button>
+    </div>
+
+    <!-- ==================== MODE: EDIT ==================== -->
+    <div id="mode-edit" class="cd-flow" role="tabpanel" hidden>
+    <div class="cd-alert cd-alert--error" role="status">
+      <div class="cd-alert__message"><p><strong>Under development.</strong> The full transcript-driven editor isn't ready yet. For now, use <strong>Titles &amp; branding</strong> to add lower thirds and an OCHA ending to a video you've already cut.</p></div>
+    </div>
+    <p class="app-lede">Edit the words, not the timeline — drop in raw clips, get a clean, on-brand cut. Files stay on this machine.</p>
+
+    <!-- Step 1 -->
+    <section class="cd-card" aria-labelledby="s1-title">
+      <div class="cd-card__content cd-flow">
+        <h2 class="cd-block-title" id="s1-title"><span class="step-num" aria-hidden="true">1</span> Source folder</h2>
+        <form class="cd-form" onsubmit="return false">
+          <div class="cd-form__item">
+            <label class="cd-form__label" for="folder">Folder of raw clips</label>
+            <div class="field-row">
+              <input class="cd-form__input" id="folder" type="text" autocomplete="off" placeholder="/path/to/folder/of/raw/clips" />
+              <button class="cd-button cd-button--outline" id="browse" type="button"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Browse…</span></button>
+            </div>
+          </div>
+          <button class="cd-button" id="transcribe" type="button"><span class="cd-button__text">Transcribe</span></button>
+        </form>
+        <div id="t-status" class="status-slot" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- Step 2 -->
+    <section class="cd-card" id="step-instruct" aria-labelledby="s2-title" hidden>
+      <div class="cd-card__content cd-flow">
+        <h2 class="cd-block-title" id="s2-title"><span class="step-num" aria-hidden="true">2</span> Transcript &amp; instruction</h2>
+        <p class="app-hint">Numbered, timecoded, silence-trimmed. Copy it into your LLM for an instruction, or write the keep-list yourself.</p>
+        <div class="cd-form__item">
+          <label class="cd-form__label" for="transcript">Transcript</label>
+          <textarea class="cd-form__input mono" id="transcript" rows="10" readonly></textarea>
+        </div>
+        <button class="cd-button cd-button--outline cd-button--small" id="copy-transcript" type="button"><i class="fa-solid fa-copy" aria-hidden="true"></i><span class="cd-button__text">Copy transcript</span></button>
+        <div class="cd-form__item">
+          <label class="cd-form__label" for="instruction">Instruction JSON</label>
+          <textarea class="cd-form__input mono" id="instruction" rows="6" placeholder='{ "keep": [1, 2, 5, 6], "captions": true, "lower_thirds": [], "formats": ["16:9"] }'></textarea>
+        </div>
+        <button class="cd-button" id="run" type="button"><span class="cd-button__text">Run — assemble the cut</span></button>
+        <div id="r-status" class="status-slot" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- Step 3 -->
+    <section class="cd-card" id="step-preview" aria-labelledby="s3-title" hidden>
+      <div class="cd-card__content cd-flow">
+        <h2 class="cd-block-title" id="s3-title"><span class="step-num" aria-hidden="true">3</span> Preview &amp; export</h2>
+        <video id="player" class="app-player" controls playsinline></video>
+        <a class="cd-button cd-button--export" id="download" download><i class="fa-solid fa-download" aria-hidden="true"></i><span class="cd-button__text">Download MP4</span></a>
+      </div>
+    </section>
+    </div><!-- /mode-edit -->
+
+    <!-- ==================== MODE: TITLES & BRANDING ==================== -->
+    <div id="mode-finish" class="cd-flow" role="tabpanel">
+      <p class="app-lede">Already cut your video in CapCut, Canva, Premiere…? Add OCHA lower thirds and an ending — placed for your format and social safe areas. It stays on this machine.</p>
+
+      <!-- Step 1 — the video -->
+      <section class="cd-card" aria-labelledby="f1-title">
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title" id="f1-title"><span class="step-num" aria-hidden="true">1</span> Your video</h2>
+          <div class="field-row">
+            <input class="cd-form__input" id="f-video" type="text" autocomplete="off" placeholder="/path/to/your/finished-video.mp4" />
+            <button class="cd-button cd-button--outline" id="f-browse" type="button"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Browse…</span></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 2 — lower thirds -->
+      <section class="cd-card" aria-labelledby="f2-title">
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title" id="f2-title"><span class="step-num" aria-hidden="true">2</span> Lower thirds</h2>
+          <figure class="ex-thumb">
+            <img src="/static/img/ex-lowerthird.jpg" alt="Example: a name and job-title lower third in the lower-left corner of a video" />
+            <figcaption>A <strong>lower third</strong> — name + job title, auto-placed for your format and social safe areas.</figcaption>
+          </figure>
+          <p class="app-hint">Type the name and job title, when it appears (e.g. <code>0:53</code>), how many seconds it stays, and left or centre. Add as many as you need.</p>
+          <div class="lt-labels" aria-hidden="true">
+            <span class="lt-name">Name</span>
+            <span class="lt-org">Job title</span>
+            <span class="lt-start">Start</span>
+            <span class="lt-dur">Duration</span>
+            <span class="lt-align">Alignment</span>
+            <span class="lt-remove"></span>
+          </div>
+          <div id="lt-rows"></div>
+          <button class="cd-button cd-button--outline cd-button--small" id="lt-add" type="button"><i class="fa-solid fa-plus" aria-hidden="true"></i><span class="cd-button__text">Add lower third</span></button>
+        </div>
+      </section>
+
+      <!-- Step 3 — ending -->
+      <section class="cd-card" aria-labelledby="f3-title">
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title" id="f3-title"><span class="step-num" aria-hidden="true">3</span> Ending</h2>
+          <div class="end-options">
+            <label class="end-opt">
+              <input type="radio" name="f-ending" value="over_footage" checked />
+              <img src="/static/img/ex-ending-footage.jpg" alt="OCHA logo over the last seconds of footage" />
+              <span class="end-opt__label">Over footage</span>
+              <span class="end-opt__hint">Logo over your last shot — needs ≥2s of footage at the end.</span>
+            </label>
+            <label class="end-opt">
+              <input type="radio" name="f-ending" value="over_black" />
+              <img src="/static/img/ex-ending-black.jpg" alt="OCHA logo centred on a black screen" />
+              <span class="end-opt__label">Over black</span>
+              <span class="end-opt__hint">Logo on a clean black end card.</span>
+            </label>
+            <label class="end-opt end-opt--none">
+              <input type="radio" name="f-ending" value="none" />
+              <span class="end-opt__icon"><img src="/static/img/ic-film.svg" alt="" /></span>
+              <span class="end-opt__label">No ending</span>
+              <span class="end-opt__hint">Leave the video as it is.</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <button class="cd-button" id="f-run" type="button"><span class="cd-button__text">Add titles &amp; branding</span></button>
+      <div id="f-status" class="status-slot" aria-live="polite"></div>
+
+      <!-- Preview -->
+      <section class="cd-card" id="f-preview" aria-labelledby="f4-title" hidden>
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title" id="f4-title">Preview &amp; export</h2>
+          <video id="f-player" class="app-player app-player--fit" controls playsinline></video>
+          <a class="cd-button cd-button--export" id="f-download" download><i class="fa-solid fa-download" aria-hidden="true"></i><span class="cd-button__text">Download MP4</span></a>
+        </div>
+      </section>
+    </div><!-- /mode-finish -->
+  </main>
+
+  <footer class="app-footer">
+    <p>Made by the OCHA Brand and Design Unit · <a href="mailto:ochavisual@un.org">ochavisual@un.org</a> · runs locally — files never leave this machine.</p>
+  </footer>
+
+  <script src="/static/app.js?v=8"></script>
+</body>
+</html>

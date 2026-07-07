@@ -1,0 +1,68 @@
+/* OCHA QuickVid — LAYOUT ONLY.
+   All tokens + components come from the OCHA App Kit (vendor/ocha-app-kit.css,
+   synced from the design system). Do NOT add colors or component styling here —
+   change the kit instead (see /CLAUDE.md). This file is only QuickVid-specific
+   layout that no other app needs. Colours below are kit *tokens* (consumed, not defined). */
+
+/* ---- Titles & branding : lower-third rows + column labels ---- */
+.lt-row, .lt-labels { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.lt-name, .lt-org   { flex: 2 1 7rem; min-width: 0; }  /* small basis (they grow to fill) so the row fits one line; min-width:0 lets inputs shrink */
+.lt-start           { flex: 0 0 5.75rem; }         /* time selector (mm:ss + spinner) */
+.lt-dur             { flex: 0 0 6rem; }             /* duration selector (secs + unit + spinner) */
+.lt-align           { flex: 0 0 6.5rem; }
+.lt-remove          { flex: none; width: 2.25rem; }
+#lt-rows { margin-top: 0.3rem; }                    /* keep column labels close to the fields */
+#lt-rows > .lt-row + .lt-row { margin-top: 0.55rem; }
+
+/* Column header labels sit above the rows and line up with each field */
+.lt-labels > span {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--muted);
+}
+.lt-labels .lt-name, .lt-labels .lt-org, .lt-labels .lt-align { padding-inline-start: 0.8rem; }
+.lt-labels .lt-start, .lt-labels .lt-dur { text-align: center; }
+
+/* ---- Start-time selector (mm:ss with ▲▼ nudge) ---- */
+.timefield { position: relative; display: block; }
+.timefield__input { text-align: center; padding: 0.55rem 1.15rem 0.55rem 0.35rem; }
+.durfield__input  { text-align: center; padding: 0.55rem 2.6rem 0.55rem 0.35rem; }  /* room for "sec" + spinner */
+.durfield__unit   { position: absolute; right: 1.35rem; top: 0; bottom: 0; display: flex; align-items: center; font-size: 0.78rem; color: var(--muted); pointer-events: none; }
+.timefield__spin {
+  position: absolute; top: 1px; right: 1px; bottom: 1px; width: 1.1rem;
+  display: flex; flex-direction: column;
+}
+.timefield__spin button {
+  flex: 1; padding: 0; border: none; background: transparent; cursor: pointer;
+  color: var(--muted); font-size: 0.5rem; line-height: 1; display: grid; place-items: center;
+}
+.timefield__spin button:hover { color: var(--ocha-blue-dark); }
+
+/* ---- Example thumbnail: what a lower third looks like (portrait phone preview) ---- */
+.ex-thumb { margin: 1.5rem 0 0; }                  /* breathing room below title; flush-left (drop default <figure> indent) */
+.ex-thumb img {
+  display: block; height: auto; max-height: 280px; width: auto; max-width: 100%;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.ex-thumb figcaption { font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem; }
+
+/* ---- Ending picker : selectable option cards with example thumbnails ---- */
+.end-options { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.end-opt {
+  position: relative; flex: 1 1 12rem; display: flex; flex-direction: column; gap: 0.3rem;
+  padding: 0.6rem; cursor: pointer;
+  background: var(--card); border: 1px solid var(--input-border); border-radius: var(--radius-sm);
+}
+.end-opt input { position: absolute; opacity: 0; width: 0; height: 0; }
+.end-opt img { display: block; width: 100%; border-radius: 4px; }
+.end-opt__label { font-weight: 700; font-size: 0.9rem; }
+.end-opt__hint  { font-size: 0.78rem; color: var(--muted); line-height: 1.35; }
+.end-opt--none  { justify-content: flex-start; }
+/* "No ending" has no footage — show the Film humanitarian icon in a matching 16:9 slot */
+.end-opt__icon {
+  aspect-ratio: 16 / 9; display: grid; place-items: center; border-radius: 4px;
+  background: color-mix(in srgb, var(--ocha-cyan) 10%, var(--card));
+}
+.end-opt__icon img { width: 34%; height: auto; }
+/* selected + keyboard-focus states use the kit's cyan token */
+.end-opt:has(input:checked) { border-color: var(--ocha-cyan); box-shadow: inset 0 0 0 1px var(--ocha-cyan); }
+.end-opt:focus-within { outline: 2px solid var(--ocha-cyan); outline-offset: 2px; }

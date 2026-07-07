@@ -1,0 +1,277 @@
+/**
+ * OCHA Design System — Brand Tokens
+ * Source: brand.unocha.org/document/281801 (updated UN palette adopted by OCHA)
+ *
+ * Two layers:
+ *   1. --cd-*  = raw palette values (the actual hex colours)
+ *   2. --brand-*  = semantic aliases (what components consume)
+ *
+ * Components should ONLY use --brand-* tokens.
+ * To retheme, override the --brand-* layer in a sub-theme.
+ */
+
+:root {
+
+  /* =========================================================================
+   * 1. UN Blue ramp (7 steps) — brand primary
+   * Source: Colours PDF p.5
+   * ========================================================================= */
+  --cd-blue--darkest: #002E6E;  /* ramp 1 */
+  --cd-blue--dark: #004987;     /* ramp 2 */
+  --cd-blue--darker: #0074B7;   /* ramp 3 */
+  --cd-ocha-blue: #009EDB;      /* ramp 4 — UN Blue Primary (PMS 2925) */
+  --cd-blue--bright: #64BDEA;   /* ramp 5 */
+  --cd-blue--brighter: #C5DFEF; /* ramp 6 */
+  --cd-blue--lightest: #E3EDF6; /* ramp 7 */
+
+  /* Accessible text variants — for text on white backgrounds */
+  --cd-ocha-blue--aa: #0077B8;  /* WCAG AA ~4.6:1 */
+  --cd-ocha-blue--aaa: #005392; /* WCAG AAA ~8.9:1 */
+
+  /* RGB triplets for rgba() usage */
+  --cd-rgb-ocha-blue: 0, 158, 219;
+  --cd-rgb-red: 237, 24, 71;     /* #ED1847 — for translucent error states */
+
+
+  /* =========================================================================
+   * 2. Accent colours
+   * Source: Colours PDF p.3
+   * ========================================================================= */
+
+  /* Red */
+  --cd-red: #ED1847;
+  --cd-red--light: #F9C0C5;     /* ramp step 6 */
+  --cd-red--aa: #EB0045;        /* WCAG AA */
+  --cd-red--aaa: #AB1D37;       /* WCAG AAA */
+
+  /* Orange */
+  --cd-orange: #F58220;
+  --cd-orange--light: #FEDCBD;  /* ramp step 6 */
+  --cd-orange--aa: #CF3F0B;     /* WCAG AA */
+
+  /* Yellow */
+  --cd-yellow: #FFC800;
+  --cd-yellow--light: #F8E66B;  /* ramp step 6 */
+
+  /* Green */
+  --cd-green: #72BF44;
+  --cd-green--light: #CEE3A0;   /* ramp step 6 */
+  --cd-green--aa: #27833A;      /* WCAG AA */
+
+  /* Purple (new in updated brand) */
+  --cd-purple: #A05FB4;
+  --cd-purple--light: #D5B4D6;  /* ramp step 6 */
+  --cd-purple--aa: #9A58AF;     /* WCAG AA */
+  --cd-purple--aaa: #733D96;    /* WCAG AAA */
+
+  /* Highlight — remapped from legacy #e56a54 to brand Red */
+  --cd-highlight-red: #ED1847;
+
+
+  /* =========================================================================
+   * 3. Greys — Neutral Grey ramp (7 steps)
+   * Source: Colours PDF p.12
+   * ========================================================================= */
+  --cd-grey--900: #262626;
+  --cd-grey--800: #4D4D4D;
+  --cd-grey--700: #737373;
+  --cd-grey--600: #999999;
+  --cd-grey--500: #BFBFBF;
+  --cd-grey--400: #E6E6E6;
+  --cd-grey--300: #F2F2F2;
+
+  /* Legacy aliases (pointing to ramp steps) */
+  --cd-grey--dark: var(--cd-grey--800);
+  --cd-grey--mid: var(--cd-grey--700);
+  --cd-grey--light: var(--cd-grey--300);
+  --cd-grey--aa: #7C7067;       /* WCAG AA warm grey */
+
+  /* Warm grey accent */
+  --cd-grey--warm: #AEA29A;
+  --cd-grey--warm-light: #DDDAD7;
+
+  /* Neutral grey accent */
+  --cd-grey--neutral: #999999;
+
+  --cd-white: #FFFFFF;
+  --cd-black: #000000;
+
+
+  /* =========================================================================
+   * 4. Fonts
+   * Source: Fonts PDF pp.1-9
+   * ========================================================================= */
+
+  /* Fallback */
+  --cd-font: helvetica, arial, sans-serif;
+
+  /* Primary — Roboto family */
+  --cd-font--roboto: "Roboto", helvetica, arial, sans-serif;
+  --cd-font--roboto-condensed: "Roboto Condensed", helvetica, arial, sans-serif;
+  --cd-font--roboto-slab: "Roboto Slab", helvetica, arial, sans-serif;
+  --cd-font--roboto-mono: "Roboto Mono", ui-monospace, "SF Mono", Consolas, monospace;
+
+  /* Secondary — Crimson Pro (print long-form body) */
+  --cd-font--crimson-pro: "Crimson Pro", Georgia, "Times New Roman", serif;
+
+  /* Social media */
+  --cd-font--montserrat: "Montserrat", helvetica, arial, sans-serif;
+  --cd-font--raleway: "Raleway", helvetica, arial, sans-serif;
+
+  /* Multilingual */
+  --cd-font--noto-sans: "Noto Sans", sans-serif;
+  --cd-font--noto-kufi-arabic: "Noto Kufi Arabic", sans-serif;
+  --cd-font--noto-sans-sc: "Noto Sans SC", sans-serif;
+  --cd-font--dubai: "Dubai", "Noto Sans Arabic", sans-serif;
+  --cd-font--almarai: "Almarai", "Noto Sans Arabic", sans-serif;
+
+
+  /* =========================================================================
+   * 5. Type scale (unchanged from CD — brand portal doesn't specify sizes)
+   * ========================================================================= */
+  --cd-font-size--tiny: 0.75rem;      /* 12px */
+  --cd-font-size--small: 0.875rem;    /* 14px */
+  --cd-font-size--ref: 1rem;          /* 16px */
+  --cd-font-size--base: 1.125rem;     /* 18px */
+  --cd-font-size--medium: 1.375rem;   /* 22px */
+  --cd-font-size--large: 1.625rem;    /* 26px */
+  --cd-font-size--2xbase: 1.875rem;   /* 30px */
+  --cd-font-size--2xmedium: 2.375rem; /* 38px */
+  --cd-font-size--2xlarge: 2.875rem;  /* 46px */
+
+
+  /* =========================================================================
+   * 6. Layout (unchanged from CD — brand portal doesn't specify)
+   * ========================================================================= */
+  --cd-max-content-width: 820px;
+  --cd-max-body-width: 1400px;
+  --cd-max-width: 1220px;
+  --cd-global-header-height: 35px;
+  --cd-site-header-height: 60px;
+  --cd-container-padding: 0.75rem;        /* 12px */
+  --cd-container-padding-tablet: 1.5rem;  /* 24px */
+  --cd-container-padding-xlarge: 2.5rem;  /* 40px */
+
+
+  /* =========================================================================
+   * 7. Breakpoints (unchanged — documented as tokens, used directly in MQs)
+   * ========================================================================= */
+  --cd-bp--sm: 576px;
+  --cd-bp--md: 768px;
+  --cd-bp--lg: 1024px;
+  --cd-bp--xl: 1200px;
+  --cd-bp--xxl: 1400px;
+
+
+  /* =========================================================================
+   * 8. Vertical rhythm (unchanged)
+   * ========================================================================= */
+  --cd-flow-space: 1rem;
+  --cd-bumper-space: 1rem;
+  --cd-footer-row-number: 5;
+
+
+  /* =========================================================================
+   * 9. Z-index scale (unchanged)
+   * ========================================================================= */
+  --cd-z-default: 1;
+  --cd-z-hidden: -1;
+  --cd-z-sidebar-underlay: 100;
+  --cd-z-sidebar: 110;
+  --cd-z-main-menu: 199;
+  --cd-z-search: 200;
+  --cd-z-dropdown: 201;
+  --cd-z-skip-link: 1000;
+
+
+  /* =========================================================================
+   * 10. Accessibility (unchanged)
+   * ========================================================================= */
+  --cd-outline-size: 3px;
+
+
+  /* =========================================================================
+   * 11. Logo constants
+   * ========================================================================= */
+  --cd-logo-min-width-horizontal: 57px;   /* brand minimum */
+  --cd-logo-min-width-vertical: 28px;     /* brand minimum */
+  --cd-logo-clear-space-ratio: 0.5;       /* clear space = 0.5 x globe diameter */
+  --brand-logo-mobile-width: 57px;        /* floor = brand minimum (was 52px) */
+  --brand-logo-desktop-width: 186px;
+
+
+  /* =========================================================================
+   * 12. SEMANTIC ALIASES — components use ONLY these
+   *
+   * This layer provides:
+   *   - Accessibility by default (--brand-primary--text uses AA variant)
+   *   - Migration in one file (swap this section to retheme)
+   *   - Future-proofing (palette changes don't touch component CSS)
+   * ========================================================================= */
+
+  /* Primary */
+  --brand-primary: var(--cd-ocha-blue);             /* #009EDB — fills, brand moments */
+  --brand-primary--text: var(--cd-ocha-blue--aa);    /* #0077B8 — text/UI on white (AA) */
+  --brand-primary--text-strong: var(--cd-ocha-blue--aaa); /* #005392 — critical text (AAA) */
+  --brand-primary--dark: var(--cd-blue--dark);       /* #004987 — hover/active */
+  --brand-primary--light: var(--cd-blue--bright);    /* #64BDEA — light fills */
+  --brand-primary--lighter: var(--cd-blue--brighter); /* #C5DFEF — surface tints */
+  --brand-primary--lightest: var(--cd-blue--lightest); /* #E3EDF6 — subtle backgrounds */
+
+  /* Highlight / CTA */
+  --brand-highlight: var(--cd-red);                  /* #ED1847 */
+  --brand-highlight--text: var(--cd-red--aa);        /* #EB0045 (AA) */
+
+  /* Neutrals */
+  --brand-grey: var(--cd-grey--300);                 /* #F2F2F2 — surfaces */
+  --brand-grey--border: var(--cd-grey--500);         /* #BFBFBF */
+  --brand-grey--text: var(--cd-grey--700);           /* #737373 — muted text */
+  --brand-default-text-color: var(--cd-grey--800);   /* #4D4D4D — body text */
+
+  /* Semantic states */
+  --brand-success: var(--cd-green--aa);              /* #27833A */
+  --brand-warning: var(--cd-orange--aa);             /* #CF3F0B */
+  --brand-error: var(--cd-red--aa);                  /* #EB0045 */
+  --brand-info: var(--cd-ocha-blue--aa);             /* #0077B8 */
+
+  /* =========================================================================
+   * 13. FONT FAMILIES
+   * Source: brand.unocha.org — Fonts (Open-source, Google Fonts)
+   * Loaded via .storybook/preview-head.html
+   * ========================================================================= */
+  --cd-font--roboto:           "Roboto", Arial, sans-serif;
+  --cd-font--roboto-condensed: "Roboto Condensed", "Roboto", Arial, sans-serif;
+  --cd-font--roboto-slab:      "Roboto Slab", "Roboto", Georgia, serif;
+  --cd-font--roboto-mono:      "Roboto Mono", "Courier New", monospace;
+  --cd-font--crimson-pro:      "Crimson Pro", Georgia, "Times New Roman", serif;
+  --cd-font--montserrat:       "Montserrat", "Roboto", Arial, sans-serif;
+  --cd-font--raleway:          "Raleway", "Roboto", Arial, sans-serif;
+
+  /* Semantic aliases */
+  --brand-font:            var(--cd-font--roboto);            /* body, UI */
+  --brand-font-heading:    var(--cd-font--roboto);            /* default heading */
+  --brand-font-display:    var(--cd-font--roboto-slab);       /* optional display */
+  --brand-font-condensed:  var(--cd-font--roboto-condensed);  /* infographics */
+  --brand-font-mono:       var(--cd-font--roboto-mono);       /* code, credits */
+  --brand-font-serif:      var(--cd-font--crimson-pro);       /* long-form print */
+}
+
+/* =========================================================================
+ * Global baseline — apply the brand font to all content
+ * ========================================================================= */
+html,
+body {
+  font-family: var(--brand-font);
+  color: var(--brand-default-text-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--brand-font-heading);
+  color: var(--brand-primary--text);
+}
+
+code, kbd, pre, samp {
+  font-family: var(--brand-font-mono);
+}

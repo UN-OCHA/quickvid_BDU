@@ -1,0 +1,104 @@
+{
+  "_comment": "OCHA brand tokens + format-aware layout templates. Everything visual is driven from here. Swap fonts/logo/colors for the exact OCHA spec once provided. Author content once; the layout engine renders each format from the `formats` block below.",
+
+  "canvas": { "width": 1920, "height": 1080, "fps": 30 },
+
+  "colors": {
+    "ocha_blue": "#009EDB",
+    "name_navy": "#0A1E3F",
+    "white": "#FFFFFF",
+    "caption_text": "#FFFFFF"
+  },
+
+  "fonts": {
+    "_note": "OCHA brand font = Raleway (installed at /Library/Fonts/Raleway/static). name=Bold caps, title=Medium, caption=SemiBold.",
+    "name": "/Library/Fonts/Raleway/static/Raleway-Bold.ttf",
+    "title": "/Library/Fonts/Raleway/static/Raleway-Medium.ttf",
+    "caption": "/Library/Fonts/Raleway/static/Raleway-SemiBold.ttf"
+  },
+
+  "logo": {
+    "_note": "Official OCHA white vertical lockup. SVG source in assets/OCHA_logo_vertical_white.svg; this PNG is rasterized from it. Re-raster crisply with: brew install librsvg && rsvg-convert -h 480 assets/OCHA_logo_vertical_white.svg -o assets/OCHA_logo_vertical_white.png",
+    "file": "assets/OCHA_logo_vertical_white.png",
+    "height_px": 70,
+    "margin_px": 40,
+    "position": "top-right"
+  },
+
+  "lower_third": {
+    "x_px": 80,
+    "bottom_margin_px": 110,
+    "name_box_color": "#FFFFFF",
+    "name_text_color": "#0A1E3F",
+    "title_strip_color": "#009EDB",
+    "title_text_color": "#FFFFFF",
+    "name_fontsize": 40,
+    "title_fontsize": 26,
+    "anim": "fade",
+    "anim_seconds": 0.4
+  },
+
+  "captions": {
+    "fontsize": 38,
+    "bottom_margin_px": 70,
+    "gradient_height_px": 320
+  },
+
+  "vignette": { "strength": 0.9 },
+
+  "_reframe_note": "Subtle subject-follow. Detects the face in the 4K source and drifts a punched-in crop to keep the speaker centred, using the 4K headroom (crop is downscaled, never upscaled). zoom = punch-in factor (1.0 = full frame/off; 1.3 = gentle, leaves room to follow ~13% off-centre). smooth_seconds = low-pass window (bigger = slower/calmer). face_v = where the face sits vertically in the crop (0.45 keeps a little headroom). Falls back to a centred crop if no face is found.",
+  "reframe": {
+    "enabled": true,
+    "zoom": 1.3,
+    "smooth_seconds": 2.2,
+    "face_v": 0.45,
+    "sample_fps": 4,
+    "max_drift": 0.011,
+    "dead_zone": 0.06
+  },
+
+  "ending": {
+    "asset": "references/premiere_project/video_editing/assets/OCHA Logo click.mov",
+    "fade_in_seconds": 0.4,
+    "fade_out_seconds": 0.6,
+    "background": "#000000"
+  },
+
+  "_looks_note": "Color/lighting grades applied to the FOOTAGE before overlays, to unify clips. `default` is used unless the instruction sets `look`. Values are ffmpeg filter chains; tune toward references/.../assets/example CLEAN.mp4. UI will later expose these as 2-3 picks.",
+  "looks": {
+    "default": "broadcast",
+    "presets": {
+      "broadcast": "eq=contrast=1.06:saturation=1.10:brightness=0.01",
+      "warm": "eq=contrast=1.06:saturation=1.10:brightness=0.01,colorbalance=rm=0.05:rh=0.03:bh=-0.03",
+      "cool": "eq=contrast=1.07:saturation=1.06,colorbalance=bh=0.05:bm=0.03:rh=-0.02"
+    }
+  },
+
+  "_formats_note": "Per-format layout templates. `safe` = platform-UI safe-area insets in px (keep logo/captions/lower-thirds inside). `reframe` = how to fit the source footage into this canvas (center for now; face/subject focal point + manual override land with the layout engine). Element positions are derived from the base tokens above, offset to stay within `safe`. All values are sensible seeds — tune per the OCHA house style.",
+  "formats": {
+    "16:9": {
+      "width": 1920, "height": 1080,
+      "safe": { "top": 40, "right": 40, "bottom": 60, "left": 40 },
+      "reframe": "center",
+      "notes": "Landscape master. Logo top-right full-duration; lower-third bottom-left."
+    },
+    "9:16": {
+      "width": 1080, "height": 1920,
+      "safe": { "top": 220, "right": 64, "bottom": 380, "left": 64 },
+      "reframe": "center",
+      "notes": "Reels / Stories / TikTok. Heavy bottom inset clears platform UI; keep captions above it."
+    },
+    "1:1": {
+      "width": 1080, "height": 1080,
+      "safe": { "top": 90, "right": 90, "bottom": 90, "left": 90 },
+      "reframe": "center",
+      "notes": "Square feed."
+    },
+    "4:5": {
+      "width": 1080, "height": 1350,
+      "safe": { "top": 80, "right": 64, "bottom": 160, "left": 64 },
+      "reframe": "center",
+      "notes": "Portrait feed (Instagram/Facebook)."
+    }
+  }
+}
