@@ -553,7 +553,7 @@ $st("#st-ai-apply").onclick = () => {
   stStatus(`AI selected ${valid.size} sentences · ${mmss(total)} — review the list below and adjust freely.`, "ok");
 };
 
-// ---------- Autosave & resume (browser localStorage + <folder>/quickvid-project.json) ----------
+// ---------- Autosave & resume (browser localStorage + <folder>/<name>.ochaquickvid.json) ----------
 const LS_KEY = "quickvid.project.v1";
 let stSaveTimer = null, stPendingResume = null;
 

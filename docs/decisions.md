@@ -164,7 +164,7 @@ From Javi testing the Edit tab:
   Human review stays: applying just pre-ticks the list.
 - **Named projects (step 1)**: the project NAME is now required for saving —
   choosing a location creates `<parent>/<name>/` and the autosave becomes
-  `<name>.quickvid.json` (loader still accepts the legacy fixed name; renaming
+  `<name>.ochaquickvid.json` (loader still accepts older `.quickvid.json` + the fixed name; renaming
   cleans the old twin). Resume banner and the download filename carry the name.
   Export mp4 already inherited the folder name → now the project name.
 
@@ -288,7 +288,7 @@ captions):
   `pagehide`. On load, once the engine connects, a **resume banner** offers "Pick up where
   you left off?" and auto-switches to the Edit tab. Instant refresh/crash recovery, no engine
   roundtrip.
-- **`<job folder>/quickvid-project.json`** — mirrored on each save when a folder is set (via
+- **`<job folder>/<name>.ochaquickvid.json`** — mirrored on each save when a folder is set (via
   `POST/GET /api/statement/save-project|load-project`). Durable + portable; picking a folder
   that already holds a project offers to reopen it.
 - **Never clobber a real save with an empty one** — `stSaveNow`/`pagehide` write only when the

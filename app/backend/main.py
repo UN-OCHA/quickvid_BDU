@@ -421,19 +421,38 @@ def st_render(req: StRenderReq):
 class StSaveProjectReq(BaseModel):
     dir: str
     project: dict
-    name: Optional[str] = None                         # project name → <name>.quickvid.json
+    name: Optional[str] = None                         # project name → <name>.ochaquickvid.json
+
+
+# Every shape we recognise as a QuickVid project file, in preference order.
+# ".ochaquickvid.json" is current; ".quickvid.json" and the fixed
+# "quickvid-project.json" are older forms we still open (and clean up on save).
+PROJECT_GLOBS = ("*.ochaquickvid.json", "*.quickvid.json")
+PROJECT_LEGACY = "quickvid-project.json"
+
+
+def _project_files(d: Path):
+    """All project files in `d`, newest first."""
+    found = set()
+    for pat in PROJECT_GLOBS:
+        found |= set(d.glob(pat))
+    legacy = d / PROJECT_LEGACY
+    if legacy.is_file():
+        found.add(legacy)
+    return sorted(found, key=lambda p: p.stat().st_mtime, reverse=True)
 
 
 @app.post("/api/statement/save-project")
 def st_save_project(req: StSaveProjectReq):
-    """Autosave the wizard state as <job folder>/<name>.quickvid.json — the durable,
-    portable copy so a project can be reopened days later (or on another Mac). The
-    browser keeps its own localStorage copy for instant refresh recovery. Creates
-    the folder (named projects: <chosen parent>/<project name>/ may not exist yet)."""
+    """Autosave the wizard state as <job folder>/<name>.ochaquickvid.json — the
+    durable, portable copy so a project can be reopened days later (or on another
+    Mac). The browser keeps its own localStorage copy for instant refresh recovery.
+    Creates the folder (named projects: <chosen parent>/<project name>/ may not
+    exist yet)."""
     d = Path(req.dir)
     d.mkdir(parents=True, exist_ok=True)
-    fname = (engine_bridge._slug(req.name) + ".quickvid.json") if req.name else "quickvid-project.json"
-    for old in d.glob("*.quickvid.json"):              # renamed project → don't leave stale twins
+    fname = (engine_bridge._slug(req.name) + ".ochaquickvid.json") if req.name else PROJECT_LEGACY
+    for old in _project_files(d):                      # renamed/upgraded project → don't leave stale twins
         if old.name != fname:
             old.unlink(missing_ok=True)
     (d / fname).write_text(json.dumps(req.project, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -443,13 +462,8 @@ def st_save_project(req: StSaveProjectReq):
 @app.get("/api/statement/load-project")
 def st_load_project(dir: str):
     """Return a folder's saved project (for 'reopen this folder → resume'), or 404.
-    Accepts the named form (<name>.quickvid.json, newest wins) and the legacy
-    fixed quickvid-project.json."""
-    d = Path(dir)
-    candidates = sorted(d.glob("*.quickvid.json"), key=lambda p: p.stat().st_mtime, reverse=True)
-    legacy = d / "quickvid-project.json"
-    if legacy.is_file():
-        candidates.append(legacy)
+    Accepts the current <name>.ochaquickvid.json and the older forms, newest wins."""
+    candidates = _project_files(Path(dir))
     if not candidates:
         raise HTTPException(404, "No saved project in that folder.")
     try:
