@@ -60,84 +60,10 @@ esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"
 def _mw(text, weight, size): return ImageFont.truetype(FONTS[weight], size).getbbox(text)[2]
 
 
-# ---------------- locked lower-third motion (see engine/lower_third.py) ----------------
-NAME_IN, ORG_DELAY, ORG_IN = 0.50, 0.26, 0.50
-ENTER_END = ORG_DELAY + ORG_IN
-ORG_OUT, NAME_OUT_DELAY, NAME_OUT = 0.44, 0.20, 0.44
-EXIT_DUR = NAME_OUT_DELAY + NAME_OUT
-
-def _ease(x):
-    x = max(0.0, min(1.0, x))
-    return 4 * x ** 3 if x < 0.5 else 1 - ((-2 * x + 2) ** 3) / 2
-
-def _lt_total(hold): return ENTER_END + hold + EXIT_DUR
-
-def _lt_state(t, hold):
-    if t < ENTER_END:
-        nr = _ease(t / NAME_IN); ot = t - ORG_DELAY
-        orr, pan = (0.0, 1.0) if ot <= 0 else ((p := _ease(ot / ORG_IN)), 1 - p)
-    elif t < ENTER_END + hold:
-        nr, orr, pan = 1.0, 1.0, 0.0
-    else:
-        e = t - (ENTER_END + hold); po = _ease(e / ORG_OUT); orr, pan = 1 - po, po
-        nr = 1.0 if e <= NAME_OUT_DELAY else 1 - _ease((e - NAME_OUT_DELAY) / NAME_OUT)
-    return max(0, min(1, nr)), max(0, min(1, orr)), pan
-
-
-def _build_lt(lt):
-    name = lt["name"].upper()
-    titles = [t for t in (lt.get("titles") or ([lt["org"]] if lt.get("org") else [])) if t]
-    nsize, osize = lt.get("name_size", 44), lt.get("org_size", 26)
-    npx, npy = round(nsize * 0.6), round(nsize * 0.32)
-    opx, opy, oline = round(osize * 0.85), round(osize * 0.55), round(osize * 1.42)
-    nw = _mw(name, 700, nsize) + 2 * npx
-    ow = (max(_mw(t, 500, osize) for t in titles) + 2 * opx) if titles else 0
-    nh = nsize + 2 * npy
-    oh = (2 * opy + (len(titles) - 1) * oline + osize) if titles else 0
-    pan = round(nsize * 0.5); bw = max(nw, ow)
-    return dict(name=name, titles=titles, nsize=nsize, osize=osize,
-                align=lt.get("align", "center"), npx=npx, opx=opx, opy=opy, oline=oline,
-                nw=nw, ow=ow, nh=nh, oh=oh, pan=pan, BW=bw, W=bw + 2 * pan, H=nh + oh,
-                hold=lt.get("hold", 3.6), t_in=lt.get("in", 1.5),
-                bottom=lt.get("bottom"), left=lt.get("left"))
-
-
-def _lt_svg(g, nr, orr, panf):
-    W, H, pan, oy = g["W"], g["H"], g["pan"], g["nh"]
-    p = panf * pan
-    if g["align"] == "left":
-        nx, ox = pan, pan + p
-        na = oa = "start"; ntx, otx = nx + g["npx"], ox + g["opx"]
-    else:
-        nx, ox = (W - g["nw"]) / 2, (W - g["ow"]) / 2 + p
-        na = oa = "middle"; ntx, otx = W / 2, ox + g["ow"] / 2
-    nrw, orw = nr * g["nw"], orr * g["ow"]
-    ty0 = oy + g["opy"] + g["osize"] * 0.82
-    org = "".join(
-        f'<text x="{otx:.1f}" y="{ty0 + i * g["oline"]:.0f}" font-family="Raleway" font-weight="500" '
-        f'font-size="{g["osize"]}" fill="{WHITE}" text-anchor="{oa}">{esc(t)}</text>'
-        for i, t in enumerate(g["titles"]))
-    org_group = (f'<g clip-path="url(#co)"><rect x="{ox:.2f}" y="{oy}" width="{g["ow"]}" height="{g["oh"]}" '
-                 f'fill="{CYAN}"/>{org}</g>') if g["titles"] else ""
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}">'
-            f'<defs><clipPath id="cn"><rect x="{nx:.2f}" y="0" width="{nrw:.2f}" height="{g["nh"]}"/></clipPath>'
-            f'<clipPath id="co"><rect x="{ox:.2f}" y="{oy}" width="{orw:.2f}" height="{g["oh"]}"/></clipPath></defs>'
-            f'<g clip-path="url(#cn)"><rect x="{nx:.2f}" y="0" width="{g["nw"]}" height="{g["nh"]}" fill="{WHITE}"/>'
-            f'<text x="{ntx:.1f}" y="{g["nh"] / 2:.1f}" font-family="Raleway" font-weight="700" font-size="{g["nsize"]}" '
-            f'fill="{BLACK}" text-anchor="{na}" dominant-baseline="central" letter-spacing="0.5">{esc(g["name"])}</text></g>'
-            f'{org_group}</svg>')
-
-
-def _render_lt_seq(g, fps, outdir):
-    shutil.rmtree(outdir, ignore_errors=True); os.makedirs(outdir)
-    n = int(round(_lt_total(g["hold"]) * fps))
-    for i in range(n):
-        nr, orr, panf = _lt_state(i / fps, g["hold"])
-        _svg2png(bytestring=_lt_svg(g, nr, orr, panf).encode(),
-                         write_to=os.path.join(outdir, f"{i:04d}.png"),
-                         output_width=g["W"], output_height=g["H"])
-    return n
-
+# ---------------- lower third: THE canonical module renders it ----------------
+# One implementation for every mode (look B). Numbers: browser/brand-lt.json;
+# logic: engine/lower_third.py. Do NOT re-implement the lower third here.
+import lower_third as LT
 
 # ---------------- captions ----------------
 def _sub_png(text, sub, path):
@@ -220,8 +146,9 @@ def render(spec: dict, log=print) -> str:
     cues = [(float(s), float(raw[i + 1][0]) if i + 1 < len(raw) else footage_end, texts[i])
             for i, (s, _) in enumerate(raw)]
 
-    lts = [_build_lt(lt) for lt in (spec.get("lower_thirds") or []) if lt.get("name")]
-    windows = [(g["t_in"], g["t_in"] + _lt_total(g["hold"])) for g in lts]
+    lts = [LT.build(lt, canvas_h=H, orient=LT.orient_of(W, H))
+           for lt in (spec.get("lower_thirds") or []) if lt.get("name")]
+    windows = [(g["t_in"], g["t_in"] + LT.total(g["hold"])) for g in lts]
 
     def cue_bottom(s, e):
         lifted = any(s < w1 and e > w0 for (w0, w1) in windows)
@@ -237,7 +164,7 @@ def render(spec: dict, log=print) -> str:
         subs.append((s, e, p, w, h))
     for i, g in enumerate(lts):
         g["dir"] = os.path.join(work, f"lt{i}")
-        _render_lt_seq(g, fps, g["dir"])
+        LT.render_seq(g, fps, g["dir"])
 
     grad_png = None
     grad_h = round(H * sub["gradient_h_frac"])

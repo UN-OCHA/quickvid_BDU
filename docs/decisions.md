@@ -151,6 +151,23 @@ From Javi testing the Edit tab:
   the full editor runs *in this same page* once ffmpeg + Python are installed, and it's
   hidden entirely once the engine is connected (`body.is-full .footer-unlock`).
 
+## 2026-07-12 — ONE lower third everywhere (look B chosen)
+Javier picked **look B** (compact ASG style) from a side-by-side against the
+Venezuela look. Consolidation (was 3 divergent implementations):
+- **Numbers live once**: `browser/brand-lt.json` — timings, per-orientation size
+  ratios (portrait 0.02292 = 44px@1920 · square 0.0306 · landscape 0.0382),
+  paddings, colors, weights. Served to the Lite page and read by Python at import.
+- **Logic lives once (Python)**: `engine/lower_third.py` is canonical (build/svg/
+  state/render_seq + finish.py-compatible render()). `social_brand.py` deletes its
+  copy and delegates; `finish.py` drops the Venezuela-era per-profile ratios.
+- **Lite (JS)** mirrors the same choreography reading the same spec
+  (`engine.js` ltState/drawLowerThird; `window.__qvLT` test hook).
+- **Verified**: statement path == titles path == approved B reference, pixel-
+  identical (diff bbox None); Lite canvas within ~2% (canvas-vs-PIL font metrics);
+  both full pipelines re-rendered end-to-end.
+- Note: `ocha-social-subtitles` skill scripts still carry a legacy copy — SKILL.md
+  now points at the canonical spec; prefer the QuickVid engine for statement clips.
+
 ## 2026-07-12 — QuickVid Lite/Full naming + Windows-ready engine
 - **Chip renamed** (Javier's call): "QuickVid Lite — runs in your browser" vs
   "QuickVid Full — engine connected, no limits". One page, two power levels; no

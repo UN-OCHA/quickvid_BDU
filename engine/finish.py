@@ -85,13 +85,15 @@ def profile(W, H):
     insets (fractions). Landscape → bottom-left classic; portrait/square → lower
     band above the platform UI."""
     r = W / H
+    # LT sizes now come from the shared spec (browser/brand-lt.json) per
+    # orientation — profiles only carry placement safe areas.
     if r > 1.25:                                     # 16:9-ish landscape
-        return {"orient": "landscape", "name_ratio": 0.050,
+        return {"orient": "landscape",
                 "safe": {"top": .06, "bottom": .09, "left": .045, "right": .045}}
     if r < 0.85:                                     # 9:16 / 4:5 portrait
-        return {"orient": "portrait", "name_ratio": 0.030,
+        return {"orient": "portrait",
                 "safe": {"top": .11, "bottom": .20, "left": .06, "right": .06}}
-    return {"orient": "square", "name_ratio": 0.040,  # 1:1
+    return {"orient": "square",                       # 1:1
             "safe": {"top": .08, "bottom": .10, "left": .08, "right": .08}}
 
 
@@ -207,7 +209,7 @@ def run(spec, bitrate=12.0):
         hold = max(0.5, float(lt.get("duration", 4.0)) - lower_third.ENTER_END - lower_third.EXIT_DUR)
         seqdir = os.path.join(tmp, f"lt{i}")
         g = lower_third.render(lt["name"], lt["org"], H, align, fps, hold, seqdir,
-                               name_ratio=prof["name_ratio"])
+                               orient=prof["orient"])
         x, y = place(g, W, H, prof, align)
         start = float(lt["start"])
         inputs += ["-framerate", str(fps), "-start_number", "0",

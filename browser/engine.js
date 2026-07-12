@@ -63,57 +63,102 @@
     });
   }
 
-  // ---- OCHA lower third: black-on-white name box + white-on-cyan org box,
-  //      Raleway, sharp corners, left-anchored wipe reveal (no fade) ----
-  function drawLowerThird(ctx, W, H, prof, lt, tSec) {
-    const ENTER = 0.5, EXIT = 0.44;
+  // ---- OCHA lower third — canonical look B. The NUMBERS come from
+  //      brand-lt.json (shared with engine/lower_third.py, which renders the
+  //      same design for the Full/engine modes). Change the look there once.
+  //      This function mirrors lower_third.py's state() + svg() on canvas. ----
+  let LTSPEC = null;
+  async function loadLTSpec() {
+    if (LTSPEC) return LTSPEC;
+    const r = await fetch('brand-lt.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('brand-lt.json missing — cannot render lower thirds');
+    LTSPEC = await r.json();
+    return LTSPEC;
+  }
+
+  function ltState(t, hold, T) {
+    // (name_reveal, org_reveal, org_pan_fraction) — same math as lower_third.py
+    const ENTER_END = T.org_delay + T.org_in, EXIT_DUR = T.name_out_delay + T.name_out;
+    let nr, orr, pan;
+    if (t < ENTER_END) {
+      nr = easeInOut(clamp(t / T.name_in, 0, 1));
+      const ot = t - T.org_delay;
+      if (ot <= 0) { orr = 0; pan = 1; }
+      else { const p = easeInOut(clamp(ot / T.org_in, 0, 1)); orr = p; pan = 1 - p; }
+    } else if (t < ENTER_END + hold) { nr = 1; orr = 1; pan = 0; }
+    else {
+      const e = t - (ENTER_END + hold);
+      const po = easeInOut(clamp(e / T.org_out, 0, 1));
+      orr = 1 - po; pan = po;
+      nr = e <= T.name_out_delay ? 1 : 1 - easeInOut(clamp((e - T.name_out_delay) / T.name_out, 0, 1));
+    }
+    return [clamp(nr, 0, 1), clamp(orr, 0, 1), pan];
+  }
+
+  function drawLowerThird(ctx, W, H, prof, lt, tSec, S) {
+    const T = S.timing, G = S.geometry, C = S.colors, F = S.fonts;
+    const ENTER_END = T.org_delay + T.org_in, EXIT_DUR = T.name_out_delay + T.name_out;
+    const hold = Math.max(0.5, (lt.duration || 4) - ENTER_END - EXIT_DUR);
     const tRel = tSec - lt.start;
-    if (tRel < -1e-3 || tRel > lt.duration) return;
-    let reveal;
-    if (tRel < ENTER) reveal = easeInOut(clamp(tRel / ENTER, 0, 1));
-    else if (tRel > lt.duration - EXIT) reveal = easeInOut(clamp((lt.duration - tRel) / EXIT, 0, 1));
-    else reveal = 1;
-    if (reveal <= 0.001) return;
+    if (tRel < -1e-3 || tRel > ENTER_END + hold + EXIT_DUR) return;
+    const [nr, orr, panf] = ltState(tRel, hold, T);
+    if (nr <= 0.001 && orr <= 0.001) return;
 
-    const name = (lt.name || '').toUpperCase();
+    const orient = (W / H) > 1.25 ? 'landscape' : ((W / H) < 0.85 ? 'portrait' : 'square');
+    const name = S.uppercase_name ? (lt.name || '').toUpperCase() : (lt.name || '');
     const org = lt.org || '';
-    const nameFont = Math.round(H * prof.nameRatio);
-    const orgFont = Math.round(nameFont * 0.62);
-    const padX = Math.round(nameFont * 0.55), padY = Math.round(nameFont * 0.34);
+    const nsize = Math.max(20, Math.round(H * G.name_ratio[orient]));
+    const osize = Math.max(12, Math.round(nsize * G.org_scale));
+    const npx = Math.round(nsize * G.name_pad_x), npy = Math.round(nsize * G.name_pad_y);
+    const opx = Math.round(osize * G.org_pad_x), opy = Math.round(osize * G.org_pad_y);
 
-    ctx.font = `700 ${nameFont}px Raleway, Arial, sans-serif`;
+    ctx.save();
+    ctx.letterSpacing = G.letter_spacing + 'px';
+    ctx.font = `${F.name_weight} ${nsize}px ${F.family}, Arial, sans-serif`;
     const nameW = ctx.measureText(name).width;
-    ctx.font = `500 ${orgFont}px Raleway, Arial, sans-serif`;
+    ctx.letterSpacing = '0px';
+    ctx.font = `${F.org_weight} ${osize}px ${F.family}, Arial, sans-serif`;
     const orgW = org ? ctx.measureText(org).width : 0;
 
-    const nBoxW = nameW + padX * 2, nBoxH = nameFont + padY * 2;
-    const oBoxW = org ? orgW + padX * 2 : 0, oBoxH = org ? Math.round(orgFont + padY * 1.4) : 0;
+    const nBoxW = nameW + npx * 2, nBoxH = nsize + npy * 2;
+    const oBoxW = org ? orgW + opx * 2 : 0, oBoxH = org ? osize + opy * 2 : 0;
     const blockW = Math.max(nBoxW, oBoxW);
+    const pan = Math.round(nsize * G.pan) * panf;
 
     const sideMargin = Math.round(W * prof.safeSide);
     const bottomMargin = Math.round(H * prof.safeBottom);
-    const x = lt.align === 'center' ? Math.round((W - blockW) / 2) : sideMargin;
     const yBottom = H - bottomMargin;
     const oY = yBottom - oBoxH, nY = oY - nBoxH;
+    const center = lt.align === 'center';
+    const nX = center ? Math.round((W - nBoxW) / 2) : sideMargin;
+    const oX = (center ? Math.round((W - oBoxW) / 2) : sideMargin) + pan;
 
+    ctx.textBaseline = 'middle';
+    // name box — its own left-anchored wipe
     ctx.save();
-    ctx.textBaseline = 'alphabetic';
-    // left-anchored wipe
-    const revW = Math.ceil(blockW * reveal) + 2;
-    ctx.beginPath(); ctx.rect(x - 1, nY - 2, revW, nBoxH + oBoxH + 4); ctx.clip();
-    // name box
-    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(x, nY, nBoxW, nBoxH);
-    ctx.fillStyle = '#000000'; ctx.font = `700 ${nameFont}px Raleway, Arial, sans-serif`;
-    ctx.fillText(name, x + padX, nY + padY + nameFont * 0.80);
-    // org box — slight left pan as it reveals
-    if (org) {
-      const pan = Math.round((1 - reveal) * nameFont * 0.45);
-      ctx.fillStyle = CYAN; ctx.fillRect(x - pan, oY, oBoxW, oBoxH);
-      ctx.fillStyle = '#FFFFFF'; ctx.font = `500 ${orgFont}px Raleway, Arial, sans-serif`;
-      ctx.fillText(org, x + padX - pan, oY + Math.round(padY * 0.7) + orgFont * 0.80);
+    ctx.beginPath(); ctx.rect(nX - 1, nY - 1, Math.ceil(nBoxW * nr) + 2, nBoxH + 2); ctx.clip();
+    ctx.fillStyle = C.name_bg; ctx.fillRect(nX, nY, nBoxW, nBoxH);
+    ctx.fillStyle = C.name_text;
+    ctx.letterSpacing = G.letter_spacing + 'px';
+    ctx.font = `${F.name_weight} ${nsize}px ${F.family}, Arial, sans-serif`;
+    ctx.fillText(name, nX + npx, nY + nBoxH / 2 + nsize * 0.04);
+    ctx.restore();
+    // org bar — delayed wipe + settle pan (drawn like the Python clip group)
+    if (org && orr > 0.001) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(oX - 1, oY - 1, Math.ceil(oBoxW * orr) + 2, oBoxH + 2); ctx.clip();
+      ctx.fillStyle = C.org_bg; ctx.fillRect(oX, oY, oBoxW, oBoxH);
+      ctx.fillStyle = C.org_text;
+      ctx.letterSpacing = '0px';
+      ctx.font = `${F.org_weight} ${osize}px ${F.family}, Arial, sans-serif`;
+      ctx.fillText(org, oX + opx, oY + oBoxH / 2 + osize * 0.04);
+      ctx.restore();
     }
     ctx.restore();
   }
+
+  // debug/test hook: lets the harness drive the REAL lower-third code path
+  try { window.__qvLT = { draw: drawLowerThird, spec: loadLTSpec }; } catch (e) {}
 
   function drawLogo(ctx, W, H, logo) {
     const targetH = Math.max(18, Math.round(H * 0.054));
@@ -130,6 +175,7 @@
     const endingStyle = (spec.ending && spec.ending.style) || 'none';
 
     await Promise.all([document.fonts.load('700 40px Raleway'), document.fonts.load('500 40px Raleway')]);
+    const LTS = lowerThirds.length ? await loadLTSpec() : null;
     await document.fonts.ready;
 
     // Hard size cap — beyond this the tab risks running out of memory (we hold the
@@ -199,7 +245,7 @@
       lastTs = ts;
       const tSec = (ts - firstTs) / 1e6;
       ctx.drawImage(frame, 0, 0, W, H);
-      for (const lt of lowerThirds) drawLowerThird(ctx, W, H, prof, lt, tSec);
+      for (const lt of lowerThirds) drawLowerThird(ctx, W, H, prof, lt, tSec, LTS);
       if (endingStyle === 'over_footage' && logo && tSec >= Math.max(0, dur - HOLD)) drawLogo(ctx, W, H, logo);
       const out = new VideoFrame(cv, { timestamp: ts, duration: frame.duration || frameDur });
       try { encoder.encode(out, { keyFrame: n % (fps * 2) === 0 }); } catch (e) { if (!firstErr) firstErr = e; }

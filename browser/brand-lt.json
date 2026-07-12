@@ -1,0 +1,30 @@
+{
+  "_comment": "OCHA lower third — SINGLE SOURCE OF TRUTH for the numbers (look B, approved 2026-07-12, ASG Ukraine reference: name 44px on a 1080x1920 canvas). Consumed by engine/lower_third.py (Titles & branding Full + statement clips) AND browser/engine.js (Lite mode). Change the look here once; drawing logic lives in those two files.",
+  "timing": {
+    "name_in": 0.5,
+    "org_delay": 0.26,
+    "org_in": 0.5,
+    "org_out": 0.44,
+    "name_out_delay": 0.2,
+    "name_out": 0.44
+  },
+  "geometry": {
+    "name_ratio": { "portrait": 0.02292, "square": 0.0306, "landscape": 0.0382 },
+    "org_scale": 0.5909,
+    "name_pad_x": 0.6,
+    "name_pad_y": 0.32,
+    "org_pad_x": 0.85,
+    "org_pad_y": 0.55,
+    "org_line": 1.42,
+    "pan": 0.5,
+    "letter_spacing": 0.5
+  },
+  "colors": {
+    "name_bg": "#FFFFFF",
+    "name_text": "#000000",
+    "org_bg": "#009EDB",
+    "org_text": "#FFFFFF"
+  },
+  "fonts": { "family": "Raleway", "name_weight": 700, "org_weight": 500 },
+  "uppercase_name": true
+}
