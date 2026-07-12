@@ -151,6 +151,23 @@ From Javi testing the Edit tab:
   the full editor runs *in this same page* once ffmpeg + Python are installed, and it's
   hidden entirely once the engine is connected (`body.is-full .footer-unlock`).
 
+## 2026-07-12 — "Use AI" sentence selection + named projects
+- **Use AI (step 5)**: copy-paste loop, no API keys — works with Copilot (OCHA
+  default) or any LLM. The prompt carries OCHA context, editing rules (open
+  strong, complete thoughts, ≤90s, keep the appeal near the end), the numbered
+  transcript with durations, and a protocol: the AI must ASK the editor first
+  (key messages? attach the statement; target duration) and END with
+  `{"keep": [ids]}` on its own line. Tolerant parser (fenced/chatty/keep-line/
+  bare-list all accepted; garbage and out-of-range ids get clear messages).
+  Modal = new kit `.cd-modal` (v0.1.2, Storybook handoff h5). Privacy line
+  (embargoed content) + long-transcript warning (>7.5k chars, Copilot truncates).
+  Human review stays: applying just pre-ticks the list.
+- **Named projects (step 1)**: the project NAME is now required for saving —
+  choosing a location creates `<parent>/<name>/` and the autosave becomes
+  `<name>.quickvid.json` (loader still accepts the legacy fixed name; renaming
+  cleans the old twin). Resume banner and the download filename carry the name.
+  Export mp4 already inherited the folder name → now the project name.
+
 ## 2026-07-12 — ONE lower third everywhere (look B chosen)
 Javier picked **look B** (compact ASG style) from a side-by-side against the
 Venezuela look. Consolidation (was 3 divergent implementations):

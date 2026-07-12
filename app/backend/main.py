@@ -421,29 +421,39 @@ def st_render(req: StRenderReq):
 class StSaveProjectReq(BaseModel):
     dir: str
     project: dict
+    name: Optional[str] = None                         # project name → <name>.quickvid.json
 
 
 @app.post("/api/statement/save-project")
 def st_save_project(req: StSaveProjectReq):
-    """Autosave the wizard state as <job folder>/quickvid-project.json — the durable,
+    """Autosave the wizard state as <job folder>/<name>.quickvid.json — the durable,
     portable copy so a project can be reopened days later (or on another Mac). The
-    browser keeps its own localStorage copy for instant refresh recovery."""
+    browser keeps its own localStorage copy for instant refresh recovery. Creates
+    the folder (named projects: <chosen parent>/<project name>/ may not exist yet)."""
     d = Path(req.dir)
-    if not d.is_dir():
-        raise HTTPException(400, "That job folder doesn't exist.")
-    (d / "quickvid-project.json").write_text(
-        json.dumps(req.project, indent=2, ensure_ascii=False), encoding="utf-8")
-    return {"ok": True}
+    d.mkdir(parents=True, exist_ok=True)
+    fname = (engine_bridge._slug(req.name) + ".quickvid.json") if req.name else "quickvid-project.json"
+    for old in d.glob("*.quickvid.json"):              # renamed project → don't leave stale twins
+        if old.name != fname:
+            old.unlink(missing_ok=True)
+    (d / fname).write_text(json.dumps(req.project, indent=2, ensure_ascii=False), encoding="utf-8")
+    return {"ok": True, "file": str(d / fname)}
 
 
 @app.get("/api/statement/load-project")
 def st_load_project(dir: str):
-    """Return a folder's saved project (for 'reopen this folder → resume'), or 404."""
-    f = Path(dir) / "quickvid-project.json"
-    if not f.is_file():
+    """Return a folder's saved project (for 'reopen this folder → resume'), or 404.
+    Accepts the named form (<name>.quickvid.json, newest wins) and the legacy
+    fixed quickvid-project.json."""
+    d = Path(dir)
+    candidates = sorted(d.glob("*.quickvid.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    legacy = d / "quickvid-project.json"
+    if legacy.is_file():
+        candidates.append(legacy)
+    if not candidates:
         raise HTTPException(404, "No saved project in that folder.")
     try:
-        return json.loads(f.read_text(encoding="utf-8"))
+        return json.loads(candidates[0].read_text(encoding="utf-8"))
     except Exception:
         raise HTTPException(400, "That folder's project file is unreadable.")
 

@@ -93,6 +93,9 @@ body.is-full .footer-unlock { display: none; }
 .st-folder-row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
 .st-folder-row .cd-button { flex: none; }
 .st-folder-row .app-hint { margin: 0; flex: 1 1 18rem; }
+.st-proj-name { flex: 1 1 16rem; min-width: 0; }
+/* Use-AI modal paste box */
+.st-ai-paste { width: 100%; font-family: var(--mono-font, ui-monospace, monospace); font-size: 0.8rem; resize: vertical; }
 /* step 4: stacked from/to range rows */
 #st-ranges { display: flex; flex-direction: column; gap: 0.5rem; }
 .st-range .st-range-del { align-self: end; }

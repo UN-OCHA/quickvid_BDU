@@ -116,21 +116,30 @@ $st("#st-pick").onclick = async () => {
   } catch (e) { stStatus("Couldn't open the file picker.", "warn"); }
 };
 
-// ---------- E1: job folder (everything saves here) ----------
+// ---------- E1: project name + job folder (everything saves here) ----------
+const stSafeName = (s) => s.replace(/[\\/:*?"<>|]+/g, "-").replace(/[.\s]+$/g, "").trim();
+
 $st("#st-folder-pick").onclick = async () => {
+  const name = ($st("#st-proj-name").value || "").trim();
+  if (!name) {
+    stStatus("Give the project a name first — the folder is created with that name.", "warn");
+    $st("#st-proj-name").focus();
+    return;
+  }
   try {
-    const q = encodeURIComponent("Choose a folder to save this statement clip");
+    const q = encodeURIComponent(`Choose WHERE to create the "${name}" project folder`);
     const r = await fetch(`${ENGINE}/api/pick-folder?prompt=${q}`, { method: "POST" });
     if (!r.ok) return;
     const { path } = await r.json();
     if (!path) return;
-    ST.jobDir = path;
+    ST.projName = name;
+    ST.jobDir = path.replace(/[\/\\]+$/, "") + "/" + stSafeName(name);
     $st("#st-folder-path").innerHTML =
-      `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Saving to <strong>${esc(path)}</strong> — download, final clip and thumbnail land in <code>source/</code>, <code>export/</code>.`;
-    stSave();                                                // start persisting into this folder
-    try {                                                    // folder already holds a project? offer to reopen it
-      const lr = await fetch(`${ENGINE}/api/statement/load-project?dir=${encodeURIComponent(path)}`);
-      if (lr.ok) { const proj = await lr.json(); if (stWorthResuming(proj)) stOfferResume(proj, "This folder already has a saved project."); }
+      `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Project folder: <strong>${esc(ST.jobDir)}</strong> — download, final clip, thumbnail and the project file all live here.`;
+    stSave();                                                // creates the folder + first autosave
+    try {                                                    // same-named project already there? offer to reopen it
+      const lr = await fetch(`${ENGINE}/api/statement/load-project?dir=${encodeURIComponent(ST.jobDir)}`);
+      if (lr.ok) { const proj = await lr.json(); if (stWorthResuming(proj)) stOfferResume(proj, `“${proj.name || name}” already exists here — continue it?`); }
     } catch (e) { /* none */ }
   } catch (e) { stStatus("Couldn't open the folder picker.", "warn"); }
 };
@@ -426,6 +435,7 @@ $st("#st-render").onclick = async () => {
     ST.renderJob = job_id;
     $st("#st-player").src = `${ENGINE}/api/preview/${job_id}?cb=${Date.now()}`;
     $st("#st-download").href = `${ENGINE}/api/export/${job_id}`;
+    $st("#st-download").download = (ST.projName ? stSafeName(ST.projName).replace(/\s+/g, "_") : "statement_clip") + ".mp4";
     const saved = $st("#st-saved");
     if (j.result && j.result.export) {
       saved.hidden = false;
@@ -466,6 +476,83 @@ function stThumbs(preset) {
   if (cands.length) dl.href = urlFor(cands[0], 0, 1);
 }
 
+// ---------- E5: Use AI (copy prompt → any LLM → paste selection back) ----------
+function stAIPrompt() {
+  const lines = ST.segments.map((s) => `${s.id} (${(s.out - s.in).toFixed(1)}s): ${s.text.trim()}`);
+  return `You are helping the UN Office for the Coordination of Humanitarian Affairs (OCHA) cut a spoken statement into a short social-media video (a "statement clip").
+
+Below is the full transcript, split into NUMBERED sentences (with each sentence's duration in seconds). The video will KEEP a subset of these sentences, in their original order, spoken on camera. Sentences cannot be reworded, split or merged — only kept or dropped.
+
+BEFORE choosing, ask me (the editor) these questions and WAIT for my answers:
+1. Any key ideas or messages the clip must focus on? (If a statement document or key-messages file exists, ask me to attach it.)
+2. What is the target maximum duration? (Suggest 60-90 seconds if I have no preference.)
+
+Then choose the sentences that make the strongest clip for OCHA's audience:
+- open strong: the news or the human impact, not procedure or greetings;
+- keep complete thoughts — never leave a sentence that depends on a dropped one;
+- prefer concrete facts and human consequences;
+- if there is a call to action or appeal, keep it near the end;
+- add up the sentence durations and stay within the target; never exceed 90 seconds unless I asked for longer.
+
+FINAL ANSWER FORMAT (critical): after our Q&A, reply with ONE short paragraph explaining your choice, then on its own line output exactly this JSON and nothing after it:
+{"keep": [the sentence numbers you selected, in ascending order]}
+
+TRANSCRIPT:
+${lines.join("\n")}`;
+}
+
+function stAIParse(text) {
+  // 1) any {...} containing "keep" (tolerates fences and chatter around it)
+  for (const c of text.match(/\{[^{}]*?"keep"[\s\S]*?\}/g) || []) {
+    try { const o = JSON.parse(c); if (Array.isArray(o.keep)) return o.keep.map(Number); } catch (e) { /* try next */ }
+  }
+  // 2) a "keep: 2, 5, 6" style line
+  const m = text.match(/keep[^0-9\n]*((?:\d+[\s,;]*)+)/i);
+  if (m) { const ids = (m[1].match(/\d+/g) || []).map(Number); if (ids.length) return ids; }
+  // 3) the paste is essentially just a list of numbers
+  if (/^[\s0-9,;()[\]]+$/.test(text.trim())) {
+    const ids = (text.match(/\d+/g) || []).map(Number);
+    if (ids.length) return ids;
+  }
+  return null;
+}
+
+$st("#st-ai").onclick = () => {
+  if (!ST.segments.length) return;
+  $st("#st-ai-paste").value = "";
+  $st("#st-ai-result").textContent = "";
+  $st("#st-ai-copied").textContent = "";
+  $st("#st-ai-long").hidden = stAIPrompt().length < 7500;    // Copilot truncates very long pastes
+  $st("#st-ai-modal").hidden = false;
+};
+$st("#st-ai-close").onclick = () => { $st("#st-ai-modal").hidden = true; };
+$st("#st-ai-modal").addEventListener("click", (e) => { if (e.target === $st("#st-ai-modal")) $st("#st-ai-modal").hidden = true; });
+
+$st("#st-ai-copy").onclick = async () => {
+  const p = stAIPrompt();
+  try { await navigator.clipboard.writeText(p); }
+  catch (e) {                                                // clipboard API blocked → hidden textarea fallback
+    const ta = document.createElement("textarea");
+    ta.value = p; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); ta.remove();
+  }
+  $st("#st-ai-copied").textContent = "Copied — now paste it into Copilot (or any AI chat).";
+};
+
+$st("#st-ai-apply").onclick = () => {
+  const res = $st("#st-ai-result");
+  const ids = stAIParse($st("#st-ai-paste").value || "");
+  if (!ids) { res.textContent = 'Couldn\'t find a selection in that. Paste the AI\'s whole final answer — it should contain {"keep": [...]}.'; return; }
+  const valid = new Set(ids.filter((i) => i >= 1 && i <= ST.segments.length));
+  if (!valid.size) { res.textContent = `Those numbers don't match this transcript (sentences are 1–${ST.segments.length}).`; return; }
+  ST.segments.forEach((s) => { s.sel = valid.has(s.id); });
+  ST.frameT = null;
+  stAutoShots(); stRenderSegList(); stSave();
+  const total = ST.segments.filter((s) => s.sel).reduce((a, s) => a + (s.out - s.in), 0);
+  $st("#st-ai-modal").hidden = true;
+  stStatus(`AI selected ${valid.size} sentences · ${mmss(total)} — review the list below and adjust freely.`, "ok");
+};
+
 // ---------- Autosave & resume (browser localStorage + <folder>/quickvid-project.json) ----------
 const LS_KEY = "quickvid.project.v1";
 let stSaveTimer = null, stPendingResume = null;
@@ -479,6 +566,7 @@ function stSnapshot() {
   const val = (sel) => (document.querySelector(sel) || {}).value;
   return {
     v: 1, savedAt: Date.now(),
+    name: (($st("#st-proj-name") || {}).value || ST.projName || "").trim(),
     type: val('input[name="st-type"]:checked') || "statement",
     jobDir: ST.jobDir, src: ST.src, probe: ST.probe, offset: ST.offset,
     ranges: stRangeRows(), segments: ST.segments, subject: ST.subject, frameT: ST.frameT,
@@ -505,7 +593,7 @@ function stSaveNow() {
   if (ST.jobDir) {                                           // durable, portable copy in the folder
     fetch(`${ENGINE}/api/statement/save-project`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dir: ST.jobDir, project: snap }),
+      body: JSON.stringify({ dir: ST.jobDir, project: snap, name: snap.name || undefined }),
     }).catch(() => {});
   }
   const box = $st("#st-autosave"), txt = $st("#st-autosave-txt");
@@ -519,6 +607,8 @@ function stRestore(p) {
   try {
     const check = (name, v) => { const el = document.querySelector(`input[name="${name}"][value="${v}"]`); if (el) el.checked = true; };
     check("st-type", p.type || "statement");
+    ST.projName = p.name || null;
+    if (p.name) $st("#st-proj-name").value = p.name;
     ST.jobDir = p.jobDir || null;
     if (ST.jobDir) $st("#st-folder-path").innerHTML =
       `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Saving to <strong>${esc(ST.jobDir)}</strong>.`;
@@ -568,7 +658,7 @@ function stMaybeOfferResume() {
   try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "null"); } catch (e) {}
   if (stWorthResuming(saved)) {
     stShowPanel("edit");                                     // land back on Edit so the banner is visible
-    stOfferResume(saved, "Autosaved " + stAgo(saved.savedAt) + ".");
+    stOfferResume(saved, (saved.name ? "\u201C" + saved.name + "\u201D \u2014 " : "") + "autosaved " + stAgo(saved.savedAt) + ".");
   }
 }
 $st("#st-resume-yes").onclick = () => { $st("#st-resume").hidden = true; stRestore(stPendingResume); stPendingResume = null; };
