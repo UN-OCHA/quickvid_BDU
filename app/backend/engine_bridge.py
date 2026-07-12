@@ -74,7 +74,10 @@ def _run(cmd: list[str], job) -> None:
     proc = subprocess.Popen(
         [str(c) for c in cmd], cwd=settings.ROOT,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, bufsize=1, env={**os.environ},
+        # UTF-8 on both ends: Windows would otherwise decode with cp1252 and
+        # mangle/crash on accents in names ("Dnipró…") in the engine's output.
+        text=True, bufsize=1, encoding="utf-8", errors="replace",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
     )
     for line in proc.stdout:                            # stream so the UI sees progress
         line = line.rstrip()

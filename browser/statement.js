@@ -60,6 +60,17 @@ function stShowPanel(which) {
 $st("#tab-titles").onclick = () => stShowPanel("titles");
 $st("#tab-edit").onclick = () => stShowPanel("edit");
 
+// ---------- E0: OS-aware setup steps (auto-detected, manual toggle) ----------
+function stSetOS(win) {
+  $st("#st-setup-mac").hidden = win;
+  $st("#st-setup-win").hidden = !win;
+  $st("#st-os-mac").classList.toggle("cd-button--outline", win);
+  $st("#st-os-win").classList.toggle("cd-button--outline", !win);
+}
+$st("#st-os-mac").onclick = () => stSetOS(false);
+$st("#st-os-win").onclick = () => stSetOS(true);
+stSetOS(/Windows/i.test(navigator.userAgent));
+
 // ---------- E2: source ----------
 async function stUseSource(path) {
   const r = await fetch(`${ENGINE}/api/statement/probe?src=${encodeURIComponent(path)}`);

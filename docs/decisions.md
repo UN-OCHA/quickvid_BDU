@@ -151,6 +151,29 @@ From Javi testing the Edit tab:
   the full editor runs *in this same page* once ffmpeg + Python are installed, and it's
   hidden entirely once the engine is connected (`body.is-full .footer-unlock`).
 
+## 2026-07-12 — QuickVid Lite/Full naming + Windows-ready engine
+- **Chip renamed** (Javier's call): "QuickVid Lite — runs in your browser" vs
+  "QuickVid Full — engine connected, no limits". One page, two power levels; no
+  separate apps.
+- **Windows engine shipped** (untested on real hardware yet — needs one UN laptop):
+  - `Start QuickVid.bat` mirrors the Mac launcher: user-space Python check
+    (3.9–3.13 via `py`/`python`), venv, pip, portable ffmpeg via static-ffmpeg,
+    Whisper prefetch, launch on 127.0.0.1:17870. ASCII-only, quoted paths.
+  - `settings._adopt_static_ffmpeg`: symlink→**copy** fallback (Windows symlinks
+    need admin) and `.exe`-aware names; verified by simulating symlink failure.
+  - Pickers: darwin keeps AppleScript; elsewhere a **tkinter dialog in a
+    subprocess** (tkinter must own its main thread or it wedges uvicorn).
+  - `engine_bridge._run`: forced UTF-8 both directions (`encoding="utf-8"` +
+    `PYTHONIOENCODING`) — Windows cp1252 would mangle engine output.
+  - Fonts need NO install on Windows: engine measures/renders from the bundled
+    TTFs (svgpng.font_path + resvg font_dirs); cairosvg simply isn't importable
+    there → resvg path always.
+  - E0 card is **OS-aware**: auto-detects from the user agent, manual Mac|Windows
+    toggle; SmartScreen ("More info → Run anyway") documented as the Windows
+    Gatekeeper-equivalent. README got a matching Windows quick start.
+  - Engine code audit: no filter-embedded paths (all media via `-i`), no manual
+    "/" joins, no unix-only runtime paths beyond the guarded Homebrew candidates.
+
 ## 2026-07-12 — Published (Javier's explicit go)
 - Repo: **github.com/UN-OCHA/quickvid_BDU** (public). Web app on Pages:
   **https://un-ocha.github.io/quickvid_BDU/** (Actions workflow deploys `browser/`

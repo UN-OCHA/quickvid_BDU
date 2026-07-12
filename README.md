@@ -38,11 +38,34 @@ OCHA brand font, and the speech-recognition model).
    - Every run after the first starts in a few seconds.
 3. **Go to the QuickVid page in your browser** (the script opens it for you).
    The page detects the engine within seconds and the **Edit tab unlocks by
-   itself** — the chip at the top turns cyan: *Engine connected*. Keep the
+   itself** — the chip at the top turns cyan: *QuickVid Full*. Keep the
    little Terminal window open while you work.
 
-**On Windows?** The Edit mode isn't available yet — the **Titles & branding**
-tab works fully in your browser today, and a Windows engine is on the roadmap.
+## The full tool on Windows
+
+Same idea, one-time setup, **no admin rights needed** — `Start QuickVid.bat`
+sets everything up by itself (a portable video engine and the
+speech-recognition model; the brand fonts are built into the app).
+
+1. **Download QuickVid** — [grab the ZIP](https://github.com/UN-OCHA/quickvid_BDU/archive/refs/heads/main.zip)
+   and unzip it anywhere (Desktop is fine).
+2. **Double-click `Start QuickVid.bat`.**
+   - ⚠️ The first time, Windows may show *“Windows protected your PC”*
+     (SmartScreen). That's normal for anything downloaded from the internet:
+     click **More info → Run anyway**. You only do it once.
+   - 🐍 If Python is missing, the script opens the official download page —
+     install it for “just me” and **tick “Add python.exe to PATH”**, then
+     double-click `Start QuickVid.bat` again.
+   - ⏳ The first run downloads its tools and a ~500 MB speech model — watch
+     the progress in the command window. Every run after starts in seconds.
+3. **Go to the QuickVid page in your browser** (the script opens it for you).
+   The page detects the engine and the **Edit tab unlocks by itself** — the
+   chip turns cyan: *QuickVid Full*. Keep the black command window open while
+   you work.
+
+> The Windows engine is fresh — if anything misbehaves, tell
+> [ochavisual@un.org](mailto:ochavisual@un.org) and use **Titles & branding**
+> (works fully in the browser) in the meantime.
 
 ## Design
 

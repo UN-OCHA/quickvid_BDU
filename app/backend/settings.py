@@ -23,21 +23,30 @@ DEFAULT_MODEL = "small"
 
 
 def _adopt_static_ffmpeg():
-    """Zero-admin fallback for Macs without Homebrew: the `static-ffmpeg` pip
-    package fetches FULL static ffmpeg+ffprobe builds (all codecs incl.
-    pcm_s24be, VideoToolbox linked) into site-packages on first use. We symlink
-    the pair into .venv/bin because the engine derives ffprobe from the ffmpeg
-    path via a naive `replace("ffmpeg","ffprobe")` — a directory named
-    static_ffmpeg would break that; `.venv/bin/ffmpeg` is replace-safe."""
+    """Zero-admin fallback for machines without a system ffmpeg (Macs without
+    Homebrew; any Windows box): the `static-ffmpeg` pip package fetches FULL
+    static ffmpeg+ffprobe builds (all codecs incl. pcm_s24be; VideoToolbox on
+    Mac) into site-packages on first use. We place the pair into the venv's
+    bin/Scripts dir because the engine derives ffprobe from the ffmpeg path via
+    a naive `replace("ffmpeg","ffprobe")` — a directory named static_ffmpeg
+    would break that; `.venv/bin/ffmpeg` (or `Scripts\\ffmpeg.exe`) is safe.
+    Symlink where possible; copy on Windows (symlinks need admin there)."""
     try:
         from static_ffmpeg import run
         ffmpeg, ffprobe = run.get_or_fetch_platform_executables_else_raise()
-        bin_dir = Path(sys.executable).parent            # .venv/bin
-        for src, name in ((ffmpeg, "ffmpeg"), (ffprobe, "ffprobe")):
-            link = bin_dir / name
-            if not link.exists():
-                link.symlink_to(src)
-        return str(bin_dir / "ffmpeg")
+        bin_dir = Path(sys.executable).parent            # .venv/bin | .venv\Scripts
+        adopted = None
+        for src in (ffmpeg, ffprobe):
+            src = Path(src)
+            dest = bin_dir / src.name                    # keeps .exe on Windows
+            if not dest.exists():
+                try:
+                    dest.symlink_to(src)
+                except OSError:                          # Windows without symlink rights
+                    shutil.copy2(src, dest)
+            if adopted is None:
+                adopted = dest
+        return str(adopted)
     except Exception:
         return None
 
@@ -46,9 +55,10 @@ def _detect_ffmpeg():
     """Prefer Homebrew ffmpeg (VideoToolbox hw decode; decodes raw Sony
     pcm_s24be — imageio's minimal build is software-only and lacks that codec).
     Fall back to a previously-adopted portable build, PATH, then fetch the
-    portable build (user-space, no admin — how colleague Macs get ffmpeg)."""
+    portable build (user-space, no admin — how colleague machines get ffmpeg)."""
+    exe = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
     for candidate in ("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg",
-                      str(Path(sys.executable).parent / "ffmpeg")):
+                      str(Path(sys.executable).parent / exe)):
         if Path(candidate).exists():
             return candidate
     return shutil.which("ffmpeg") or _adopt_static_ffmpeg()

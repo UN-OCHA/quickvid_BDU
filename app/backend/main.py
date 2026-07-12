@@ -6,6 +6,7 @@ the machine. Run: uvicorn app.backend.main:app --reload --port 8000
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 from typing import Optional, Union
 
@@ -75,34 +76,50 @@ def config():
     }
 
 
+def _native_pick(kind: str, prompt: str) -> str:
+    """Native picker, cross-platform. macOS: AppleScript. Windows/Linux: a
+    tkinter dialog run in a SUBPROCESS (tkinter must own its own main thread —
+    embedding it in the server thread wedges uvicorn). Empty string = cancelled."""
+    if sys.platform == "darwin":
+        safe = prompt.replace('"', "'")[:120]              # keep it inside the AppleScript literal
+        kw = "choose folder" if kind == "folder" else "choose file"
+        r = subprocess.run(["osascript", "-e", f'POSIX path of ({kw} with prompt "{safe}")'],
+                           capture_output=True, text=True, timeout=300)
+        return r.stdout.strip() if r.returncode == 0 else ""
+    fn = "askdirectory" if kind == "folder" else "askopenfilename"
+    code = (
+        "from tkinter import Tk, filedialog\n"
+        "r = Tk(); r.withdraw(); r.attributes('-topmost', True)\n"   # topmost or the dialog hides behind the browser
+        f"print(filedialog.{fn}(title={prompt!r}), end='')\n"
+    )
+    r = subprocess.run([sys.executable, "-c", code],
+                       capture_output=True, text=True, timeout=300, encoding="utf-8")
+    return (r.stdout or "").strip() if r.returncode == 0 else ""
+
+
 @app.post("/api/pick-folder")
 def pick_folder(prompt: str = "Select the folder of raw clips"):
-    """Native macOS folder picker, for non-technical staff. Falls back to the
-    manual path field in the UI if this isn't available / is cancelled."""
-    safe_prompt = prompt.replace('"', "'")[:120]           # keep it inside the AppleScript string literal
-    script = f'POSIX path of (choose folder with prompt "{safe_prompt}")'
+    """Native folder picker, for non-technical staff. Falls back to the manual
+    path field in the UI if this isn't available / is cancelled."""
     try:
-        result = subprocess.run(["osascript", "-e", script],
-                                capture_output=True, text=True, timeout=300)
+        path = _native_pick("folder", prompt)
     except Exception as exc:                              # noqa: BLE001
         raise HTTPException(400, f"Folder picker unavailable: {exc}")
-    if result.returncode != 0:
+    if not path:
         raise HTTPException(400, "No folder chosen.")
-    return {"path": result.stdout.strip()}
+    return {"path": path}
 
 
 @app.post("/api/pick-file")
 def pick_file():
-    """Native macOS file picker for a single finished video (Titles & branding mode)."""
-    script = 'POSIX path of (choose file with prompt "Select your video")'
+    """Native file picker for a single finished video (Titles & branding mode)."""
     try:
-        result = subprocess.run(["osascript", "-e", script],
-                                capture_output=True, text=True, timeout=300)
+        path = _native_pick("file", "Select your video")
     except Exception as exc:                              # noqa: BLE001
         raise HTTPException(400, f"File picker unavailable: {exc}")
-    if result.returncode != 0:
+    if not path:
         raise HTTPException(400, "No file chosen.")
-    return {"path": result.stdout.strip()}
+    return {"path": path}
 
 
 class TranscribeReq(BaseModel):

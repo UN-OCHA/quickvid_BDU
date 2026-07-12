@@ -33,8 +33,8 @@ function setChip() {
   const full = state.mode === "full";
   el.className = "mode-chip " + (full ? "mode-chip--full" : "mode-chip--browser");
   el.innerHTML = full
-    ? '<i class="fa-solid fa-bolt" aria-hidden="true"></i> Engine connected — full quality, no limits'
-    : '<i class="fa-solid fa-globe" aria-hidden="true"></i> Browser mode';
+    ? '<i class="fa-solid fa-bolt" aria-hidden="true"></i> QuickVid Full — engine connected, no limits'
+    : '<i class="fa-solid fa-globe" aria-hidden="true"></i> QuickVid Lite — runs in your browser';
   document.body.classList.toggle("is-full", full);
   if (typeof stModeChanged === "function") stModeChanged(full);   // Edit tab unlocks with the engine
   if (!state.file && !state.enginePath)
