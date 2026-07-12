@@ -567,3 +567,9 @@ $st("#st-resume-no").onclick = () => { $st("#st-resume").hidden = true; stPendin
 $st("#panel-edit").addEventListener("input", stSave);
 $st("#panel-edit").addEventListener("change", stSave);
 window.addEventListener("pagehide", () => { try { const s = stSnapshot(); if (!ST._restoring && stWorthResuming(s)) localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch (e) {} });
+
+// Catch up with engine detection. app.js may have detected the engine BEFORE this
+// file finished loading (fast local engine + slow network page = the hosted case),
+// in which case its stModeChanged call hit the typeof-guard and the Edit tab would
+// stay locked until a reload. Sync now that everything above is defined.
+if (typeof state !== "undefined") stModeChanged(state.mode === "full");

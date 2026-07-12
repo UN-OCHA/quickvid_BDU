@@ -151,6 +151,23 @@ From Javi testing the Edit tab:
   the full editor runs *in this same page* once ffmpeg + Python are installed, and it's
   hidden entirely once the engine is connected (`body.is-full .footer-unlock`).
 
+## 2026-07-12 — Published (Javier's explicit go)
+- Repo: **github.com/UN-OCHA/quickvid_BDU** (public). Web app on Pages:
+  **https://un-ocha.github.io/quickvid_BDU/** (Actions workflow deploys `browser/`
+  on every push to main).
+- Pre-publish pass: `video_editing/` + `temp/` added to .gitignore (real footage
+  stays local); secret scan clean; staged tree 2.6 MB.
+- **Click sound now ships**: the ending's click lived in gitignored `references/`
+  as a 25 MB ProRes — fresh clones would have rendered silent endings. Extracted
+  the audio losslessly to `brand/OCHA_logo_click.wav` (284 KB) and repointed
+  brand.json; render-verified.
+- **Load-race fix found on the live page**: with the engine already running, the
+  hosted page detected it BEFORE statement.js loaded → the unlock callback hit the
+  typeof-guard and Edit stayed locked until reload. statement.js now self-syncs
+  (`stModeChanged(state.mode === "full")`) at the end of its load.
+- Verified live: the HTTPS page at un-ocha.github.io detects the local engine
+  (CORS + Private-Network-Access working as designed).
+
 ## 2026-07-12 — Zero-admin onboarding (fresh-Mac colleagues)
 Goal: a colleague with a brand-new Mac gets from the web page to a working Edit
 tab with no admin password, no Homebrew, and honest warnings about the scary bits.
