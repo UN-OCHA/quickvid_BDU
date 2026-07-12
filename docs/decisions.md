@@ -165,8 +165,10 @@ Venezuela look. Consolidation (was 3 divergent implementations):
 - **Verified**: statement path == titles path == approved B reference, pixel-
   identical (diff bbox None); Lite canvas within ~2% (canvas-vs-PIL font metrics);
   both full pipelines re-rendered end-to-end.
-- Note: `ocha-social-subtitles` skill scripts still carry a legacy copy — SKILL.md
-  now points at the canonical spec; prefer the QuickVid engine for statement clips.
+- The `ocha-social-subtitles` skill's renderer is now a **thin shim** that runs
+  `engine/social_brand.py` — the last duplicate is gone. Old job.json files keep
+  working (`ending.logo` auto-translated); black-tail clips need explicit
+  `footage_end` (auto-detection retired).
 
 ## 2026-07-12 — QuickVid Lite/Full naming + Windows-ready engine
 - **Chip renamed** (Javier's call): "QuickVid Lite — runs in your browser" vs
