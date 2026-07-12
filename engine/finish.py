@@ -29,7 +29,7 @@ import subprocess
 import tempfile
 import shutil
 
-import cairosvg
+from svgpng import svg2png as _svg2png   # cairosvg, or portable resvg on Macs without Homebrew
 from PIL import Image
 import lower_third
 
@@ -126,7 +126,7 @@ def render_logo(W, H, tmp):
     the approved portrait size but shrinks it on the wider square/landscape frames."""
     logo_h = round(H * 0.054)
     png = os.path.join(tmp, "logo.png")
-    cairosvg.svg2png(url=LOGO_SVG, write_to=png, output_height=logo_h)
+    _svg2png(url=LOGO_SVG, write_to=png, output_height=logo_h)
     im = Image.open(png)
     return png, im.size[0], im.size[1]
 

@@ -17,9 +17,10 @@ import os
 import shutil
 import argparse
 from PIL import ImageFont
-import cairosvg
+from svgpng import svg2png as _svg2png   # cairosvg, or portable resvg on Macs without Homebrew
 
-RALEWAY_BOLD = "/Library/Fonts/Raleway/static/Raleway-Bold.ttf"
+from svgpng import font_path as _font_path
+RALEWAY_BOLD = _font_path("Raleway-Bold.ttf")     # bundled first - identical on every machine
 BLACK, BLUE, WHITE = "#000000", "#009EDB", "#FFFFFF"
 
 # motion timing (seconds) — canvas-independent
@@ -131,7 +132,7 @@ def render(name, org, canvas_h, align, fps, hold, outdir, name_ratio=0.030):
     n = int(round(total * fps))
     for i in range(n):
         nr, orr, pan = state(i / fps, hold)
-        cairosvg.svg2png(bytestring=svg(lo, nr, orr, pan, align).encode(),
+        _svg2png(bytestring=svg(lo, nr, orr, pan, align).encode(),
                          write_to=os.path.join(outdir, f"{i:04d}.png"),
                          output_width=lo["W"], output_height=lo["H"])
     block_left = lo["pan"] if align == "left" else (lo["W"] - lo["BW"]) / 2

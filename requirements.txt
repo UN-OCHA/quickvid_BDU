@@ -21,3 +21,8 @@ opencv-python-headless
 fastapi
 uvicorn[standard]
 python-multipart        # form/multipart parsing for the instruction POST
+
+# --- Portability (fresh Macs without Homebrew; also pre-solves Windows) ---
+cairosvg                # SVG->PNG when the cairo lib exists (Homebrew Macs; pixel-identical to the original pipeline)
+resvg_py                # self-contained fallback renderer (engine/svgpng.py) — no system libraries
+static-ffmpeg           # portable full ffmpeg+ffprobe fetched user-space when none is installed

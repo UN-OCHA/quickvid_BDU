@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OCHA QuickVid</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,400&family=Roboto+Mono:wght@400;500&family=Raleway:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+  <link rel="stylesheet" href="vendor/ocha-app-kit.css" />
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- self-hosted engine libs (global MP4Box, Mp4Muxer) + the QuickVid engine -->
+  <script src="lib/mp4box.all.min.js"></script>
+  <script src="lib/mp4-muxer-4.0.0.js"></script>
+  <script src="engine.js?v=7" defer></script>
+  <script src="app.js?v=7" defer></script>
+  <script src="statement.js?v=2" defer></script>
+</head>
+<body>
+  <a class="cd-skip-link" href="#main">Skip to main content</a>
+
+  <header class="app-header">
+    <img class="app-header__logo" src="vendor/ocha-logo.svg" alt="OCHA" />
+    <div class="app-header__titles">
+      <h1 class="app-header__title">QuickVid</h1>
+      <p class="app-header__subtitle">OCHA-branded videos in a few clicks</p>
+    </div>
+  </header>
+
+  <main id="main" class="app-main cd-flow">
+    <p class="app-lede">Add OCHA <strong>lower thirds</strong> and an <strong>ending</strong> to a video you've already cut — or, with the engine, <strong>edit a statement</strong> straight from UN&nbsp;Web&nbsp;TV. Everything runs <strong>on your device; your video never leaves it.</strong></p>
+    <div id="mode-chip" class="mode-chip mode-chip--browser"><i class="fa-solid fa-globe" aria-hidden="true"></i> Browser mode</div>
+
+    <nav class="mode-tabs" role="tablist" aria-label="QuickVid modes">
+      <button class="mode-tab is-active" id="tab-titles" role="tab" aria-selected="true" type="button"><i class="fa-solid fa-heading" aria-hidden="true"></i> Titles &amp; branding</button>
+      <button class="mode-tab" id="tab-edit" role="tab" aria-selected="false" type="button"><i class="fa-solid fa-scissors" aria-hidden="true"></i> Edit <span class="tab-lock" id="edit-lock" title="Needs the QuickVid engine (Mac)"><i class="fa-solid fa-bolt" aria-hidden="true"></i> engine</span></button>
+    </nav>
+
+    <div id="panel-titles" role="tabpanel" class="cd-flow">
+    <!-- Step 1 — the video -->
+    <section class="cd-card" aria-labelledby="s1">
+      <div class="cd-card__content cd-flow">
+        <h2 class="cd-block-title" id="s1"><span class="step-num" aria-hidden="true">1</span> Your video <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t1" aria-label="Help: your video"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+        <div class="cd-help__panel" id="help-t1" hidden>
+          <p>Pick the <strong>finished video</strong> you want to brand — the editing is already done; this mode only adds name strips and the OCHA ending.</p>
+          <ul>
+            <li>MP4 works best. Click the box or drag the file onto it.</li>
+            <li>Nothing is uploaded — the video is processed on your computer and never leaves it.</li>
+            <li>With the <strong>engine</strong> connected (cyan chip above) any size or format works at full quality. In plain browser mode, long 4K files can be slow.</li>
+          </ul>
+        </div>
+        <label class="dropzone" id="drop">
+          <input type="file" id="file" accept="video/mp4,video/*" hidden />
+          <i class="fa-solid fa-film" aria-hidden="true"></i>
+          <span id="drop-text">Choose a video, or drop it here — MP4 works best.</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Step 2 — lower thirds -->
+    <section class="cd-card" aria-labelledby="s2">
+      <div class="cd-card__content cd-flow">
+        <h2 class="cd-block-title" id="s2"><span class="step-num" aria-hidden="true">2</span> Lower thirds <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t2" aria-label="Help: lower thirds"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+        <div class="cd-help__panel" id="help-t2" hidden>
+          <ul>
+            <li>A <strong>lower third</strong> is the animated strip that introduces a speaker: name on top, job title underneath.</li>
+            <li><strong>Start</strong> = when it appears, as minutes:seconds into the video (e.g. <code>0:53</code>). <strong>Duration</strong> = how long it stays — 5–6 seconds reads comfortably.</li>
+            <li><strong>Alignment</strong>: Centre is the OCHA social-media style; Left suits classic 16:9 videos.</li>
+            <li>One row per person — <strong>Add lower third</strong> for more. Don't need any? Leave it empty.</li>
+          </ul>
+        </div>
+        <figure class="ex-thumb">
+          <img src="img/ex-lowerthird.jpg" alt="Example: a name and job-title lower third" />
+          <figcaption>A <strong>lower third</strong> — name + job title, auto-placed for your format and social safe areas.</figcaption>
+        </figure>
+        <p class="app-hint">Type the name and job title, when it appears (e.g. <code>0:53</code>), how many seconds it stays, and left or centre. Add as many as you need.</p>
+        <div class="lt-labels" aria-hidden="true">
+          <span class="lt-name">Name</span>
+          <span class="lt-org">Job title</span>
+          <span class="lt-start">Start</span>
+          <span class="lt-dur">Duration</span>
+          <span class="lt-align">Alignment</span>
+          <span class="lt-remove"></span>
+        </div>
+        <div id="lt-rows"></div>
+        <button class="cd-button cd-button--outline cd-button--small" id="lt-add" type="button"><i class="fa-solid fa-plus" aria-hidden="true"></i><span class="cd-button__text">Add lower third</span></button>
+      </div>
+    </section>
+
+    <!-- Step 3 — ending -->
+    <section class="cd-card" aria-labelledby="s3">
+      <div class="cd-card__content cd-flow">
+        <h2 class="cd-block-title" id="s3"><span class="step-num" aria-hidden="true">3</span> Ending <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t3" aria-label="Help: ending"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+        <div class="cd-help__panel" id="help-t3" hidden>
+          <ul>
+            <li><strong>Over footage</strong> — the OCHA logo snaps over your final shot, with the click sound. The standard for social clips; needs about 2 seconds of calm footage at the end.</li>
+            <li><strong>Over black</strong> — the same logo + click on a black end card, added after your last frame. Use it when the video ends abruptly.</li>
+            <li><strong>No ending</strong> — nothing added.</li>
+          </ul>
+        </div>
+        <div class="end-options">
+          <label class="end-opt">
+            <input type="radio" name="ending" value="over_footage" checked />
+            <img src="img/ex-ending-footage.jpg" alt="OCHA logo over the last seconds of footage" />
+            <span class="end-opt__label">Over footage</span>
+            <span class="end-opt__hint">Logo over your last shot — needs ≥2s of footage at the end.</span>
+          </label>
+          <label class="end-opt">
+            <input type="radio" name="ending" value="over_black" />
+            <img src="img/ex-ending-black.jpg" alt="OCHA logo centred on a black screen" />
+            <span class="end-opt__label">Over black</span>
+            <span class="end-opt__hint">Logo on a clean black end card.</span>
+          </label>
+          <label class="end-opt end-opt--none">
+            <input type="radio" name="ending" value="none" />
+            <span class="end-opt__icon"><img src="img/ic-film.svg" alt="" /></span>
+            <span class="end-opt__label">No ending</span>
+            <span class="end-opt__hint">Leave the video as it is.</span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <button class="cd-button" id="run" type="button"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span class="cd-button__text">Add titles &amp; branding</span></button>
+    <div id="status" class="status-slot" aria-live="polite"></div>
+
+    <!-- Preview -->
+    <section class="cd-card" id="preview" aria-labelledby="s4" hidden>
+      <div class="cd-card__content cd-flow">
+        <h2 class="cd-block-title" id="s4">Preview &amp; download</h2>
+        <video id="player" class="app-player app-player--fit" controls playsinline></video>
+        <a class="cd-button cd-button--export" id="download" download="quickvid.mp4"><i class="fa-solid fa-download" aria-hidden="true"></i><span class="cd-button__text">Download MP4</span></a>
+      </div>
+    </section>
+    </div><!-- /panel-titles -->
+
+    <!-- ================= EDIT MODE — Statement clip wizard (engine only) ================= -->
+    <div id="panel-edit" role="tabpanel" class="cd-flow" hidden>
+
+      <!-- E0 — needs the engine: the guided, no-admin install -->
+      <section class="cd-card" id="st-need-engine" hidden>
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title">Unlock editing on this Mac</h2>
+          <p class="app-hint">Editing cuts and transcribes real video, so it runs a small <strong>engine on your Mac</strong> — free, sets itself up, <strong>no admin rights needed</strong>. Your videos never leave your computer.</p>
+          <ol class="st-setup">
+            <li>
+              <strong>Download QuickVid</strong> and unzip it anywhere you like (Desktop is fine).
+              <div class="st-btn-row"><a class="cd-button" href="https://github.com/UN-OCHA/quickvid_BDU/archive/refs/heads/main.zip"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span class="cd-button__text">Download QuickVid for Mac</span></a></div>
+            </li>
+            <li>
+              <strong>Open the folder and right-click “Start QuickVid” → Open → Open.</strong>
+              <div class="st-setup__note"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> The first time, macOS shows <em>“can’t be opened — unidentified developer.”</em> That’s normal for anything downloaded from the internet — <strong>right-click → Open</strong> is the official way past it, and you only do it once.</div>
+              <div class="st-setup__note"><i class="fa-solid fa-clock" aria-hidden="true"></i> The first run sets everything up by itself (~10 minutes): the video engine, the OCHA font, and a ~500&nbsp;MB speech-recognition model. If your Mac has no developer tools yet it may offer to install Apple’s <em>Command Line Tools</em> — accept and let it finish. After the first time, it starts in seconds.</div>
+            </li>
+            <li>
+              <strong>Come back to this page.</strong> It checks every few seconds and <strong>unlocks by itself</strong> the moment the engine is running — the chip above turns cyan: <em>Engine connected</em>. Keep the little Terminal window open while you work.
+            </li>
+          </ol>
+          <p class="app-hint"><i class="fa-brands fa-windows" aria-hidden="true"></i> On Windows? The Edit mode isn’t available yet — but <strong>Titles &amp; branding</strong> works fully in your browser.</p>
+        </div>
+      </section>
+
+      <div id="st-wizard" hidden>
+      <!-- Resume banner (autosaved project found) -->
+      <div id="st-resume" class="cd-alert cd-alert--status" hidden>
+        <div class="cd-alert__message">
+          <p><strong>Pick up where you left off?</strong> <span id="st-resume-when" class="app-hint"></span></p>
+          <div class="st-btn-row">
+            <button class="cd-button cd-button--small" id="st-resume-yes" type="button"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span class="cd-button__text">Resume</span></button>
+            <button class="cd-button cd-button--small cd-button--outline" id="st-resume-no" type="button"><span class="cd-button__text">Start fresh</span></button>
+          </div>
+        </div>
+      </div>
+      <div id="st-autosave" class="st-autosave" hidden><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> <span id="st-autosave-txt">Autosaves as you go</span></div>
+      <!-- E1 — video type -->
+      <section class="cd-card">
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title"><span class="step-num" aria-hidden="true">1</span> What are you making? <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-e1" aria-label="Help: video type and folder"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+          <div class="cd-help__panel" id="help-e1" hidden>
+            <ul>
+              <li>A <strong>statement clip</strong> is a principal's remarks — a Security Council or member-states briefing, or a recorded video message — cut down to the key sentences (60–90 seconds), captioned and OCHA-branded.</li>
+              <li><strong>Save this job to</strong>: pick (or create) one folder for this video. Everything lands there — the original download in <code>source/</code>, the finished clip and thumbnail in <code>export/</code>, the script in <code>info/</code> — and your progress <strong>autosaves</strong> there, so you can close QuickVid and pick the job up later.</li>
+              <li>Skip the folder and files go to a temporary spot instead; progress then autosaves only in this browser.</li>
+            </ul>
+          </div>
+          <div class="end-options">
+            <label class="end-opt">
+              <input type="radio" name="st-type" value="statement" checked />
+              <span class="end-opt__icon"><i class="fa-solid fa-user-tie" aria-hidden="true"></i></span>
+              <span class="end-opt__label">Statement clip</span>
+              <span class="end-opt__hint">A principal's remarks — Security Council, a member-states briefing, or a video message — cut down and OCHA-branded.</span>
+            </label>
+            <label class="end-opt end-opt--soon" aria-disabled="true">
+              <span class="end-opt__icon"><i class="fa-solid fa-film" aria-hidden="true"></i></span>
+              <span class="end-opt__label">Field piece</span>
+              <span class="end-opt__hint">Coming later.</span>
+            </label>
+          </div>
+          <div class="st-folder">
+            <span class="cd-form__label">Save this job to</span>
+            <div class="st-folder-row">
+              <button class="cd-button cd-button--outline cd-button--small" id="st-folder-pick" type="button"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Choose folder…</span></button>
+              <span class="app-hint" id="st-folder-path">The download, the finished clip and the thumbnail all save here — and your progress autosaves, so you can resume later. Optional: skip it and files go to a temporary spot.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- E2 — source -->
+      <section class="cd-card">
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title"><span class="step-num" aria-hidden="true">2</span> The recording <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-e2" aria-label="Help: the recording"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+          <div class="cd-help__panel" id="help-e2" hidden>
+            <ul>
+              <li>On <a href="https://webtv.un.org" target="_blank" rel="noopener">webtv.un.org</a>, open <strong>the meeting's own page</strong> — search its title (e.g. “Security Council … Ukraine”) — and paste that link. It works minutes after the meeting ends.</li>
+              <li><strong>Not</strong> the “24 Hour Live and pre-recorded Programming” page: that's the always-on channel, not your meeting, and the tool will refuse it.</li>
+              <li>The download uses the <strong>floor</strong> sound — each speaker's real voice, not the interpreter.</li>
+              <li>Already have the video? <strong>Pick a file</strong> and skip the download.</li>
+            </ul>
+          </div>
+          <p class="app-hint">Paste the link of the <strong>meeting's own UN Web TV page</strong> (works minutes after it ends — not the 24/7 live channel) — or pick a video file you already have.</p>
+          <div class="st-source-row">
+            <input class="cd-form__input" id="st-url" placeholder="https://webtv.un.org/en/asset/…" autocomplete="off" />
+            <button class="cd-button" id="st-get" type="button"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span class="cd-button__text">Get the video</span></button>
+            <button class="cd-button cd-button--outline" id="st-pick" type="button"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Pick a file</span></button>
+          </div>
+          <div id="st-src-info" class="app-hint" hidden></div>
+        </div>
+      </section>
+
+      <!-- E3 — sync -->
+      <section class="cd-card" id="st-card-sync" hidden>
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title"><span class="step-num" aria-hidden="true">3</span> Check the lip-sync <span class="st-optional">optional</span> <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-e3" aria-label="Help: lip-sync"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+          <div class="cd-help__panel" id="help-e3" hidden>
+            <ul>
+              <li>UN broadcast feeds often run the sound a few frames <em>ahead</em> of the picture; recorded video messages are usually already fine.</li>
+              <li>Play the loop and watch the lips. In sync? <strong>Skip</strong>. Slightly off? Try <strong>+4f</strong> — the usual fix for UN feeds — or its neighbours until the lips lock. Each chip re-renders the same moment with that correction.</li>
+              <li><strong>Try another moment</strong> tests a different part of the recording — useful when the current preview has no clear talking.</li>
+              <li>Your choice is baked into a working copy; the original download stays untouched.</li>
+            </ul>
+          </div>
+          <p class="app-hint"><strong>Broadcast feeds</strong> sometimes run the sound a few frames early — a <strong>recorded video message</strong> is usually already fine. Play the test; if the lips match, just skip. If they drift, try another offset until they lock.</p>
+          <video id="st-sync-player" class="app-player app-player--fit" controls playsinline loop></video>
+          <div class="st-sync-toolbar">
+            <button class="cd-button cd-button--small cd-button--outline" id="st-sync-another" type="button"><i class="fa-solid fa-shuffle" aria-hidden="true"></i><span class="cd-button__text">Try another moment</span></button>
+            <span class="app-hint" id="st-sync-at"></span>
+          </div>
+          <div class="st-chip-row" id="st-sync-chips"></div>
+          <div class="st-btn-row">
+            <button class="cd-button" id="st-sync-ok" type="button"><i class="fa-solid fa-check" aria-hidden="true"></i><span class="cd-button__text">Use this offset</span></button>
+            <button class="cd-button cd-button--outline" id="st-sync-skip" type="button"><i class="fa-solid fa-forward" aria-hidden="true"></i><span class="cd-button__text">Skip — it's in sync</span></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- E4 — transcript -->
+      <section class="cd-card" id="st-card-tr" hidden>
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title"><span class="step-num" aria-hidden="true">4</span> Find the words <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-e4" aria-label="Help: find the words"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+          <div class="cd-help__panel" id="help-e4" hidden>
+            <ul>
+              <li>Transcription is the slow part — narrowing it to just your speaker keeps it to a few minutes.</li>
+              <li>Scrub the recording; when your speaker starts, click <strong>Set "From" here</strong>. Scrub to where they finish → <strong>Set "To" here</strong>. (Typing the times works too; the ▲▼ arrows nudge by 15 s.)</li>
+              <li>Do they speak in two separate blocks — say an opening statement and a later reply? <strong>Add another range</strong> for the second block; all windows are transcribed and the sentences merge into one list.</li>
+              <li>Leave the times empty to transcribe the whole recording (slow for a long meeting).</li>
+            </ul>
+          </div>
+          <p class="app-hint">Scrub to find your speaker, then <strong>Set "From"/"To"</strong> for the block they speak in (or type the times). Speaks in more than one place? <strong>Add another range</strong> — each window is transcribed and the sentences merge into one list. Leave the times empty for the whole video.</p>
+          <video id="st-tr-player" class="app-player app-player--fit" controls playsinline preload="metadata"></video>
+          <div class="st-btn-row">
+            <button class="cd-button cd-button--small cd-button--outline" id="st-set-from" type="button"><i class="fa-solid fa-arrow-down-to-line" aria-hidden="true"></i><span class="cd-button__text">Set "From" here</span></button>
+            <button class="cd-button cd-button--small cd-button--outline" id="st-set-to" type="button"><i class="fa-solid fa-arrow-down-to-line" aria-hidden="true"></i><span class="cd-button__text">Set "To" here</span></button>
+          </div>
+          <div id="st-ranges"></div>
+          <div class="st-btn-row">
+            <button class="cd-button cd-button--outline cd-button--small" id="st-range-add" type="button"><i class="fa-solid fa-plus" aria-hidden="true"></i><span class="cd-button__text">Add another range</span></button>
+            <button class="cd-button" id="st-transcribe" type="button"><i class="fa-solid fa-closed-captioning" aria-hidden="true"></i><span class="cd-button__text">Transcribe</span></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- E5 — select sentences -->
+      <section class="cd-card" id="st-card-sel" hidden>
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title"><span class="step-num" aria-hidden="true">5</span> Choose what they say <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-e5" aria-label="Help: choose sentences"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+          <div class="cd-help__panel" id="help-e5" hidden>
+            <ul>
+              <li>Every sentence found in your window is listed with its length. <strong>Tick</strong> the ones that carry the message — the counter above the list keeps the running total. Aim for <strong>60–90 seconds</strong>.</li>
+              <li>Ticked sentences that aren't next to each other get joined with a <strong>punch-in</strong> — a quick zoom change that hides the cut, broadcast style.</li>
+              <li>The <strong>C / G</strong> buttons force a Close-up or General shot for that sentence; leave them alone and the tool alternates sensibly on its own.</li>
+              <li>Spotted a transcription typo? Click the text and fix it — that changes the <strong>captions only</strong>, never the audio.</li>
+            </ul>
+          </div>
+          <p class="app-hint">Tick the sentences that carry the message — aim for <strong>60–90 seconds</strong>. Each jump between ticked sentences becomes a clean punch-in cut. You can fix small transcription slips in the text (captions only).</p>
+          <div id="st-seg-total" class="st-total"></div>
+          <div id="st-seg-list" class="st-seg-list"></div>
+        </div>
+      </section>
+
+      <!-- E6 — framing & format -->
+      <section class="cd-card" id="st-card-frame" hidden>
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title"><span class="step-num" aria-hidden="true">6</span> Format &amp; framing <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-e6" aria-label="Help: format and framing"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+          <div class="cd-help__panel" id="help-e6" hidden>
+            <ul>
+              <li>Pick the destination: <strong>Reels</strong> (9:16 portrait) for Instagram/TikTok, <strong>Square</strong> (1:1) or <strong>IG&nbsp;/&nbsp;FB feed</strong> (4:5) for feed posts, <strong>Event screen</strong> (16:9) for halls and webstreams — its captions are clean text over a soft gradient instead of boxes.</li>
+              <li>The clip alternates two crops of the same footage: <strong>General</strong> and <strong>Close-up</strong> (the punch-in). Move the sliders until the speaker sits well in <strong>both</strong> previews — same sliders drive both.</li>
+              <li>The previews show a frame from your first kept sentence; <strong>Try another frame</strong> jumps to a different moment if that one's a wide or in-between shot.</li>
+            </ul>
+          </div>
+          <div class="end-options" id="st-presets">
+            <label class="end-opt"><input type="radio" name="st-preset" value="reels" checked />
+              <span class="end-opt__label">Reels</span><span class="end-opt__hint">9:16 portrait · boxed captions</span></label>
+            <label class="end-opt"><input type="radio" name="st-preset" value="square" />
+              <span class="end-opt__label">Square feed</span><span class="end-opt__hint">1:1 · boxed captions</span></label>
+            <label class="end-opt"><input type="radio" name="st-preset" value="feed45" />
+              <span class="end-opt__label">IG / FB feed</span><span class="end-opt__hint">4:5 · boxed captions</span></label>
+            <label class="end-opt"><input type="radio" name="st-preset" value="event" />
+              <span class="end-opt__label">Event screen</span><span class="end-opt__hint">16:9 · clean captions over a soft gradient</span></label>
+          </div>
+          <p class="app-hint">The previews use a frame from your first kept sentence — if that's a wide or in-between shot, hit <strong>Try another frame</strong>. Then slide until the speaker sits nicely in <strong>both</strong> shots.</p>
+          <div class="st-frames">
+            <figure><img id="st-frame-general" alt="General shot framing" /><figcaption>General</figcaption></figure>
+            <figure><img id="st-frame-close" alt="Close-up framing" /><figcaption>Close-up (punch-in)</figcaption></figure>
+          </div>
+          <div class="st-btn-row"><button class="cd-button cd-button--small cd-button--outline" id="st-frame-another" type="button"><i class="fa-solid fa-shuffle" aria-hidden="true"></i><span class="cd-button__text">Try another frame</span></button></div>
+          <div class="field-row st-sliders">
+            <label>Left ↔ right <input type="range" id="st-sx" min="0" max="100" value="50" /></label>
+            <label>Up ↕ down <input type="range" id="st-sy" min="0" max="100" value="40" /></label>
+          </div>
+        </div>
+      </section>
+
+      <!-- E7 — branding -->
+      <section class="cd-card" id="st-card-brand" hidden>
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title"><span class="step-num" aria-hidden="true">7</span> Titles &amp; ending <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-e7" aria-label="Help: titles and ending"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+          <div class="cd-help__panel" id="help-e7" hidden>
+            <ul>
+              <li><strong>Name + Title</strong> fill the animated OCHA lower third near the start of the clip. <strong>2nd line</strong> adds a second title line — e.g. the Spanish translation for a bilingual strip.</li>
+              <li><strong>Captions</strong>: the speaker's words, burned in. Keep this on for social — most people watch muted.</li>
+              <li><strong>Ending</strong>: <em>Logo over footage</em> = the OCHA logo snaps over the closing shot with the click sound (the standard). <em>Over black</em> = clean black end card. <em>No ending</em> = finish on the last words.</li>
+            </ul>
+          </div>
+          <div class="field-row">
+            <label>Name <input class="cd-form__input" id="st-lt-name" placeholder="e.g. Tom Fletcher" /></label>
+            <label>Title <input class="cd-form__input" id="st-lt-title" placeholder="e.g. UN Relief Chief" /></label>
+            <label>2nd line <input class="cd-form__input" id="st-lt-title2" placeholder="optional (e.g. Spanish)" /></label>
+            <label>Alignment <select class="cd-form__input" id="st-lt-align"><option value="center">Centre</option><option value="left">Left</option></select></label>
+          </div>
+          <label class="st-check"><input type="checkbox" id="st-captions" checked /> Burn in captions (their own words)</label>
+          <div class="end-options">
+            <label class="end-opt"><input type="radio" name="st-ending" value="over_footage" checked />
+              <span class="end-opt__label">Logo over footage</span><span class="end-opt__hint">OCHA logo snaps over the closing shot, with the click.</span></label>
+            <label class="end-opt"><input type="radio" name="st-ending" value="over_black" />
+              <span class="end-opt__label">Logo over black</span><span class="end-opt__hint">Clean black end card, with the click.</span></label>
+            <label class="end-opt"><input type="radio" name="st-ending" value="none" />
+              <span class="end-opt__label">No ending</span><span class="end-opt__hint">End on the last words.</span></label>
+          </div>
+        </div>
+      </section>
+
+      <button class="cd-button" id="st-render" type="button" hidden><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span class="cd-button__text">Create the statement clip</span></button>
+
+      <!-- E8 — result -->
+      <section class="cd-card" id="st-card-out" hidden>
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title">Preview &amp; download <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-e8" aria-label="Help: preview and download"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+          <div class="cd-help__panel" id="help-e8" hidden>
+            <ul>
+              <li>Watch it start to finish — check the first caption, the lower-third timing, each cut, and the ending.</li>
+              <li>Chose a job folder in step 1? The clip is <strong>already saved</strong> in its <code>export/</code> folder (the exact path shows below the player). <strong>Download MP4</strong> saves another copy via the browser.</li>
+              <li><strong>Thumbnail</strong>: a clean still for the post cover — same size as the video, no branding. Click the frame you like, then <strong>Download thumbnail</strong> (it also lands in <code>export/</code>).</li>
+              <li>Need a change? Scroll up, adjust any step, and hit <strong>Create the statement clip</strong> again.</li>
+            </ul>
+          </div>
+          <video id="st-player" class="app-player app-player--fit" controls playsinline></video>
+          <p class="cd-alert cd-alert--status" id="st-saved" hidden><span class="cd-alert__message"></span></p>
+          <a class="cd-button cd-button--export" id="st-download" download="statement_clip.mp4"><i class="fa-solid fa-download" aria-hidden="true"></i><span class="cd-button__text">Download MP4</span></a>
+          <h3 class="cd-block-title">Thumbnail</h3>
+          <p class="app-hint">A clean still (no branding), same size as the video — pick the frame you like.</p>
+          <div class="st-thumbs" id="st-thumbs"></div>
+          <a class="cd-button cd-button--outline" id="st-thumb-dl" target="_blank"><i class="fa-solid fa-image" aria-hidden="true"></i><span class="cd-button__text">Download thumbnail</span></a>
+        </div>
+      </section>
+      </div><!-- /st-wizard -->
+
+      <div id="st-status" class="status-slot" aria-live="polite"></div>
+    </div><!-- /panel-edit -->
+  </main>
+
+  <footer class="app-footer">
+    <p class="footer-unlock">Want the <strong>full editor</strong> — statement clips cut straight from UN Web TV, captioned and OCHA-branded? Open the <strong>Edit</strong> tab above for the 3-step setup (no admin rights; runs right on this page).</p>
+    <p>Made by the OCHA Brand and Design Unit · <a href="mailto:ochavisual@un.org">ochavisual@un.org</a> · your video never leaves your device.</p>
+  </footer>
+</body>
+</html>

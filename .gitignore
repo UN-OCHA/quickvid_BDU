@@ -27,3 +27,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.log
+
+# Real video jobs & scratch working area — local only, never publish
+video_editing/
+temp/
