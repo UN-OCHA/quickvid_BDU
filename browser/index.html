@@ -18,7 +18,7 @@
   <script src="lib/mp4-muxer-4.0.0.js"></script>
   <script src="engine.js?v=7" defer></script>
   <script src="app.js?v=7" defer></script>
-  <script src="statement.js?v=2" defer></script>
+  <script src="statement.js?v=3" defer></script>
 </head>
 <body>
   <a class="cd-skip-link" href="#main">Skip to main content</a>
@@ -341,13 +341,13 @@
           <div class="cd-help__panel" id="help-e5" hidden>
             <ul>
               <li>Every sentence found in your window is listed with its length. <strong>Tick</strong> the ones that carry the message — the counter above the list keeps the running total. Aim for <strong>60–90 seconds</strong>.</li>
-              <li>Ticked sentences that aren't next to each other get joined with a <strong>punch-in</strong> — a quick zoom change that hides the cut, broadcast style.</li>
+              <li>Sentences that follow each other play as <strong>one continuous take</strong> — natural pauses kept, no cuts. Only when you <strong>skip ahead</strong> does QuickVid cut, hiding the jump with a <strong>punch-in</strong> (a framing change, broadcast style) and marking the captions with <strong>[...]</strong> so viewers see words were skipped.</li>
               <li>The <strong>C / G</strong> buttons force a Close-up or General shot for that sentence; leave them alone and the tool alternates sensibly on its own.</li>
               <li>Spotted a transcription typo? Click the text and fix it — that changes the <strong>captions only</strong>, never the audio.</li>
               <li><strong>Use AI to pick the sentences</strong>: copies a ready-made prompt with the whole transcript. Paste it into <strong>Microsoft Copilot</strong> (or any AI chat), answer its questions (key messages, target length — attach the statement if you have it), then paste its answer back and the right sentences tick themselves. You still review and adjust.</li>
             </ul>
           </div>
-          <p class="app-hint">Tick the sentences that carry the message — aim for <strong>60–90 seconds</strong>. Each jump between ticked sentences becomes a clean punch-in cut. You can fix small transcription slips in the text (captions only).</p>
+          <p class="app-hint">Tick the sentences that carry the message — aim for <strong>60–90 seconds</strong>. Consecutive sentences play as one take; jumping ahead becomes a clean punch-in cut with <strong>[...]</strong> in the captions. You can fix small transcription slips in the text (captions only).</p>
           <div class="st-btn-row">
             <button class="cd-button cd-button--outline cd-button--small" id="st-ai" type="button"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span class="cd-button__text">Use AI to pick the sentences</span></button>
           </div>
@@ -363,7 +363,7 @@
           <div class="cd-help__panel" id="help-e6" hidden>
             <ul>
               <li>Pick the destination: <strong>Reels</strong> (9:16 portrait) for Instagram/TikTok, <strong>Square</strong> (1:1) or <strong>IG&nbsp;/&nbsp;FB feed</strong> (4:5) for feed posts, <strong>Event screen</strong> (16:9) for halls and webstreams — its captions are clean text over a soft gradient instead of boxes.</li>
-              <li>The clip alternates two crops of the same footage: <strong>General</strong> and <strong>Close-up</strong> (the punch-in). Each is its own little editor — <strong>drag the picture</strong> to reposition it, and use its <strong>zoom slider</strong> to go tighter or wider. What you see is exactly what renders.</li>
+              <li>Two crops of the same footage: <strong>General</strong> (the main look) and <strong>Close-up</strong> (the punch-in used at jumps). Each is its own little editor — <strong>drag the picture</strong> to reposition it, and use its <strong>zoom slider</strong> to go tighter or wider. What you see is exactly what renders.</li>
               <li>Some directions are locked by geometry — e.g. a portrait crop of a landscape video already uses the <em>full height</em>, so it only moves sideways until you zoom in. The grey note under each preview tells you.</li>
               <li>Zooming far softens the picture (the source has only so many pixels) — the note warns you near the limit.</li>
               <li>The previews show a frame from your first kept sentence; <strong>Try another frame</strong> jumps to a different moment if that one's a wide or in-between shot.</li>
@@ -408,6 +408,7 @@
               <li><strong>Start</strong> = seconds into the finished clip; <strong>Duration</strong> = seconds on screen (5–6 reads well). <strong>2nd line</strong> adds a second title line — e.g. a Spanish translation for a bilingual strip.</li>
               <li><strong>Subtitles</strong>: the speaker's words, burned in — keep ON for social (most people watch muted). Two looks: <strong>Social</strong> (white on a grey box) or <strong>Event</strong> (clean white over a soft gradient, for 16:9 screens); the preview shows each, and the format you picked in step 6 sets the sensible default.</li>
               <li><strong>Ending</strong>: <em>Over footage</em> = the OCHA logo snaps over the closing shot with the click sound (the standard). <em>Over black</em> = clean black end card. <em>No ending</em> = finish on the last words.</li>
+              <li><strong>Footage after the last sentence</strong>: with <em>Over footage</em>, the picture keeps rolling for a moment under the logo while the <strong>sound fades to silence</strong> — whoever speaks next in the room is never heard. If your speaker closes with "I thank you", keep that sentence ticked so it's heard.</li>
             </ul>
           </div>
           <figure class="ex-thumb">
@@ -451,6 +452,11 @@
             <label class="end-opt end-opt--none"><input type="radio" name="st-ending" value="none" />
               <span class="end-opt__icon"><img src="img/ic-film.svg" alt="" /></span>
               <span class="end-opt__label">No ending</span><span class="end-opt__hint">End on the last words.</span></label>
+          </div>
+          <div class="field-row" id="st-tail-row">
+            <label class="cd-form__label" for="st-tail">Footage after the last sentence</label>
+            <input class="cd-form__input st-tail-input" id="st-tail" type="number" min="0" max="4" step="0.2" value="2.6" />
+            <span class="app-hint">seconds — the picture keeps rolling under the logo, the sound fades out.</span>
           </div>
         </div>
       </section>

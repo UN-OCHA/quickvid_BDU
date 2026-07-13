@@ -32,7 +32,7 @@ Spec (JSON; library entry point is render(spec, log)):
                      "in": 1.5, "hold": 3.6, "bottom": px?, "name_size": px?, "org_size": px?}],
   "ending": {"style": "over_footage" | "over_black" | "none",
               "at": secs?,          // logo snap time; default footage_end
-              "hold": 2.0, "click": true, "logo_ratio": 0.077}
+              "hold": 2.0, "click": true, "logo_ratio": 0.055}
 }
 """
 import argparse
@@ -66,18 +66,46 @@ def _mw(text, weight, size): return ImageFont.truetype(FONTS[weight], size).getb
 import lower_third as LT
 
 # ---------------- captions ----------------
+def _wrap_lines(text, f, maxw):
+    """Word-wrap into the FEWEST lines that fit maxw, then BALANCE the line widths
+    so no line is left needlessly short — i.e. avoid a lone 'orphan' word on the
+    last line ("humanitarian / crisis" -> "Mr. President, Yemen's / humanitarian crisis").
+    Honors explicit newlines the caller may put in `text`."""
+    def greedy(words, mw):
+        lines, cur = [], ""
+        for w in words:
+            t = (cur + " " + w).strip()
+            if f.getbbox(t)[2] <= mw or not cur:
+                cur = t
+            else:
+                lines.append(cur); cur = w
+        if cur:
+            lines.append(cur)
+        return lines
+    out = []
+    for seg in text.split("\n"):                       # honor any hard breaks first
+        words = seg.split()
+        if not words:
+            continue
+        if f.getbbox(seg.strip())[2] <= maxw:          # already one line
+            out.append(" ".join(words)); continue
+        n = len(greedy(words, maxw))                   # minimum number of lines
+        lo, hi, best = 1, maxw, greedy(words, maxw)
+        while lo <= hi:                                # smallest width target still fitting n lines = most balanced
+            mid = (lo + hi) // 2
+            g = greedy(words, mid)
+            if len(g) <= n:
+                best = g; hi = mid - 1
+            else:
+                lo = mid + 1
+        out.extend(best)
+    return out
+
+
 def _sub_png(text, sub, path):
     weight = sub.get("weight", 500); size = sub["size"]; maxw = sub["max_w"]
     f = ImageFont.truetype(FONTS[weight], size)
-    words, lines, cur = text.split(), [], ""
-    for w in words:
-        t = (cur + " " + w).strip()
-        if f.getbbox(t)[2] <= maxw or not cur:
-            cur = t
-        else:
-            lines.append(cur); cur = w
-    if cur:
-        lines.append(cur)
+    lines = _wrap_lines(text, f, maxw)
     px, py = sub["pad"]; lh = int(size * sub["line_h"])
     tw = max(f.getbbox(l)[2] for l in lines)
     w = int(tw + 2 * px); h = int(len(lines) * lh + 2 * py); cx = w / 2; y0 = py + lh / 2
@@ -182,7 +210,7 @@ def render(spec: dict, log=print) -> str:
     if style != "none":
         logo_png = os.path.join(work, "logo.png")     # always rasterized fresh from the SVG
         _svg2png(url=LOGO_SVG, write_to=logo_png,
-                         output_height=round(H * float(end.get("logo_ratio", 0.077))))
+                         output_height=round(H * float(end.get("logo_ratio", 0.055))))
         from PIL import Image
         lw, lh_ = Image.open(logo_png).size
         if end.get("click", True) and os.path.exists(BRAND_JSON):
@@ -235,7 +263,8 @@ def render(spec: dict, log=print) -> str:
         fc.append(f"[0:a]atrim=0:{at},asetpts=PTS-STARTPTS,afade=t=out:st={at - 0.06:.2f}:d=0.06,apad=pad_dur={hold}[amain]")
     elif style == "over_footage":                      # logo snaps on over the running footage — no scrim, ever
         fc.append(f"[{logo_idx}:v]format=rgba[lg]")
-        fc.append(f"[{prev}][lg]overlay={(W - lw) // 2}:{(H - lh_) // 2}:eof_action=pass:enable='gte(t,{at})',format=yuv420p[vout]")
+        logo_y = round(H * float(end.get("logo_y_frac", 0.58)) - lh_ / 2)   # below the face, above the caption zone
+        fc.append(f"[{prev}][lg]overlay={(W - lw) // 2}:{logo_y}:eof_action=pass:enable='gte(t,{at})',format=yuv420p[vout]")
         fc.append("[0:a]anull[amain]")
     else:
         fc.append(f"[{prev}]trim=0:{footage_end},setpts=PTS-STARTPTS,format=yuv420p[vout]")

@@ -122,6 +122,22 @@ def pick_file():
     return {"path": path}
 
 
+class OpenFolderReq(BaseModel):
+    path: str
+
+
+@app.post("/api/open-folder")
+def open_folder(req: OpenFolderReq):
+    """Show the job folder in Finder/Explorer — so users SEE where everything saved
+    (Paolo's Windows test shipped a loose browser download instead of the export/)."""
+    p = Path(req.path)
+    if not p.is_dir():
+        raise HTTPException(400, f"Not a folder: {req.path}")
+    opener = {"darwin": ["open"], "win32": ["explorer"]}.get(sys.platform, ["xdg-open"])
+    subprocess.Popen(opener + [str(p)])
+    return {"ok": True}
+
+
 class TranscribeReq(BaseModel):
     folder: str
     model: Optional[str] = None
@@ -251,9 +267,12 @@ def preview(jid: str):
 
 
 @app.get("/api/export/{jid}")
-def export(jid: str):
+def export(jid: str, name: str = ""):
+    # cross-origin downloads ignore the <a download> attribute — this header is the only
+    # filename that sticks, so let the UI pass the project name
+    safe = re.sub(r"[^A-Za-z0-9._ -]+", "_", name).strip(" ._") or "ocha_quickvid"
     return FileResponse(_rendered_mp4(jid), media_type="video/mp4",
-                        filename="ocha_quickvid.mp4")
+                        filename=f"{safe}.mp4")
 
 
 # ---------------------------------------------------------------------------
@@ -411,8 +430,9 @@ class StRenderReq(BaseModel):
     preset: str = "reels"
     lower_third: dict = {}                              # legacy single LT (old projects)
     lower_thirds: Optional[list] = None                 # [{name,org,org2,start,duration,align}] — the multi-row UI
-    ending: dict = {"style": "over_footage"}
+    ending: dict = {"style": "over_footage"}           # {"style", "tail"?} — tail = footage secs after last sentence
     captions: bool = True
+    subtitles: Optional[dict] = None                   # {"on": bool, "style": "box"|"gradient"}
     dir: Optional[str] = None                          # job folder → final lands in <dir>/export/
 
 

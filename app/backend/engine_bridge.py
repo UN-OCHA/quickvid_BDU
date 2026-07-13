@@ -292,6 +292,7 @@ def _finish_with_subtitles(job, workdir, out) -> None:
         footage_end = dur
 
     spec = {"src": video, "out": str(out), "canvas": [pw, ph],
+            "bitrate": "12M",                           # 6M default reads soft at 1080p+
             "footage_end": round(footage_end, 2), "subtitle": sub, "cues": cues,
             "lower_thirds": lts, "ending": ending}
     spec_path = workdir / "brand_spec.json"

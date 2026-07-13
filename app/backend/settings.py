@@ -12,7 +12,7 @@ UI_DIR = ROOT / "browser"                        # the single unified UI (browse
 WORKSPACE = ROOT / "app" / "workspace"          # per-job working dirs (gitignored)
 BRAND_FILE = ROOT / "brand" / "brand.json"
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"          # runs-based cutting + muted tail + 2-line captions (Yemen test fixes)
 ENGINE_PORT = 17870                              # fixed port the web app pings to detect the engine
 
 WORKSPACE.mkdir(parents=True, exist_ok=True)

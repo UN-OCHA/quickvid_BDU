@@ -189,3 +189,7 @@ body.is-full .footer-unlock { display: none; }
 /* selected + keyboard-focus states use the kit's cyan token */
 .end-opt:has(input:checked) { border-color: var(--ocha-cyan); box-shadow: inset 0 0 0 1px var(--ocha-cyan); }
 .end-opt:focus-within { outline: 2px solid var(--ocha-cyan); outline-offset: 2px; }
+
+/* ---- ending tail control (Edit step 7) ---- */
+.st-tail-input { width: 5rem; flex: 0 0 auto; }
+#st-tail-row { align-items: center; gap: 0.6rem; }

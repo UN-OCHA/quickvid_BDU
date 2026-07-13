@@ -36,18 +36,26 @@ FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 
 # Destination presets — the numbers we actually shipped (Ukraine 9:16, Venezuela 1:1).
 # Captions: boxed for social feeds; the EVENT look is no-box white over a bottom gradient.
+# Caption rows: bottom_hi/bottom_lo — captions sit at LO and LIFT to HI while a lower
+# third is up. Tall canvases (reels/4:5) have room for BOTH, so hi == lo there: one
+# constant position that clears the LT — no caption jump when the LT leaves (ASG Yemen
+# feedback). Square + event genuinely collide, so they keep the lift.
 PRESETS = {
-    "reels":  {"canvas": [1080, 1920], "sub": {"box": True,  "size": 46, "max_w": 920,  "bottom_hi": 1320, "bottom_lo": 1480},
+    "reels":  {"canvas": [1080, 1920], "sub": {"box": True,  "size": 46, "max_w": 920,  "bottom_hi": 1430, "bottom_lo": 1430},
                "lt": {"bottom": 1620, "name_size": 46, "org_size": 30}},
     "square": {"canvas": [1080, 1080], "sub": {"box": True,  "size": 44, "max_w": 800,  "bottom_hi": 806,  "bottom_lo": 900},
                "lt": {"bottom": 972,  "name_size": 40, "org_size": 23}},
-    "feed45": {"canvas": [1080, 1350], "sub": {"box": True,  "size": 44, "max_w": 860,  "bottom_hi": 1010, "bottom_lo": 1130},
+    "feed45": {"canvas": [1080, 1350], "sub": {"box": True,  "size": 44, "max_w": 860,  "bottom_hi": 1050, "bottom_lo": 1050},
                "lt": {"bottom": 1215, "name_size": 42, "org_size": 26}},
     "event":  {"canvas": [1920, 1080], "sub": {"box": False, "size": 46, "max_w": 1500, "bottom_hi": 880,  "bottom_lo": 1000},
                "lt": {"bottom": 960,  "name_size": 44, "org_size": 26}},
 }
-END_BED = 2.6            # footage kept after the last segment for the over_footage ending
+END_BED = 2.6            # default footage kept after the last sentence (ending.tail overrides, 0-4s)
 LOGO_LEAD = 0.5          # logo snaps this long into the bed (a beat after the last word)
+JUMP_GAP = 1.5           # skipped source time (s) that counts as a real JUMP: new take + punch-in
+                         # + "[...]" caption marker. Below this it's just a pause — same take,
+                         # pause kept. (0.25s was wrong: natural pauses are 0.3-1.0s.)
+                         # Mirrored in browser/statement.js stAutoShots — keep in sync.
 
 
 def _probe(src):
@@ -81,45 +89,91 @@ def crops(sw, sh, cw, ch, subject, framing=None):
             crop_rect(sw, sh, cw, ch, c["x"], c["y"], c["zoom"]))
 
 
-def assign_shots(segments):
-    """Default punch-in plan: alternate close/general, toggling only across a GAP
-    (>0.25s) between segments — a gap is a real cut that needs hiding; contiguous
-    segments are one take. Explicit seg["shot"] wins."""
-    shot, prev_out = "close", None
-    for seg in segments:
-        if prev_out is not None and seg["in"] - prev_out > 0.25:
-            shot = "general" if shot == "close" else "close"
-        seg["shot"] = seg.get("shot") or shot
-        prev_out = seg["out"]
-    return segments
+def build_runs(segments, jump_gap=JUMP_GAP):
+    """Group the SELECTED sentences into continuous RUNS. Consecutive sentences whose
+    source gap is under `jump_gap` play as ONE take: overlapping Whisper boundaries are
+    clamped (no repeated frames) and the speaker's natural pauses are KEPT (that's the
+    breathing between sentences). A larger gap = skipped content = a real jump: new run,
+    punch-in, and a "[...]" caption marker.
+    Run shot: an explicit userShot on any sentence sets the whole run; otherwise runs
+    alternate general → close (open on the wider, sharpest framing)."""
+    runs = []
+    for seg in sorted(segments, key=lambda s: s["in"]):
+        if runs and seg["in"] - runs[-1]["out"] < jump_gap:
+            r = runs[-1]
+            r["out"] = max(r["out"], seg["out"])
+            r["segs"].append(seg)
+        else:
+            runs.append({"in": seg["in"], "out": seg["out"], "segs": [seg]})
+    shot = None
+    for r in runs:
+        user = next((s.get("userShot") for s in r["segs"] if s.get("userShot")), None)
+        if user:
+            r["shot"] = user
+        elif shot is None:                              # first run: legacy per-seg shot or general
+            r["shot"] = next((s.get("shot") for s in r["segs"] if s.get("shot")), None) or "general"
+        else:
+            r["shot"] = "close" if shot == "general" else "general"
+        shot = r["shot"]
+    return runs
 
 
 # ---------------- captions from the cut ----------------
-def cues_from_segments(segments, max_len=7.0):
-    """Caption cues on the CUT timeline. Whisper segments are near caption-sized;
-    anything longer than ~7s splits at word boundaries."""
+def two_line_chars(sub):
+    """Character budget that fits TWO caption lines (the hard max on social — more reads
+    as a block over the video). Raleway 500 averages ~0.55em per glyph."""
+    return max(44, int(2 * sub["max_w"] / (sub["size"] * 0.55)))
+
+
+def cues_from_runs(runs, sub, min_show=1.2):
+    """Caption cues on the CUT timeline, from continuous runs.
+    - text = the EXACT spoken words (Whisper) — never a pasted script
+    - each cue fits two rendered lines; longer sentences split at word boundaries,
+      timed by the word onsets
+    - the first caption after a jump gets the "[...]" omission marker
+    - blink-and-miss cues (<min_show s) merge forward while they still fit"""
+    budget = two_line_chars(sub)
     cues, t = [], 0.0
-    for seg in segments:
-        dur = seg["out"] - seg["in"]
-        words = seg.get("words") or []
-        text = (seg.get("text") or "").strip()
-        if dur > max_len and len(words) > 3:
-            parts = max(2, math.ceil(dur / (max_len * 0.9)))
-            per = math.ceil(len(words) / parts)
-            for i in range(0, len(words), per):
-                chunk = words[i:i + per]
-                cues.append([round(t + max(chunk[0]["s"] - seg["in"], 0), 2),
-                             " ".join(w["w"] for w in chunk)])
-        elif text:
-            cues.append([round(t, 2), text])
-        t += dur
-    return cues
+    for ri, r in enumerate(runs):
+        first_in_run = True
+        for seg in r["segs"]:
+            text = (seg.get("text") or "").strip()
+            if not text:
+                continue
+            mark = "[...] " if (ri and first_in_run) else ""
+            first_in_run = False
+            words = seg.get("words") or []
+            if words and len(mark + text) > budget:
+                chunks, cur, limit = [], [], budget - len(mark)
+                for w in words:
+                    if cur and len(" ".join(x["w"] for x in cur + [w])) > limit:
+                        chunks.append(cur); cur, limit = [w], budget
+                    else:
+                        cur.append(w)
+                if cur:
+                    chunks.append(cur)
+                for ci, ch in enumerate(chunks):
+                    start = t + max(0.0, ch[0]["s"] - r["in"])
+                    cues.append([round(start, 2), (mark if ci == 0 else "") + " ".join(w["w"] for w in ch)])
+            else:
+                start = t + max(0.0, (words[0]["s"] if words else seg["in"]) - r["in"])
+                cues.append([round(start, 2), mark + text])
+        t += r["out"] - r["in"]
+    merged = []                                         # min display time: fold tiny cues forward
+    for c in cues:
+        if (merged and c[0] - merged[-1][0] < min_show
+                and not c[1].startswith("[...]")
+                and len(merged[-1][1]) + 1 + len(c[1]) <= budget):
+            merged[-1][1] += " " + c[1]
+        else:
+            merged.append(c)
+    return merged
 
 
 def cues_real_timeline(segments, max_len=7.0):
     """Caption cues on the ORIGINAL video timeline — for a FINISHED clip (Titles &
     branding + subtitles): nothing is cut, so each segment's own time is the cue
-    time. Long segments split at word boundaries, like cues_from_segments."""
+    time. Long segments split at word boundaries at a ~7s cap."""
     cues = []
     for seg in segments:
         dur = seg["out"] - seg["in"]
@@ -217,7 +271,7 @@ def do_render(spec):
     preset = PRESETS.get(spec.get("preset") or "reels", PRESETS["reels"])
     cw, ch = spec.get("canvas") or preset["canvas"]
     fps = 30
-    segments = assign_shots(sorted(spec["segments"], key=lambda s: s["in"]))
+    runs = build_runs(sorted(spec["segments"], key=lambda s: s["in"]))
     general, close = crops(sw, sh, cw, ch, spec.get("subject") or {}, spec.get("framing"))
     rects = {"general": general, "close": close}
     ending = spec.get("ending") or {"style": "over_footage"}
@@ -225,25 +279,31 @@ def do_render(spec):
     workdir = os.path.dirname(os.path.abspath(out))
     base = os.path.join(workdir, "base_cut.mp4")
 
-    print(f"Cutting {len(segments)} segments → {cw}x{ch}…", flush=True)
+    print(f"Cutting {len(runs)} continuous take(s) → {cw}x{ch}…", flush=True)
     inputs, fc, pairs = [], [], []
-    for i, seg in enumerate(segments):
-        inputs += ["-ss", f"{seg['in']:.2f}", "-t", f"{seg['out'] - seg['in']:.2f}", "-i", src]
-        w, h, x, y = rects.get(seg.get("shot", "close"), close)
+    for i, r in enumerate(runs):
+        inputs += ["-ss", f"{r['in']:.2f}", "-t", f"{r['out'] - r['in']:.2f}", "-i", src]
+        w, h, x, y = rects.get(r["shot"], close)
         fc.append(f"[{i}:v]crop={w}:{h}:{x}:{y},scale={cw}:{ch},setsar=1,fps={fps},setpts=PTS-STARTPTS[v{i}]")
         pairs.append(f"[v{i}][{i}:a]")
-    n = len(segments)
-    footage_end = sum(s["out"] - s["in"] for s in segments)
-    if style == "over_footage":                      # bed: footage right after the last word (general crop)
-        bed_in = segments[-1]["out"]
-        bed_len = min(END_BED, max(0.0, sdur - bed_in))
-        if bed_len < 1.2:                             # not enough tail — freeze isn't our style; use black
-            style = "over_black"
+    n = len(runs)
+    footage_end = sum(r["out"] - r["in"] for r in runs)
+    tail = ending.get("tail")                          # UI "footage after the last sentence" (0-4s)
+    tail = END_BED if tail is None else max(0.0, min(4.0, float(tail)))
+    bed_len = 0.0
+    if style == "over_footage":                        # bed: footage right after the last word,
+        bed_in = runs[-1]["out"]                       # SAME framing as the last take (no free punch)
+        bed_len = min(tail, max(0.0, sdur - bed_in))
+        if bed_len < 0.8:                              # not enough tail for the logo beat — black card
+            style, bed_len = "over_black", 0.0
         else:
             inputs += ["-ss", f"{bed_in:.2f}", "-t", f"{bed_len:.2f}", "-i", src]
-            w, h, x, y = general
+            w, h, x, y = rects.get(runs[-1]["shot"], general)
             fc.append(f"[{n}:v]crop={w}:{h}:{x}:{y},scale={cw}:{ch},setsar=1,fps={fps},setpts=PTS-STARTPTS[v{n}]")
-            pairs.append(f"[v{n}][{n}:a]")
+            # the tail's SOUND fades to silence — whoever speaks next in the room must
+            # never be heard under our logo (the "Je remercie…" bug)
+            fc.append(f"[{n}:a]afade=t=out:st=0.1:d={min(0.6, max(0.2, bed_len - 0.2)):.2f}[abed]")
+            pairs.append(f"[v{n}][abed]")
             n += 1
     fc.append("".join(pairs) + f"concat=n={n}:v=1:a=1[v][a]")
     r = subprocess.run([FF, "-y", "-loglevel", "error"] + inputs +
@@ -270,15 +330,17 @@ def do_render(spec):
         hold = max(0.5, float(l.get("duration", 5)) - lower_third.ENTER_END - lower_third.EXIT_DUR)
         lts.append({**preset["lt"], "name": l["name"], "titles": titles,
                     "align": l.get("align", "center"), "in": float(l.get("start", 1.5)), "hold": hold})
+    # Subtitles: {"on": bool, "style": "box"|"gradient"} — style overrides the
+    # preset default (boxed social vs clean-over-gradient event look).
+    sub_cfg = {**preset["sub"],
+               **({"box": (spec.get("subtitles") or {}).get("style") == "box"}
+                  if (spec.get("subtitles") or {}).get("style") else {})}
     bspec = {
         "src": base, "out": out, "canvas": [cw, ch], "fps": fps,
+        "bitrate": "12M",                              # 6M default reads soft on 1080x1920
         "footage_end": round(footage_end, 2),
-        # Subtitles: {"on": bool, "style": "box"|"gradient"} — style overrides the
-        # preset default (boxed social vs clean-over-gradient event look).
-        "subtitle": {**preset["sub"],
-                     **({"box": (spec.get("subtitles") or {}).get("style") == "box"}
-                        if (spec.get("subtitles") or {}).get("style") else {})},
-        "cues": cues_from_segments(segments)
+        "subtitle": sub_cfg,
+        "cues": cues_from_runs(runs, sub_cfg)
                 if (spec.get("subtitles") or {}).get("on", spec.get("captions", True)) else [],
         "lower_thirds": lts,
         "ending": {"style": style, "at": round(footage_end + (LOGO_LEAD if style == "over_footage" else 0), 2),
@@ -288,7 +350,8 @@ def do_render(spec):
         bspec["ending"] = {"style": "none"}
     social_brand.render(bspec, log=lambda m: print(m, flush=True))
     print("RESULT " + json.dumps({"path": out, "base": base, "footage_end": round(footage_end, 2),
-                                  "duration": round(footage_end + (END_BED if style == 'over_footage' else 2.0), 2)}),
+                                  "duration": round(footage_end + (bed_len if style == 'over_footage' else
+                                                                   (float(ending.get("hold", 2.0)) if style == "over_black" else 0.0)), 2)}),
           flush=True)
 
 

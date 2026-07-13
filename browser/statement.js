@@ -75,9 +75,10 @@ $st("#st-os-win").onclick = () => stSetOS(true);
 stSetOS(/Windows/i.test(navigator.userAgent));
 
 // ---------- E2: source ----------
-async function stUseSource(path) {
+async function stUseSource(path, opts = {}) {
   const r = await fetch(`${ENGINE}/api/statement/probe?src=${encodeURIComponent(path)}`);
   if (!r.ok) { stStatus("Couldn't read that video.", "error"); return; }
+  ST.fromWebtv = !!opts.webtv;                         // UN feeds usually need the +4f fix — preselect it
   ST.src = path;
   ST.probe = await r.json();
   const p = ST.probe;
@@ -105,7 +106,7 @@ $st("#st-get").onclick = async () => {
     if (!r.ok) throw new Error((await r.json()).detail || "Download failed");
     const { job_id } = await r.json();
     const j = await stJob(job_id, (jj) => stStatus(jj.progress || "Downloading…", "busy", jj.percent));
-    await stUseSource(j.result.path);
+    await stUseSource(j.result.path, { webtv: true });
   } catch (e) { stStatus("Download failed: " + e.message, "error"); }
   finally { $st("#st-get").disabled = false; }
 };
@@ -121,6 +122,16 @@ $st("#st-pick").onclick = async () => {
 
 // ---------- E1: project name + job folder (everything saves here) ----------
 const stSafeName = (s) => s.replace(/[\\/:*?"<>|]+/g, "-").replace(/[.\s]+$/g, "").trim();
+
+function stOpenFolder(path) {                                // show the job folder in Finder/Explorer
+  if (!path) return;
+  fetch(`${ENGINE}/api/open-folder`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  }).catch(() => {});
+}
+const stOpenBtn = (id) =>
+  ` <button type="button" class="cd-button cd-button--outline cd-button--small" id="${id}"><span class="cd-button__text">Open folder</span></button>`;
 
 $st("#st-folder-pick").onclick = async () => {
   const name = ($st("#st-proj-name").value || "").trim();
@@ -138,7 +149,8 @@ $st("#st-folder-pick").onclick = async () => {
     ST.projName = name;
     ST.jobDir = path.replace(/[\/\\]+$/, "") + "/" + stSafeName(name);
     $st("#st-folder-path").innerHTML =
-      `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Project folder: <strong>${esc(ST.jobDir)}</strong> — download, final clip, thumbnail and the project file all live here.`;
+      `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Project folder: <strong>${esc(ST.jobDir)}</strong> — download, final clip, thumbnail and the project file all live here.` + stOpenBtn("st-open-dir1");
+    $st("#st-open-dir1").onclick = () => stOpenFolder(ST.jobDir);
     stSave();                                                // creates the folder + first autosave
     try {                                                    // same-named project already there? offer to reopen it
       const lr = await fetch(`${ENGINE}/api/statement/load-project?dir=${encodeURIComponent(ST.jobDir)}`);
@@ -158,7 +170,8 @@ $st("#st-open-proj").onclick = async () => {
     if (dir) {                                               // the file's real location wins over any stored (possibly moved) path
       ST.jobDir = dir;
       $st("#st-folder-path").innerHTML =
-        `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Reopened from <strong>${esc(dir)}</strong> — edits save back here.`;
+        `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Reopened from <strong>${esc(dir)}</strong> — edits save back here.` + stOpenBtn("st-open-dir2");
+      $st("#st-open-dir2").onclick = () => stOpenFolder(ST.jobDir);
     }
     stSave();
     stStatus(`Opened “${(project.name || "project")}” — continue editing below.`, "ok");
@@ -191,7 +204,11 @@ function stInitSync() {
     row.appendChild(b);
   });
   ST.syncT = stSyncPickTime();                               // a fresh moment each time we open the step
-  stSyncPreview(0, row.children[SYNC_OFFSETS.indexOf(0)]);   // default selection = "As is"
+  // UN Web TV broadcasts usually run the audio ~4 frames ahead (Ukraine + Yemen both did),
+  // so downloads PRESELECT the usual fix — the user still eyeballs the preview and can
+  // switch to "As is". Local files start at "As is".
+  const start = ST.fromWebtv ? SYNC_OFFSETS.indexOf(USUAL_FIX) : SYNC_OFFSETS.indexOf(0);
+  stSyncPreview(SYNC_OFFSETS[start], row.children[start]);
 }
 
 // A talking moment somewhere in the middle — never the first/last few seconds
@@ -343,14 +360,24 @@ $st("#st-transcribe").onclick = async () => {
 
 // ---------- E5: sentence selection + punch-in plan ----------
 function stAutoShots() {
-  // Alternate close/general, toggling only across a GAP (a real cut). User overrides win.
-  let shot = "close", prevOut = null;
-  ST.segments.forEach((s) => {
-    if (!s.sel) return;
-    if (prevOut !== null && s.in - prevOut > 0.25) shot = shot === "close" ? "general" : "close";
-    s.shot = s.userShot || shot;
-    shot = s.shot;                                     // an override re-anchors the alternation
-    prevOut = s.out;
+  // Consecutive sentences (< 1.5s of skipped source time) are ONE continuous take —
+  // no cut, natural pauses kept. A bigger gap = a real JUMP: new take, punch-in,
+  // and the captions get a "[...]" marker. Mirrors engine/statement.py JUMP_GAP.
+  const sel = ST.segments.filter((s) => s.sel).sort((a, b) => a.in - b.in);
+  const runs = [];
+  for (const s of sel) {
+    const last = runs[runs.length - 1];
+    if (last && s.in - last.out < 1.5) { last.out = Math.max(last.out, s.out); last.segs.push(s); }
+    else runs.push({ in: s.in, out: s.out, segs: [s] });
+  }
+  let shot = null;
+  runs.forEach((r, i) => {
+    const user = r.segs.find((s) => s.userShot);
+    r.shot = user ? user.userShot
+           : shot === null ? "general"                    // open on the wider, sharpest framing
+           : shot === "close" ? "general" : "close";      // punch only across jumps
+    shot = r.shot;
+    r.segs.forEach((s) => { s.shot = r.shot; s._run = i; });
   });
 }
 
@@ -376,7 +403,11 @@ function stRenderSegList() {
     };
     row.querySelector(".st-seg__text").onchange = (e) => { s.text = e.target.value; };
     row.querySelectorAll(".st-shot").forEach((b) => {
-      b.onclick = () => { s.userShot = b.dataset.shot; stAutoShots(); stRenderSegList(); stSave(); };
+      b.onclick = () => {
+        ST.segments.forEach((x) => { if (x.sel && x._run === s._run && x !== s) delete x.userShot; });
+        s.userShot = b.dataset.shot;                   // one take = one framing; latest click wins
+        stAutoShots(); stRenderSegList(); stSave();
+      };
     });
     list.appendChild(row);
   });
@@ -421,7 +452,7 @@ function stFrameHint(shot) {
   if (lockX && lockY) bits.push("Whole frame in use — zoom in to reposition.");
   else if (lockY) bits.push("Full height in use — drag sideways; zoom in to move up/down.");
   else if (lockX) bits.push("Full width in use — drag up/down; zoom in to move sideways.");
-  if ((ST.framing[shot].zoom || 1) >= 1.8) bits.push("⚠ Zooming this far softens the picture.");
+  if ((ST.framing[shot].zoom || 1) >= 1.5) bits.push(`⚠ Only ~${w}px of source stretched to full width — softens the picture.`);
   $st(shot === "general" ? "#st-hint-general" : "#st-hint-close").textContent = bits.join(" ");
 }
 
@@ -514,6 +545,16 @@ function stSetSubStyle(style) {
     ? "Social — white text on a grey box (feeds & reels)."
     : "Event — clean white text over a soft gradient (16:9 screens).";
 }
+function stTailVis() {
+  const st = (document.querySelector('input[name="st-ending"]:checked') || {}).value;
+  const row = $st("#st-tail-row");
+  if (row) row.hidden = st !== "over_footage";
+}
+document.querySelectorAll('input[name="st-ending"]').forEach((r) =>
+  r.addEventListener("change", () => { stTailVis(); stSave(); }));
+stTailVis();
+$st("#st-tail").addEventListener("change", stSave);
+
 $st("#st-substyle-box").onclick = () => { stSetSubStyle("box"); stSave(); };
 $st("#st-substyle-event").onclick = () => { stSetSubStyle("gradient"); stSave(); };
 $st("#st-captions").addEventListener("change", () => { $st("#st-subs-opts").hidden = !$st("#st-captions").checked; });
@@ -581,12 +622,13 @@ $st("#st-render").onclick = async () => {
   if (!sel.length) return stStatus("Tick at least one sentence.", "warn");
   const body = {
     src: ST.src,
-    segments: sel.map((s) => ({ in: s.in, out: s.out, shot: s.shot, text: s.text, words: s.words })),
+    segments: sel.map((s) => ({ in: s.in, out: s.out, shot: s.shot, userShot: s.userShot, text: s.text, words: s.words })),
     framing: ST.framing,
     subject: { x: ST.framing.general.x, y: ST.framing.general.y },   // legacy field for old engine copies
     preset: document.querySelector('input[name="st-preset"]:checked').value,
     lower_thirds: stCollectLts(),
-    ending: { style: document.querySelector('input[name="st-ending"]:checked').value },
+    ending: { style: document.querySelector('input[name="st-ending"]:checked').value,
+              tail: (() => { const v = parseFloat(($st("#st-tail") || {}).value); return Number.isFinite(v) ? v : undefined; })() },
     captions: $st("#st-captions").checked,
     subtitles: { on: $st("#st-captions").checked, style: ST.subsStyle || "box" },
     dir: ST.jobDir,
@@ -602,13 +644,16 @@ $st("#st-render").onclick = async () => {
     const j = await stJob(job_id, (jj) => stStatus(jj.progress || "Rendering…", "busy"));
     ST.renderJob = job_id;
     $st("#st-player").src = `${ENGINE}/api/preview/${job_id}?cb=${Date.now()}`;
-    $st("#st-download").href = `${ENGINE}/api/export/${job_id}`;
+    $st("#st-download").href = `${ENGINE}/api/export/${job_id}?name=` +
+      encodeURIComponent(ST.projName ? stSafeName(ST.projName).replace(/\s+/g, "_") : "statement_clip");
     $st("#st-download").download = (ST.projName ? stSafeName(ST.projName).replace(/\s+/g, "_") : "statement_clip") + ".mp4";
     const saved = $st("#st-saved");
     if (j.result && j.result.export) {
       saved.hidden = false;
       saved.querySelector(".cd-alert__message").innerHTML =
-        `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Saved to <strong>${esc(j.result.export)}</strong> (in the job's <code>export/</code> folder).`;
+        `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Saved to <strong>${esc(j.result.export)}</strong> (in the job's <code>export/</code> folder). ` +
+        `<button type="button" class="cd-button cd-button--outline cd-button--small" id="st-open-export"><span class="cd-button__text">Open folder</span></button>`;
+      $st("#st-open-export").onclick = () => stOpenFolder(ST.jobDir);
     } else { saved.hidden = true; }
     stThumbs(body.preset);
     $st("#st-card-out").hidden = false;
@@ -764,6 +809,7 @@ function stSnapshot() {
     ending: val('input[name="st-ending"]:checked') || "over_footage",
     captions: $st("#st-captions").checked,
     subsStyle: ST.subsStyle || "box",
+    tail: parseFloat(($st("#st-tail") || {}).value),
     lts: stCollectLts(),
   };
 }
@@ -784,7 +830,12 @@ function stSaveNow() {
     fetch(`${ENGINE}/api/statement/save-project`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dir: ST.jobDir, project: snap, name: snap.name || undefined }),
-    }).catch(() => {});
+    }).then((r) => { if (!r.ok) throw new Error(); ST._saveWarned = false; })
+      .catch(() => {                                    // silent loss is how test files end up loose
+        if (ST._saveWarned) return;
+        ST._saveWarned = true;
+        stStatus("Couldn't write the project file into the job folder — check the folder still exists.", "warn");
+      });
   }
   const box = $st("#st-autosave"), txt = $st("#st-autosave-txt");
   if (box && txt) { box.hidden = false; txt.textContent = "Saved " + stAgo(snap.savedAt); }
@@ -800,8 +851,11 @@ function stRestore(p) {
     ST.projName = p.name || null;
     if (p.name) $st("#st-proj-name").value = p.name;
     ST.jobDir = p.jobDir || null;
-    if (ST.jobDir) $st("#st-folder-path").innerHTML =
-      `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Saving to <strong>${esc(ST.jobDir)}</strong>.`;
+    if (ST.jobDir) {
+      $st("#st-folder-path").innerHTML =
+        `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Saving to <strong>${esc(ST.jobDir)}</strong>.` + stOpenBtn("st-open-dir3");
+      $st("#st-open-dir3").onclick = () => stOpenFolder(ST.jobDir);
+    }
     ST.src = p.src || null; ST.probe = p.probe || null; ST.offset = p.offset || 0;
     const df = stDefaultFraming();
     if (p.framing) ST.framing = { general: { ...df.general, ...p.framing.general },
@@ -813,6 +867,8 @@ function stRestore(p) {
     ST.segments = p.segments || [];
     check("st-preset", p.preset || "reels");
     check("st-ending", p.ending || "over_footage");
+    if (Number.isFinite(p.tail)) $st("#st-tail").value = p.tail;
+    stTailVis();
     $st("#st-lt-rows").innerHTML = "";
     let lts = p.lts;
     if (!lts && p.lt && p.lt.name)                             // old single-LT projects

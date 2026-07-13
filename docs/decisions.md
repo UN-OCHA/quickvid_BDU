@@ -187,6 +187,38 @@ Venezuela look. Consolidation (was 3 divergent implementations):
   working (`ending.logo` auto-translated); black-tail clips need explicit
   `footage_end` (auto-detection retired).
 
+## 2026-07-14 — Statement-clip fixes from Paolo's Windows test (ASG Yemen)
+The colleague's export was bumpy every ~10s, carried the next speaker's French, had a
+face-covering logo and read soft. Diagnosis + fixes (engine + UI, all verified against
+his actual project file rendered through the API):
+- **Runs, not per-sentence cuts** (`build_runs`, JUMP_GAP=1.5s): consecutive sentences play
+  as ONE continuous take — natural pauses kept, Whisper's overlapping boundaries clamped
+  (they used to double-play ~0.2s at every seam). Punch-in ONLY at a real jump (>1.5s of
+  skipped source). The old rule punched on every >0.25s pause = the "bumps". First take
+  opens general (sharpest); a C/G pill click sets its whole take, newest click wins.
+- **"[...]" omission marker** automatically prefixes the first caption after each jump.
+- **Captions**: hard 2-line max via a per-preset char budget (`two_line_chars`, ~72 chars
+  on reels), split at word boundaries on word onsets; <1.2s cues merge forward; balanced
+  wrap (no orphan word — social_brand `_wrap_lines`); EXACT spoken words always (the
+  pasted script is selection-only). Reels/4:5 caption position now CONSTANT (hi==lo,
+  1430/1050) — no drop when the LT leaves; square/event keep the lift (real collisions).
+- **Ending tail**: over_footage bed reuses the LAST take's framing and its audio FADES TO
+  MUTE (st=0.1, ≤0.6s) — the "Je remercie…" next-speaker bleed can't happen. New UI
+  control "Footage after the last sentence" (0-4s, default 2.6) + hint to keep a closing
+  "I thank you" selected. Logo default 0.055·H (was 0.077 = too big) and sits at 0.58·H
+  over footage (clear of faces; over_black stays centred).
+- **Quality**: statement + Titles-subtitles renders now 12 Mbps (6M read soft); zoom-softness
+  hint fires at 1.5x with the real source-pixel width.
+- **Sync**: UN Web TV downloads PRESELECT the +4f usual fix (Ukraine + Yemen both needed it);
+  local files still start "As is".
+- **Windows/files**: /api/export honors ?name= (cross-origin downloads ignore the anchor's
+  download attr — that's why Paolo shipped "ocha_quickvid (1).mp4"); statement UI passes the
+  project name. New POST /api/open-folder (Finder/Explorer) + "Open folder" buttons on the
+  folder line and the saved-to-export line. save-project failures now surface a warning
+  instead of dying silently. StRenderReq gained `subtitles` (pydantic was silently DROPPING
+  the Edit tab's style toggle) and `ending.tail`.
+- Engine VERSION 0.3.0. To update an installed engine, re-run the web-served installer.
+
 ## 2026-07-13 — Subtitles everywhere (Increment 2, UNPUBLISHED, local)
 Javier's rules: subtitles are ENGINE-ONLY (no .srt path); Lite users get a plain CTA.
 - **Both tabs**: "Burn in captions" is gone → a **Subtitles** ON/OFF toggle + a
