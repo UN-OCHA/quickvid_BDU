@@ -3,10 +3,10 @@ setlocal EnableExtensions
 REM ============================================================================
 REM  OCHA QuickVid - Windows start script (double-click me).
 REM
-REM  First run: sets everything up by itself - Python environment, a portable
-REM  video engine (ffmpeg) and the speech-recognition model. No admin rights
-REM  needed. One-time, ~10 minutes on office wifi. After that: starts in
-REM  seconds and opens QuickVid in your browser.
+REM  First run: sets everything up by itself - Python itself (if you don't have
+REM  it), the Python environment, a portable video engine (ffmpeg) and the
+REM  speech-recognition model. No admin rights needed. One-time, ~10 minutes on
+REM  office wifi. After that: starts in seconds and opens QuickVid in your browser.
 REM
 REM  Your videos never leave this machine.
 REM
@@ -20,22 +20,47 @@ if defined QV_PORT set "PORT=%QV_PORT%"
 
 echo OCHA QuickVid - checking your setup...
 
-REM 1) Python 3.9-3.13 (user-space install, no admin needed)
+REM 1) Python 3.9-3.13. Find one; if none, install it JUST FOR THIS USER
+REM    (no admin, no Store) from the official python.org installer.
 set "PY="
-call :trypy py -3.12
+call :trypy py -3.13
+if not defined PY call :trypy py -3.12
 if not defined PY call :trypy py -3.11
 if not defined PY call :trypy py -3.10
 if not defined PY call :trypy py -3
 if not defined PY call :trypy python
+
 if not defined PY (
   echo.
-  echo Python is missing. Opening the download page - install it for
-  echo "just me" and TICK "Add python.exe to PATH", then double-click
-  echo this file again.
-  start "" "https://www.python.org/downloads/"
+  echo Python isn't installed yet - setting it up for you now. No admin password needed.
+  echo Downloading Python from python.org ^(~25 MB^)...
+  curl -fL -o "%TEMP%\quickvid-python.exe" "https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe"
+  if exist "%TEMP%\quickvid-python.exe" (
+    echo Installing Python ^(a minute or two - a small window may appear^)...
+    "%TEMP%\quickvid-python.exe" /quiet InstallAllUsers=0 PrependPath=1 Include_launcher=1 Include_test=0
+    del "%TEMP%\quickvid-python.exe" >nul 2>&1
+  )
+)
+REM Freshly-installed Python isn't on THIS window's PATH yet - add its default
+REM user location for this session so we can use it right away (no second run).
+if not defined PY if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
+  set "PATH=%LocalAppData%\Programs\Python\Python312;%LocalAppData%\Programs\Python\Python312\Scripts;%PATH%"
+  call :trypy python
+)
+
+if not defined PY (
+  echo.
+  echo Couldn't set Python up automatically ^(your network may be blocking it^).
+  echo Please install it by hand - about 2 minutes:
+  echo     1. The download page is opening now.
+  echo     2. Near the TOP of the page, click "Latest Python install manager".
+  echo     3. Run it. If it asks, TICK "Add python.exe to PATH".
+  echo     4. Double-click "Start QuickVid.bat" again.
+  start "" "https://www.python.org/downloads/windows/"
   pause
   exit /b 1
 )
+echo Python is ready.
 
 REM 2) Python environment + dependencies (one-time; quick when already done)
 if not exist ".venv\Scripts\python.exe" (

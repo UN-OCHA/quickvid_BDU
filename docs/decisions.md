@@ -187,6 +187,19 @@ Venezuela look. Consolidation (was 3 divergent implementations):
   working (`ending.logo` auto-translated); black-tail clips need explicit
   `footage_end` (auto-detection retired).
 
+## 2026-07-12 — Windows: auto-install Python (no manual download)
+`Start QuickVid.bat` now installs Python itself when none is found: downloads the
+official python.org installer (pinned 3.12.8, PSF-signed, URL verified 200/27 MB)
+and runs it `/quiet InstallAllUsers=0 PrependPath=1` — **user scope, no admin, no
+Store**. The fresh install isn't on the current session PATH, so the script
+prepends its default dir (`%LocalAppData%\Programs\Python\Python312`) and re-detects
+in the same run (no "run twice"). If the download is blocked, it falls back to the
+manual page (`/downloads/windows/`) with the exact steps ("Latest Python install
+manager" at the top → tick Add to PATH → run again). PY stays a bare command
+(`python`/`py -3.x`) so spaced usernames don't break venv creation. Added
+`.gitattributes` forcing `*.bat` CRLF (LF-only .bat can break labels/goto),
+`.command`/`.sh`/`.py`/`.js` LF. In-app card + README simplified to match.
+
 ## 2026-07-12 — QuickVid Lite/Full naming + Windows-ready engine
 - **Chip renamed** (Javier's call): "QuickVid Lite — runs in your browser" vs
   "QuickVid Full — engine connected, no limits". One page, two power levels; no

@@ -1,0 +1,8 @@
+# Windows batch files must ship with CRLF (LF-only .bat can break labels/goto).
+*.bat text eol=crlf
+
+# Mac/shell launchers and code must stay LF regardless of who commits.
+*.command text eol=lf
+*.sh  text eol=lf
+*.py  text eol=lf
+*.js  text eol=lf

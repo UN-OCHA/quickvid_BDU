@@ -44,8 +44,9 @@ OCHA brand font, and the speech-recognition model).
 ## The full tool on Windows
 
 Same idea, one-time setup, **no admin rights needed** — `Start QuickVid.bat`
-sets everything up by itself (a portable video engine and the
-speech-recognition model; the brand fonts are built into the app).
+sets **everything** up by itself, **including Python if you don't have it**
+(a portable video engine and the speech-recognition model too; the brand fonts
+are built into the app).
 
 1. **Download QuickVid** — [grab the ZIP](https://github.com/UN-OCHA/quickvid_BDU/archive/refs/heads/main.zip)
    and unzip it anywhere (Desktop is fine).
@@ -53,9 +54,10 @@ speech-recognition model; the brand fonts are built into the app).
    - ⚠️ The first time, Windows may show *“Windows protected your PC”*
      (SmartScreen). That's normal for anything downloaded from the internet:
      click **More info → Run anyway**. You only do it once.
-   - 🐍 If Python is missing, the script opens the official download page —
-     install it for “just me” and **tick “Add python.exe to PATH”**, then
-     double-click `Start QuickVid.bat` again.
+   - 🐍 **No Python? It installs it for you** — the official python.org
+     installer, user-scope, no admin. Only if your network blocks that does it
+     open the download page; there, click **“Latest Python install manager”**
+     near the top, run it, then double-click `Start QuickVid.bat` again.
    - ⏳ The first run downloads its tools and a ~500 MB speech model — watch
      the progress in the command window. Every run after starts in seconds.
 3. **Go to the QuickVid page in your browser** (the script opens it for you).
