@@ -216,7 +216,7 @@ def job_status(jid: str):
     res.pop("segments", None)
     return {
         "id": job.id, "kind": job.kind, "status": job.status,
-        "progress": job.progress, "error": job.error,
+        "progress": job.progress, "percent": job.percent, "error": job.error,
         "result": res, "log_tail": job.log[-12:],
     }
 
@@ -366,19 +366,21 @@ def st_segments(jid: str):
 
 @app.get("/api/statement/still")
 def st_still(src: str, t: float, shot: str = "general", preset: str = "reels",
-             sx: float = 0.5, sy: float = 0.40, width: int = 540, download: int = 0,
-             dir: Optional[str] = None):
+             sx: float = 0.5, sy: float = 0.40, zoom: Optional[float] = None,
+             width: int = 540, download: int = 0, dir: Optional[str] = None):
     """A framing still: the general or close crop at time t (drives the framing
-    sliders, per-segment shot thumbs, and — at full width — the thumbnail). When it's
-    the thumbnail (download=1) and a job folder is set, also drop a copy in export/."""
+    previews, per-segment shot thumbs, and — at full width — the thumbnail). Each
+    shot carries its own position AND zoom (no zoom param → the shot's default:
+    general 1.0, close 1.5). When it's the thumbnail (download=1) and a job folder
+    is set, also drop a copy in export/."""
     if not Path(src).is_file():
         raise HTTPException(400, f"Not a file: {src}")
     pr = st_probe(src)
     p = statement_engine.PRESETS.get(preset, statement_engine.PRESETS["reels"])
-    general, close = statement_engine.crops(pr["width"], pr["height"],
-                                            p["canvas"][0], p["canvas"][1], {"x": sx, "y": sy})
-    w, h, x, y = general if shot == "general" else close
-    key = abs(hash((src, round(t, 2), shot, preset, round(sx, 3), round(sy, 3), width)))
+    z = zoom if zoom is not None else (1.0 if shot == "general" else 1.5)
+    w, h, x, y = statement_engine.crop_rect(pr["width"], pr["height"],
+                                            p["canvas"][0], p["canvas"][1], sx, sy, z)
+    key = abs(hash((src, round(t, 2), shot, preset, round(sx, 3), round(sy, 3), round(z, 3), width)))
     out = settings.WORKSPACE / f"_still_{key:x}.jpg"
     if not out.exists():
         scale = f",scale={p['canvas'][0]}:{p['canvas'][1]}" + (f",scale={width}:-2" if width else "")
@@ -396,7 +398,8 @@ def st_still(src: str, t: float, shot: str = "general", preset: str = "reels",
 class StRenderReq(BaseModel):
     src: str
     segments: list[dict]                                # [{in,out,shot?,text?,words?}]
-    subject: dict = {"x": 0.5, "y": 0.40}
+    subject: dict = {"x": 0.5, "y": 0.40}               # legacy single-point framing (kept for old projects)
+    framing: Optional[dict] = None                      # {"general": {x,y,zoom}, "close": {x,y,zoom}}
     preset: str = "reels"
     lower_third: dict = {}
     ending: dict = {"style": "over_footage"}

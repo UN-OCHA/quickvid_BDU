@@ -133,6 +133,7 @@ def _download_direct(ks: str, flavor_id: str, out: str) -> None:
     with urllib.request.urlopen(req, timeout=120) as resp, open(out, "wb") as fh:
         total = int(resp.headers.get("Content-Length") or 0)
         done = 0
+        last = -1
         while True:
             chunk = resp.read(1 << 20)
             if not chunk:
@@ -140,7 +141,11 @@ def _download_direct(ks: str, flavor_id: str, out: str) -> None:
             fh.write(chunk)
             done += len(chunk)
             if total:
-                print(f"Downloading… {done / total * 100:.0f}% of {total / 1e9:.2f} GB", flush=True)
+                pct = int(done / total * 100)
+                if pct != last:                          # throttle: one line per whole percent
+                    last = pct
+                    print(f"PROGRESS {pct}", flush=True)
+                    print(f"Downloading… {pct}% of {total / 1e9:.2f} GB", flush=True)
 
 
 def _playlist_bounds(url: str):
@@ -171,9 +176,23 @@ def _download_hls(vurl: str, aurl: "str | None", out: str) -> None:
     cmd = [FF, "-y", "-loglevel", "error", "-user_agent", UA] + io + [
            "-c", "copy", "-progress", "pipe:1"] + cap + [out]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    last = -1
     for line in proc.stdout:
         if line.startswith("out_time="):
-            print(f"Downloading (recording)… {line.split('=')[1].strip().split('.')[0]}", flush=True)
+            hms = line.split("=")[1].strip()
+            try:
+                h, m, s = hms.split(":"); t = int(h) * 3600 + int(m) * 60 + float(s)
+            except ValueError:
+                continue
+            if dur > 1:                                  # % of the known recording length
+                pct = int(min(100, t / dur * 100))
+                if pct != last:
+                    last = pct
+                    print(f"PROGRESS {pct}", flush=True)
+                    print(f"Downloading… {pct}% ({t / 60:.0f} of {dur / 60:.0f} min)", flush=True)
+            elif int(t) != last:                         # unknown length → just the time
+                last = int(t)
+                print(f"Downloading (recording)… {hms.split('.')[0]}", flush=True)
     proc.wait()
     err = (proc.stderr.read() or "").strip()
     if proc.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) < 100000:

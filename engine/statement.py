@@ -54,20 +54,30 @@ def _probe(src):
 
 
 # ---------------- framing ----------------
-def crops(sw, sh, cw, ch, subject):
-    """(general, close) crop rects [w,h,x,y] of the source for a target canvas.
-    general = the largest source window at the target aspect; close = 1.5x punch-in.
-    subject = {x,y} fractions of the source frame (where the speaker's face sits)."""
-    sx = float(subject.get("x", 0.5)); sy = float(subject.get("y", 0.40))
+def crop_rect(sw, sh, cw, ch, x=0.5, y=0.40, zoom=1.0):
+    """ONE crop rect [w,h,x,y]: the largest source window at the target aspect,
+    tightened by `zoom` (1.0 = largest possible, 2.0 = twice as tight), centred
+    on the subject point (fractions of the source frame) and clamped inside it."""
     ar = cw / ch
     gw, gh = (sh * ar, sh) if sw / sh >= ar else (sw, sw / ar)
-    kw, kh = gw / 1.5, gh / 1.5
+    z = max(1.0, min(2.5, float(zoom or 1.0)))         # sanity cap; UI caps at 2.0
+    w, h = gw / z, gh / z
+    px = min(max(float(x) * sw - w / 2, 0), sw - w)
+    py = min(max(float(y) * sh - h / 2, 0), sh - h)
+    return [int(round(w)) // 2 * 2, int(round(h)) // 2 * 2, int(round(px)), int(round(py))]
 
-    def rect(w, h):
-        x = min(max(sx * sw - w / 2, 0), sw - w)
-        y = min(max(sy * sh - h / 2, 0), sh - h)
-        return [int(round(w)) // 2 * 2, int(round(h)) // 2 * 2, int(round(x)), int(round(y))]
-    return rect(gw, gh), rect(kw, kh)
+
+def crops(sw, sh, cw, ch, subject, framing=None):
+    """(general, close) crop rects [w,h,x,y] of the source for a target canvas.
+    New model: framing = {"general": {x,y,zoom}, "close": {x,y,zoom}} — each frame
+    positioned and zoomed independently (close defaults to a 1.5x punch-in).
+    Back-compat: legacy `subject` {x,y} alone drives both frames."""
+    base = {"x": float((subject or {}).get("x", 0.5)), "y": float((subject or {}).get("y", 0.40))}
+    f = framing or {}
+    g = {**base, "zoom": 1.0, **{k: float(v) for k, v in (f.get("general") or {}).items()}}
+    c = {**base, "zoom": 1.5, **{k: float(v) for k, v in (f.get("close") or {}).items()}}
+    return (crop_rect(sw, sh, cw, ch, g["x"], g["y"], g["zoom"]),
+            crop_rect(sw, sh, cw, ch, c["x"], c["y"], c["zoom"]))
 
 
 def assign_shots(segments):
@@ -140,9 +150,18 @@ def do_transcribe(spec):
         subprocess.run([FF, "-y", "-loglevel", "error", "-ss", str(start), "-t", str(end - start),
                         "-i", src, "-vn", "-ac", "1", "-ar", "16000", wav], check=True)
         print(f"Transcribing window {i + 1}/{len(ranges)} with Whisper — a few minutes for a long window…", flush=True)
+        print("PROGRESS 0", flush=True)
         segs, info = model.transcribe(wav, language=spec.get("lang"), beam_size=5, word_timestamps=True)
         lang = lang or info.language
+        wdur = info.duration or (end - start) or 1       # window audio length, for the % bar
+        lastp = -1
         for s in segs:
+            # Whisper yields segments in order; how far into this window we are,
+            # spread across all windows → overall percent.
+            pct = int(min(100, (i + min(1.0, (s.end or 0) / wdur)) / len(ranges) * 100))
+            if pct != lastp:
+                lastp = pct
+                print(f"PROGRESS {pct}", flush=True)
             text = s.text.strip()
             if not text:
                 continue
@@ -156,6 +175,7 @@ def do_transcribe(spec):
     out.sort(key=lambda x: x["in"])                          # windows may be entered out of order
     for sid, seg in enumerate(out, 1):
         seg["id"] = sid
+    print("PROGRESS 100", flush=True)
     print(f"…{len(out)} segments", flush=True)
     json.dump(out, open(spec["out_json"], "w"), ensure_ascii=False)
     print("RESULT " + json.dumps({"segments": len(out), "language": lang}), flush=True)
@@ -177,7 +197,7 @@ def do_render(spec):
     cw, ch = spec.get("canvas") or preset["canvas"]
     fps = 30
     segments = assign_shots(sorted(spec["segments"], key=lambda s: s["in"]))
-    general, close = crops(sw, sh, cw, ch, spec.get("subject") or {})
+    general, close = crops(sw, sh, cw, ch, spec.get("subject") or {}, spec.get("framing"))
     rects = {"general": general, "close": close}
     ending = spec.get("ending") or {"style": "over_footage"}
     style = ending.get("style", "over_footage")

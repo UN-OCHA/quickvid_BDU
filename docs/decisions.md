@@ -187,6 +187,29 @@ Venezuela look. Consolidation (was 3 divergent implementations):
   working (`ending.logo` auto-translated); black-tail clips need explicit
   `footage_end` (auto-detection retired).
 
+## 2026-07-13 — Step 6 framing: per-frame drag + zoom (UNPUBLISHED, local testing)
+Javier: "left-right moves both frames, up-down only the punch-in" — the coupling was
+geometry (a portrait crop of a landscape source already uses the full height) but the
+UI never said so. Redesign, per his go:
+- Each preview is its own editor: **drag the picture** to reposition (content follows
+  the pointer; locked axes simply don't move) + a **per-frame zoom slider**
+  (100–200%; close-up defaults 150%). Global sliders removed.
+- **Hints explain the geometry** ("Full height in use — drag sideways; zoom in to move
+  up/down") and warn ≥180% that zoom softens the picture.
+- Engine: `crop_rect(sw,sh,cw,ch,x,y,zoom)` + `crops(..., framing)` — spec gains
+  `framing:{general:{x,y,zoom}, close:{x,y,zoom}}`; legacy `subject` still works
+  (old projects map onto both frames). `/api/statement/still` gains `zoom` (cache
+  key updated); thumbnails use the general framing incl. zoom.
+- Verified: crop math unit-tested (sizes, clamps, back-compat), API zoom renders
+  distinct stills, synthetic pointer drags (direction, independence, exact edge
+  clamping), legacy-project restore, and a real render where general (x.25 z1.3)
+  and close (x.75 z2.0) visibly differ.
+- Robustness fix found by testing: `setPointerCapture` can throw (aborting the drag
+  handler) — drag state now set first, capture wrapped in try/catch.
+- Same batch, also unpublished: sync-step button now adaptive ("Looks in sync —
+  continue" / "Use +4f — continue", Skip removed) and download/transcribe **% progress
+  bars** (engine PROGRESS token → job.percent → kit `.cd-progress`).
+
 ## 2026-07-13 — Two-process onboarding: web-served installer + starter
 Javier's call: no buried folders — the page hands out tiny per-OS files instead.
 - **First time** → `browser/get/Install QuickVid.command|.bat` (served by Pages AND

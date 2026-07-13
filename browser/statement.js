@@ -10,18 +10,21 @@ const ST = {
   syncT: null,          // the moment (s) the sync preview is testing; re-rolled by "another moment"
   segjob: null,
   segments: [],         // [{id,in,out,text,words,sel,shot,userShot}]
-  subject: { x: 0.5, y: 0.40 },
+  framing: { general: { x: 0.5, y: 0.40, zoom: 1.0 }, close: { x: 0.5, y: 0.40, zoom: 1.5 } },
   frameT: null,         // framing-preview time override ("Try another frame"); null = first kept sentence
   jobDir: null,         // the user's chosen job folder (source/export/info/assets); null = temp workspace
   renderJob: null,
 };
 
 const $st = (s) => document.querySelector(s);
-const stStatus = (text, kind) => {
+const stStatus = (text, kind, percent) => {
   const el = $st("#st-status");
   if (!text) { el.innerHTML = ""; return; }
   const cls = { ok: "cd-alert--status", warn: "cd-alert--warning", error: "cd-alert--error" }[kind] || "";
-  el.innerHTML = `<div class="cd-alert ${cls}"><div class="cd-alert__message"><p>${esc(text)}</p></div></div>`;
+  const p = typeof percent === "number" ? Math.max(0, Math.min(100, Math.round(percent))) : null;
+  const bar = p === null ? "" :
+    `<div class="cd-progress"><div class="cd-progress__fill" style="width:${p}%"></div></div><div class="cd-progress__pct">${p}%</div>`;
+  el.innerHTML = `<div class="cd-alert ${cls}"><div class="cd-alert__message"><p>${esc(text)}</p>${bar}</div></div>`;
 };
 const mmss = (sec) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
 const parseT = (s) => {
@@ -101,7 +104,7 @@ $st("#st-get").onclick = async () => {
     });
     if (!r.ok) throw new Error((await r.json()).detail || "Download failed");
     const { job_id } = await r.json();
-    const j = await stJob(job_id, (jj) => stStatus(jj.progress || "Downloading…", "busy"));
+    const j = await stJob(job_id, (jj) => stStatus(jj.progress || "Downloading…", "busy", jj.percent));
     await stUseSource(j.result.path);
   } catch (e) { stStatus("Download failed: " + e.message, "error"); }
   finally { $st("#st-get").disabled = false; }
@@ -186,6 +189,9 @@ function stSyncPreview(frames, btn) {
   ST.offset = +(frames * FR).toFixed(4);
   [...$st("#st-sync-chips").children].forEach((b) => b.classList.add("cd-button--outline"));
   if (btn) btn.classList.remove("cd-button--outline");
+  // The continue button says what it'll actually do — no "offset" when As is.
+  $st("#st-sync-ok").querySelector(".cd-button__text").textContent =
+    frames === 0 ? "Looks in sync — continue" : `Use ${frames > 0 ? "+" : ""}${frames}f — continue`;
   stSyncPlay();                                              // same moment, new offset — offsets compare like-for-like
 }
 
@@ -203,11 +209,10 @@ function stSyncPlay() {
   v.play().catch(() => {});
 }
 
-async function stSyncContinue(skip) {
-  if (skip) ST.offset = 0;                                    // "it's in sync" → use the original, no re-encode
-  const btns = [$st("#st-sync-ok"), $st("#st-sync-skip")];
+async function stSyncContinue() {
+  const ok = $st("#st-sync-ok");
   try {
-    btns.forEach((b) => (b.disabled = true));
+    ok.disabled = true;
     if (Math.abs(ST.offset) > 0.001) {
       stStatus("Baking the corrected sync into a working copy…", "busy");
       const r = await fetch(`${ENGINE}/api/statement/apply-sync`, {
@@ -226,10 +231,9 @@ async function stSyncContinue(skip) {
     $st("#st-card-tr").scrollIntoView({ behavior: "smooth" });
     stSave();
   } catch (e) { stStatus("Sync failed: " + e.message, "error"); }
-  finally { btns.forEach((b) => (b.disabled = false)); }
+  finally { ok.disabled = false; }
 }
-$st("#st-sync-ok").onclick = () => stSyncContinue(false);
-$st("#st-sync-skip").onclick = () => stSyncContinue(true);
+$st("#st-sync-ok").onclick = () => stSyncContinue();
 $st("#st-sync-another").onclick = () => stSyncAnother();
 
 // ---------- E4: transcribe ----------
@@ -307,7 +311,7 @@ $st("#st-transcribe").onclick = async () => {
     });
     if (!r.ok) throw new Error((await r.json()).detail || "Transcribe failed");
     const { job_id } = await r.json();
-    await stJob(job_id, (jj) => stStatus(jj.progress || "Transcribing…", "busy"));
+    await stJob(job_id, (jj) => stStatus(jj.progress || "Transcribing…", "busy", jj.percent));
     const segs = (await (await fetch(`${ENGINE}/api/statement/segments/${job_id}`)).json()).segments;
     ST.segments = segs.map((s) => ({ ...s, sel: false, userShot: null }));
     stRenderSegList();
@@ -371,8 +375,38 @@ function stRenderSegList() {
   if (ready) stFrameRefresh();
 }
 
-// ---------- E6: framing ----------
+// ---------- E6: framing — each frame is its own editor: drag to reposition + zoom ----------
+const PRESET_CANVAS = { reels: [1080, 1920], square: [1080, 1080], feed45: [1080, 1350], event: [1920, 1080] }; // mirrors engine PRESETS
+const stClamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 let frameTimer = null;
+
+function stDefaultFraming() {
+  return { general: { x: 0.5, y: 0.40, zoom: 1.0 }, close: { x: 0.5, y: 0.40, zoom: 1.5 } };
+}
+
+// JS mirror of the engine's crop sizing — drives drag scaling and the locked-axis hints.
+function stCropSize(shot) {
+  const preset = document.querySelector('input[name="st-preset"]:checked').value;
+  const [cw, ch] = PRESET_CANVAS[preset] || PRESET_CANVAS.reels;
+  const sw = ST.probe.width, sh = ST.probe.height;
+  const ar = cw / ch;
+  const gw = (sw / sh >= ar) ? sh * ar : sw;
+  const gh = (sw / sh >= ar) ? sh : sw / ar;
+  const z = Math.max(1, ST.framing[shot].zoom || 1);
+  return { w: gw / z, h: gh / z, sw, sh };
+}
+
+function stFrameHint(shot) {
+  const { w, h, sw, sh } = stCropSize(shot);
+  const bits = [];
+  const lockX = sw - w < 2, lockY = sh - h < 2;
+  if (lockX && lockY) bits.push("Whole frame in use — zoom in to reposition.");
+  else if (lockY) bits.push("Full height in use — drag sideways; zoom in to move up/down.");
+  else if (lockX) bits.push("Full width in use — drag up/down; zoom in to move sideways.");
+  if ((ST.framing[shot].zoom || 1) >= 1.8) bits.push("⚠ Zooming this far softens the picture.");
+  $st(shot === "general" ? "#st-hint-general" : "#st-hint-close").textContent = bits.join(" ");
+}
+
 function stFrameT() {
   if (ST.frameT != null) return ST.frameT;
   const sel = ST.segments.find((s) => s.sel);
@@ -390,18 +424,63 @@ function stFrameAnother() {
   stSave();
 }
 $st("#st-frame-another").onclick = stFrameAnother;
+
+function stFrameURL(shot, width) {
+  const preset = document.querySelector('input[name="st-preset"]:checked').value;
+  const f = ST.framing[shot];
+  return `${ENGINE}/api/statement/still?src=${encodeURIComponent(ST.src)}&t=${stFrameT().toFixed(2)}` +
+         `&shot=${shot}&preset=${preset}&sx=${f.x.toFixed(3)}&sy=${f.y.toFixed(3)}&zoom=${(f.zoom || 1).toFixed(2)}` +
+         `&width=${width}&cb=${Date.now()}`;
+}
+function stFrameLoad(onlyShot) {
+  for (const shot of ["general", "close"]) {
+    if (onlyShot && shot !== onlyShot) continue;
+    $st(shot === "general" ? "#st-frame-general" : "#st-frame-close").src = stFrameURL(shot, 420);
+    stFrameHint(shot);
+  }
+}
 function stFrameRefresh() {
   clearTimeout(frameTimer);
-  frameTimer = setTimeout(() => {
-    const preset = document.querySelector('input[name="st-preset"]:checked').value;
-    const q = (shot) => `${ENGINE}/api/statement/still?src=${encodeURIComponent(ST.src)}&t=${stFrameT().toFixed(2)}
-      &shot=${shot}&preset=${preset}&sx=${ST.subject.x}&sy=${ST.subject.y}&width=420&cb=${Date.now()}`.replace(/\s+/g, "");
-    $st("#st-frame-general").src = q("general");
-    $st("#st-frame-close").src = q("close");
-  }, 250);
+  frameTimer = setTimeout(stFrameLoad, 250);
 }
-$st("#st-sx").oninput = (e) => { ST.subject.x = e.target.value / 100; stFrameRefresh(); };
-$st("#st-sy").oninput = (e) => { ST.subject.y = e.target.value / 100; stFrameRefresh(); };
+
+// Drag the picture itself — content follows the pointer; locked axes simply don't move
+// (their clamp range collapses to a point). Throttled refetch while dragging, exact on release.
+function stWireDrag(sel, shot) {
+  const img = $st(sel);
+  let drag = null;
+  img.addEventListener("pointerdown", (e) => {
+    if (!ST.probe || !ST.src) return;
+    e.preventDefault();
+    drag = { x0: e.clientX, y0: e.clientY, fx: ST.framing[shot].x, fy: ST.framing[shot].y, last: 0 };
+    img.classList.add("is-dragging");
+    try { img.setPointerCapture(e.pointerId); } catch (err) { /* keep dragging without capture */ }
+  });
+  img.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const r = img.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const { w, h, sw, sh } = stCropSize(shot);
+    const f = ST.framing[shot];
+    f.x = stClamp(drag.fx - (e.clientX - drag.x0) * (w / r.width) / sw, w / (2 * sw), 1 - w / (2 * sw));
+    f.y = stClamp(drag.fy - (e.clientY - drag.y0) * (h / r.height) / sh, h / (2 * sh), 1 - h / (2 * sh));
+    if (Date.now() - drag.last > 300) { drag.last = Date.now(); stFrameLoad(shot); }
+  });
+  const end = () => {
+    if (!drag) return;
+    drag = null;
+    img.classList.remove("is-dragging");
+    stFrameLoad(shot);
+    stSave();
+  };
+  img.addEventListener("pointerup", end);
+  img.addEventListener("pointercancel", end);
+}
+stWireDrag("#st-frame-general", "general");
+stWireDrag("#st-frame-close", "close");
+
+$st("#st-zoom-general").oninput = (e) => { ST.framing.general.zoom = e.target.value / 100; stFrameHint("general"); stFrameRefresh(); stSave(); };
+$st("#st-zoom-close").oninput = (e) => { ST.framing.close.zoom = e.target.value / 100; stFrameHint("close"); stFrameRefresh(); stSave(); };
 document.querySelectorAll('input[name="st-preset"]').forEach((r) => (r.onchange = stFrameRefresh));
 
 // ---------- E8: render + thumbnail ----------
@@ -411,7 +490,8 @@ $st("#st-render").onclick = async () => {
   const body = {
     src: ST.src,
     segments: sel.map((s) => ({ in: s.in, out: s.out, shot: s.shot, text: s.text, words: s.words })),
-    subject: ST.subject,
+    framing: ST.framing,
+    subject: { x: ST.framing.general.x, y: ST.framing.general.y },   // legacy field for old engine copies
     preset: document.querySelector('input[name="st-preset"]:checked').value,
     lower_third: {
       name: $st("#st-lt-name").value.trim(),
@@ -478,8 +558,9 @@ function stThumbs(preset, reshuffle) {
   const wrap = $st("#st-thumbs");
   wrap.innerHTML = "";
   const dl = $st("#st-thumb-dl");
+  const fg = ST.framing.general;
   const urlFor = (t, w, d) => `${ENGINE}/api/statement/still?src=${encodeURIComponent(ST.src)}&t=${t}` +
-    `&shot=general&preset=${ST.thumbPreset}&sx=${ST.subject.x}&sy=${ST.subject.y}&width=${w}` +
+    `&shot=general&preset=${ST.thumbPreset}&sx=${fg.x.toFixed(3)}&sy=${fg.y.toFixed(3)}&zoom=${(fg.zoom || 1).toFixed(2)}&width=${w}` +
     (d ? `&download=1&dir=${encodeURIComponent(ST.jobDir || "")}` : "");
   cands.forEach((t, i) => {
     const img = document.createElement("img");
@@ -590,7 +671,7 @@ function stSnapshot() {
     name: (($st("#st-proj-name") || {}).value || ST.projName || "").trim(),
     type: val('input[name="st-type"]:checked') || "statement",
     jobDir: ST.jobDir, src: ST.src, probe: ST.probe, offset: ST.offset,
-    ranges: stRangeRows(), segments: ST.segments, subject: ST.subject, frameT: ST.frameT,
+    ranges: stRangeRows(), segments: ST.segments, framing: ST.framing, frameT: ST.frameT,
     preset: val('input[name="st-preset"]:checked') || "reels",
     ending: val('input[name="st-ending"]:checked') || "over_footage",
     captions: $st("#st-captions").checked,
@@ -634,15 +715,21 @@ function stRestore(p) {
     if (ST.jobDir) $st("#st-folder-path").innerHTML =
       `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Saving to <strong>${esc(ST.jobDir)}</strong>.`;
     ST.src = p.src || null; ST.probe = p.probe || null; ST.offset = p.offset || 0;
-    ST.subject = p.subject || { x: 0.5, y: 0.40 }; ST.frameT = (p.frameT == null ? null : p.frameT);
+    const df = stDefaultFraming();
+    if (p.framing) ST.framing = { general: { ...df.general, ...p.framing.general },
+                                  close: { ...df.close, ...p.framing.close } };
+    else if (p.subject) ST.framing = { general: { ...df.general, ...p.subject },
+                                       close: { ...df.close, ...p.subject } };   // old single-point projects
+    else ST.framing = df;
+    ST.frameT = (p.frameT == null ? null : p.frameT);
     ST.segments = p.segments || [];
     check("st-preset", p.preset || "reels");
     check("st-ending", p.ending || "over_footage");
     if (p.lt) { $st("#st-lt-name").value = p.lt.name || ""; $st("#st-lt-title").value = p.lt.title || "";
                 $st("#st-lt-title2").value = p.lt.title2 || ""; $st("#st-lt-align").value = p.lt.align || "center"; }
     $st("#st-captions").checked = p.captions !== false;
-    $st("#st-sx").value = Math.round((ST.subject.x != null ? ST.subject.x : 0.5) * 100);
-    $st("#st-sy").value = Math.round((ST.subject.y != null ? ST.subject.y : 0.4) * 100);
+    $st("#st-zoom-general").value = Math.round((ST.framing.general.zoom || 1) * 100);
+    $st("#st-zoom-close").value = Math.round((ST.framing.close.zoom || 1.5) * 100);
     if (ST.src && ST.probe) {
       const info = $st("#st-src-info"); info.hidden = false;
       info.innerHTML = `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> <strong>${esc(ST.src.split("/").pop())}</strong> · ${ST.probe.width}×${ST.probe.height} · ${mmss(ST.probe.duration)}`;

@@ -257,12 +257,12 @@
           <div class="cd-help__panel" id="help-e3" hidden>
             <ul>
               <li>UN broadcast feeds often run the sound a few frames <em>ahead</em> of the picture; recorded video messages are usually already fine.</li>
-              <li>Play the loop and watch the lips. In sync? <strong>Skip</strong>. Slightly off? Try <strong>+4f</strong> — the usual fix for UN feeds — or its neighbours until the lips lock. Each chip re-renders the same moment with that correction.</li>
+              <li>Play the loop and watch the lips. In sync? Leave it on <strong>As is</strong> and continue. Slightly off? Try <strong>+4f</strong> — the usual fix for UN feeds — or its neighbours until the lips lock. Each chip re-renders the same moment with that correction.</li>
               <li><strong>Try another moment</strong> tests a different part of the recording — useful when the current preview has no clear talking.</li>
               <li>Your choice is baked into a working copy; the original download stays untouched.</li>
             </ul>
           </div>
-          <p class="app-hint"><strong>Broadcast feeds</strong> sometimes run the sound a few frames early — a <strong>recorded video message</strong> is usually already fine. Play the test; if the lips match, just skip. If they drift, try another offset until they lock.</p>
+          <p class="app-hint"><strong>Broadcast feeds</strong> sometimes run the sound a few frames early — a <strong>recorded video message</strong> is usually already fine. Play the test; if the lips match, leave it on <strong>As is</strong> and continue. If they drift, try another offset until they lock.</p>
           <video id="st-sync-player" class="app-player app-player--fit" controls playsinline loop></video>
           <div class="st-sync-toolbar">
             <button class="cd-button cd-button--small cd-button--outline" id="st-sync-another" type="button"><i class="fa-solid fa-shuffle" aria-hidden="true"></i><span class="cd-button__text">Try another moment</span></button>
@@ -270,8 +270,7 @@
           </div>
           <div class="st-chip-row" id="st-sync-chips"></div>
           <div class="st-btn-row">
-            <button class="cd-button" id="st-sync-ok" type="button"><i class="fa-solid fa-check" aria-hidden="true"></i><span class="cd-button__text">Use this offset</span></button>
-            <button class="cd-button cd-button--outline" id="st-sync-skip" type="button"><i class="fa-solid fa-forward" aria-hidden="true"></i><span class="cd-button__text">Skip — it's in sync</span></button>
+            <button class="cd-button" id="st-sync-ok" type="button"><i class="fa-solid fa-check" aria-hidden="true"></i><span class="cd-button__text">Looks in sync — continue</span></button>
           </div>
         </div>
       </section>
@@ -331,7 +330,9 @@
           <div class="cd-help__panel" id="help-e6" hidden>
             <ul>
               <li>Pick the destination: <strong>Reels</strong> (9:16 portrait) for Instagram/TikTok, <strong>Square</strong> (1:1) or <strong>IG&nbsp;/&nbsp;FB feed</strong> (4:5) for feed posts, <strong>Event screen</strong> (16:9) for halls and webstreams — its captions are clean text over a soft gradient instead of boxes.</li>
-              <li>The clip alternates two crops of the same footage: <strong>General</strong> and <strong>Close-up</strong> (the punch-in). Move the sliders until the speaker sits well in <strong>both</strong> previews — same sliders drive both.</li>
+              <li>The clip alternates two crops of the same footage: <strong>General</strong> and <strong>Close-up</strong> (the punch-in). Each is its own little editor — <strong>drag the picture</strong> to reposition it, and use its <strong>zoom slider</strong> to go tighter or wider. What you see is exactly what renders.</li>
+              <li>Some directions are locked by geometry — e.g. a portrait crop of a landscape video already uses the <em>full height</em>, so it only moves sideways until you zoom in. The grey note under each preview tells you.</li>
+              <li>Zooming far softens the picture (the source has only so many pixels) — the note warns you near the limit.</li>
               <li>The previews show a frame from your first kept sentence; <strong>Try another frame</strong> jumps to a different moment if that one's a wide or in-between shot.</li>
             </ul>
           </div>
@@ -345,16 +346,22 @@
             <label class="end-opt"><input type="radio" name="st-preset" value="event" />
               <span class="end-opt__label">Event screen</span><span class="end-opt__hint">16:9 · clean captions over a soft gradient</span></label>
           </div>
-          <p class="app-hint">The previews use a frame from your first kept sentence — if that's a wide or in-between shot, hit <strong>Try another frame</strong>. Then slide until the speaker sits nicely in <strong>both</strong> shots.</p>
+          <p class="app-hint"><strong>Drag each picture</strong> to reposition it, and use its <strong>zoom</strong> to go tighter or wider — the two frames are independent. The previews use a moment from your first kept sentence; <strong>Try another frame</strong> shows a different one.</p>
           <div class="st-frames">
-            <figure><img id="st-frame-general" alt="General shot framing" /><figcaption>General</figcaption></figure>
-            <figure><img id="st-frame-close" alt="Close-up framing" /><figcaption>Close-up (punch-in)</figcaption></figure>
+            <figure>
+              <img id="st-frame-general" class="st-frame-drag" alt="General shot framing — drag to reposition" draggable="false" />
+              <figcaption>General</figcaption>
+              <div class="st-zoom-row"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="range" id="st-zoom-general" min="100" max="200" value="100" aria-label="General zoom" /></div>
+              <div class="app-hint st-frame-hint" id="st-hint-general"></div>
+            </figure>
+            <figure>
+              <img id="st-frame-close" class="st-frame-drag" alt="Close-up framing — drag to reposition" draggable="false" />
+              <figcaption>Close-up (punch-in)</figcaption>
+              <div class="st-zoom-row"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="range" id="st-zoom-close" min="100" max="200" value="150" aria-label="Close-up zoom" /></div>
+              <div class="app-hint st-frame-hint" id="st-hint-close"></div>
+            </figure>
           </div>
           <div class="st-btn-row"><button class="cd-button cd-button--small cd-button--outline" id="st-frame-another" type="button"><i class="fa-solid fa-shuffle" aria-hidden="true"></i><span class="cd-button__text">Try another frame</span></button></div>
-          <div class="field-row st-sliders">
-            <label>Left ↔ right <input type="range" id="st-sx" min="0" max="100" value="50" /></label>
-            <label>Up ↕ down <input type="range" id="st-sy" min="0" max="100" value="40" /></label>
-          </div>
         </div>
       </section>
 

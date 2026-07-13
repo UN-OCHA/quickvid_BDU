@@ -79,11 +79,17 @@ def _run(cmd: list[str], job) -> None:
         text=True, bufsize=1, encoding="utf-8", errors="replace",
         env={**os.environ, "PYTHONIOENCODING": "utf-8"},
     )
+    job.percent = None                                  # fresh subprocess → no bar until it reports
     for line in proc.stdout:                            # stream so the UI sees progress
         line = line.rstrip()
-        if line:
-            job.log.append(line)
-            job.progress = line
+        if not line:
+            continue
+        m = re.match(r"^PROGRESS (\d+)$", line)          # machine progress token → the % bar
+        if m:
+            job.percent = min(100, int(m.group(1)))
+            continue                                     # don't show the token as text
+        job.log.append(line)
+        job.progress = line
     proc.wait()
     if proc.returncode != 0:
         # Engine scripts print `ERROR: <human message>` on a clean failure — surface that

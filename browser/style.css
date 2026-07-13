@@ -130,11 +130,17 @@ body.is-full .footer-unlock { display: none; }
 .st-seg__shot { display: flex; gap: 2px; flex: none; }
 .st-shot { width: 1.7rem; height: 1.7rem; border: 1px solid var(--input-border); background: var(--card); border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-weight: 700; color: var(--muted); }
 .st-shot.is-on { background: var(--ocha-cyan); border-color: var(--ocha-cyan); color: #fff; }
-.st-frames { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-.st-frames figure { margin: 0; }
+.st-frames { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
+.st-frames figure { margin: 0; max-width: 260px; }
 .st-frames img { display: block; height: 240px; width: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); }
 .st-frames figcaption { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
-.st-sliders label { min-width: 12rem; }
+/* each frame is its own editor: drag the picture, zoom below it */
+.st-frame-drag { cursor: grab; touch-action: none; user-select: none; -webkit-user-drag: none; }
+.st-frame-drag.is-dragging { cursor: grabbing; outline: 2px solid var(--ocha-cyan); outline-offset: 1px; }
+.st-zoom-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.35rem; }
+.st-zoom-row .fa-solid { font-size: 0.7rem; color: var(--muted); }
+.st-zoom-row input[type="range"] { flex: 1 1 auto; min-width: 0; }
+.st-frame-hint { margin: 0.25rem 0 0; font-size: 0.72rem; min-height: 1em; max-width: 100%; }
 .st-check { display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem; }
 .st-thumbs { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 .st-thumb { height: 150px; width: auto; border: 2px solid var(--line); border-radius: var(--radius-sm); cursor: pointer; }

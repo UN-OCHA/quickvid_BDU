@@ -17,6 +17,7 @@ class Job:
     meta: dict = field(default_factory=dict)
     status: str = "queued"          # queued | running | done | error
     progress: str = ""              # last line of engine output, for the UI
+    percent: "int | None" = None    # 0-100 when the engine emits `PROGRESS n`, else None
     error: str = ""
     result: dict = field(default_factory=dict)
     log: list = field(default_factory=list)

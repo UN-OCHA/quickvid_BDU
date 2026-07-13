@@ -173,6 +173,13 @@ textarea.cd-form__input { resize: vertical; }
 }
 .cd-modal__close:hover { color: var(--ink); }
 
+/* ===== Progress bar ===== */
+/* Markup: <div class="cd-progress"><div class="cd-progress__fill" style="width:42%"></div></div>
+     <div class="cd-progress__pct">42%</div>   (the % label is optional). */
+.cd-progress { height: 0.5rem; background: var(--line); border-radius: var(--radius-pill); overflow: hidden; margin-top: 0.5rem; }
+.cd-progress__fill { height: 100%; width: 0; background: var(--ocha-cyan); border-radius: inherit; transition: width 0.3s ease; }
+.cd-progress__pct { font-size: 0.78rem; font-weight: 700; color: var(--ocha-blue-dark); margin-top: 0.25rem; }
+
 /* ===== Step help (?) ===== */
 /* A round ? button in a step title that toggles a plain-language explainer panel.
    Markup: <button class="cd-help__btn" aria-expanded="false" aria-controls="help-x"
