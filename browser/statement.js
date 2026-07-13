@@ -450,17 +450,36 @@ $st("#st-render").onclick = async () => {
   finally { $st("#st-render").disabled = false; }
 };
 
-function stThumbs(preset) {
-  // Thumbnail = clean GENERAL still, same size as the video, mouth likely closed →
-  // offer the quiet moments: the END of the three longest selected sentences.
-  const sel = ST.segments.filter((s) => s.sel);
-  const cands = [...sel].sort((a, b) => (b.out - b.in) - (a.out - a.in)).slice(0, 3)
-    .map((s) => +(s.out - 0.15).toFixed(2));
+// A pool of candidate thumbnail times, quietest-first (mouth most likely closed):
+// the END of each kept sentence (natural pause) — longest first — then the moment
+// just BEFORE each sentence starts, then sentence midpoints as fallback variety.
+function stThumbPool() {
+  const byLen = ST.segments.filter((s) => s.sel).sort((a, b) => (b.out - b.in) - (a.out - a.in));
+  const ends = byLen.map((s) => +(s.out - 0.15).toFixed(2));
+  const starts = byLen.filter((s) => s.in > 0.4).map((s) => +(s.in - 0.20).toFixed(2));
+  const mids = byLen.map((s) => +((s.in + s.out) / 2).toFixed(2));
+  const pool = [];
+  for (const t of [...ends, ...starts, ...mids]) {
+    if (t >= 0 && !pool.some((u) => Math.abs(u - t) < 0.3)) pool.push(t);   // ≥0.3s apart
+  }
+  return pool;
+}
+
+// Show 3 thumbnails from the pool. reshuffle=true advances to the next 3.
+function stThumbs(preset, reshuffle) {
+  if (preset) ST.thumbPreset = preset;
+  if (!reshuffle) { ST.thumbPool = stThumbPool(); ST.thumbPage = 0; }
+  else { ST.thumbPage = (ST.thumbPage || 0) + 1; }
+  const pool = ST.thumbPool || [];
+  const start = (ST.thumbPage * 3) % Math.max(1, pool.length);
+  const cands = pool.length
+    ? Array.from({ length: Math.min(3, pool.length) }, (_, k) => pool[(start + k) % pool.length])
+    : [];
   const wrap = $st("#st-thumbs");
   wrap.innerHTML = "";
   const dl = $st("#st-thumb-dl");
   const urlFor = (t, w, d) => `${ENGINE}/api/statement/still?src=${encodeURIComponent(ST.src)}&t=${t}` +
-    `&shot=general&preset=${preset}&sx=${ST.subject.x}&sy=${ST.subject.y}&width=${w}` +
+    `&shot=general&preset=${ST.thumbPreset}&sx=${ST.subject.x}&sy=${ST.subject.y}&width=${w}` +
     (d ? `&download=1&dir=${encodeURIComponent(ST.jobDir || "")}` : "");
   cands.forEach((t, i) => {
     const img = document.createElement("img");
@@ -474,7 +493,9 @@ function stThumbs(preset) {
     wrap.appendChild(img);
   });
   if (cands.length) dl.href = urlFor(cands[0], 0, 1);
+  $st("#st-thumb-more").hidden = pool.length <= 3;           // nothing new to shuffle to
 }
+$st("#st-thumb-more").onclick = () => stThumbs(null, true);
 
 // ---------- E5: Use AI (copy prompt → any LLM → paste selection back) ----------
 function stAIPrompt() {

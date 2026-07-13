@@ -408,9 +408,12 @@
           <p class="cd-alert cd-alert--status" id="st-saved" hidden><span class="cd-alert__message"></span></p>
           <a class="cd-button cd-button--export" id="st-download" download="statement_clip.mp4"><i class="fa-solid fa-download" aria-hidden="true"></i><span class="cd-button__text">Download MP4</span></a>
           <h3 class="cd-block-title">Thumbnail</h3>
-          <p class="app-hint">A clean still (no branding), same size as the video — pick the frame you like.</p>
+          <p class="app-hint">Three clean stills (no branding), same size as the video — <strong>click the one you like</strong>. None good? <strong>Show 3 more</strong> for different moments. Tip: pick a frame with the mouth closed.</p>
           <div class="st-thumbs" id="st-thumbs"></div>
-          <a class="cd-button cd-button--outline" id="st-thumb-dl" target="_blank"><i class="fa-solid fa-image" aria-hidden="true"></i><span class="cd-button__text">Download thumbnail</span></a>
+          <div class="st-btn-row">
+            <button class="cd-button cd-button--outline cd-button--small" id="st-thumb-more" type="button" hidden><i class="fa-solid fa-shuffle" aria-hidden="true"></i><span class="cd-button__text">Show 3 more frames</span></button>
+            <a class="cd-button cd-button--export" id="st-thumb-dl" target="_blank"><i class="fa-solid fa-image" aria-hidden="true"></i><span class="cd-button__text">Download thumbnail</span></a>
+          </div>
         </div>
       </section>
       </div><!-- /st-wizard -->
