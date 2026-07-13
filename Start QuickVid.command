@@ -19,6 +19,19 @@ cd "$(dirname "$0")"
 # or the page will say "engine not detected" even while this window is running.
 PORT="${QV_PORT:-17870}"
 
+# Self-register this install's location so the tiny "Start QuickVid" starter the
+# web page hands out can find the engine wherever it lives (no buried folders).
+QV_SUPPORT="$HOME/Library/Application Support/OCHA QuickVid"
+mkdir -p "$QV_SUPPORT"
+pwd > "$QV_SUPPORT/home"
+
+# Already running? Then there's nothing to do — just open the page.
+if curl -s -m 2 "http://127.0.0.1:$PORT/api/health" 2>/dev/null | grep -q quickvid; then
+  echo "QuickVid is already running — opening it in your browser."
+  [ -z "$QV_NO_OPEN" ] && open "http://127.0.0.1:$PORT"
+  exit 0
+fi
+
 echo "OCHA QuickVid — checking your setup…"
 
 # 1) Python 3. macOS installs it with the Command Line Tools (guided, one-time).
@@ -88,8 +101,20 @@ fi
 
 # 6) Launch and open the browser. 127.0.0.1 (not "localhost") on purpose — the
 #    app treats it as its one canonical address so saved progress is never split
-#    between the two.
+#    between the two. With QV_DETACH=1 (the web-downloaded starter/installer) the
+#    engine runs in the BACKGROUND: the window can close; it stays on until the
+#    Mac shuts down or logs out.
 echo ""
+if [ -n "$QV_DETACH" ]; then
+  nohup ./.venv/bin/uvicorn app.backend.main:app --host 127.0.0.1 --port "$PORT" \
+    >> "$QV_SUPPORT/engine.log" 2>&1 &
+  disown
+  sleep 2
+  [ -z "$QV_NO_OPEN" ] && open "http://127.0.0.1:$PORT"
+  echo "QuickVid is running in the background — you can CLOSE this window."
+  echo "It stays on until you shut down or log out. (Log: $QV_SUPPORT/engine.log)"
+  exit 0
+fi
 echo "Starting OCHA QuickVid at http://127.0.0.1:$PORT  (leave this window open)"
 if [ -z "$QV_NO_OPEN" ]; then (sleep 2 && open "http://127.0.0.1:$PORT") & fi
 exec ./.venv/bin/uvicorn app.backend.main:app --host 127.0.0.1 --port "$PORT"

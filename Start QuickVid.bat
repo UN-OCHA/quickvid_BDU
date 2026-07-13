@@ -18,6 +18,20 @@ cd /d "%~dp0"
 set "PORT=17870"
 if defined QV_PORT set "PORT=%QV_PORT%"
 
+REM Self-register this install's location so the tiny "Start QuickVid" starter
+REM the web page hands out can find the engine wherever it lives.
+set "QV_SUPPORT=%LocalAppData%\OCHA QuickVid"
+if not exist "%QV_SUPPORT%" mkdir "%QV_SUPPORT%"
+echo %CD%> "%QV_SUPPORT%\home.txt"
+
+REM Already running? Nothing to do - just open the page.
+curl -s -m 2 "http://127.0.0.1:%PORT%/api/health" 2>nul | findstr /c:"quickvid" >nul
+if not errorlevel 1 (
+  echo QuickVid is already running - opening it in your browser.
+  if not defined QV_NO_OPEN start "" "http://127.0.0.1:%PORT%"
+  exit /b 0
+)
+
 echo OCHA QuickVid - checking your setup...
 
 REM 1) Python 3.9-3.13. Find one; if none, install it JUST FOR THIS USER
@@ -92,8 +106,21 @@ if not exist "%USERPROFILE%\.cache\huggingface\hub\models--Systran--faster-whisp
 )
 
 REM 5) Launch and open the browser. 127.0.0.1 on purpose - the app treats it as
-REM    its one canonical address so saved progress is never split.
+REM    its one canonical address so saved progress is never split. With
+REM    QV_DETACH=1 (the web-downloaded starter/installer) the engine runs as a
+REM    MINIMIZED window in the taskbar - this window can close; it stays on
+REM    until the PC shuts down.
 echo.
+if defined QV_DETACH (
+  start "OCHA QuickVid engine" /min cmd /c ""%VPY%" -m uvicorn app.backend.main:app --host 127.0.0.1 --port %PORT% >> "%QV_SUPPORT%\engine.log" 2>&1"
+  timeout /t 2 /nobreak >nul
+  if not defined QV_NO_OPEN start "" "http://127.0.0.1:%PORT%"
+  echo QuickVid is running - you can CLOSE this window.
+  echo It stays on as a minimized "OCHA QuickVid engine" window in your taskbar
+  echo until you shut down the PC.
+  timeout /t 5 >nul
+  exit /b 0
+)
 echo Starting OCHA QuickVid at http://127.0.0.1:%PORT%   (leave this window open)
 start "" "http://127.0.0.1:%PORT%"
 "%VPY%" -m uvicorn app.backend.main:app --host 127.0.0.1 --port %PORT%

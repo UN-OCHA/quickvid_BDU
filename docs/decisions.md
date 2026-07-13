@@ -187,6 +187,28 @@ Venezuela look. Consolidation (was 3 divergent implementations):
   working (`ending.logo` auto-translated); black-tail clips need explicit
   `footage_end` (auto-detection retired).
 
+## 2026-07-13 — Two-process onboarding: web-served installer + starter
+Javier's call: no buried folders — the page hands out tiny per-OS files instead.
+- **First time** → `browser/get/Install QuickVid.command|.bat` (served by Pages AND
+  the engine): downloads the repo ZIP → installs to a FIXED hidden location
+  (`~/Library/Application Support/OCHA QuickVid/app` · `%LocalAppData%\OCHA QuickVid\app`)
+  → runs the full setup → **starts the engine detached** → page unlocks by itself.
+  Re-running the installer = update (the `.venv` is carried across so it's quick).
+- **Next times** → `browser/get/Start QuickVid.command|.bat`: reads the install
+  location from the registry file the launcher writes on every run
+  (`<support>/home[.txt]` — so MANUAL/dev installs work with the starter too),
+  starts detached, page unlocks in seconds. Engine stays on until shutdown/logout.
+- Launchers gained: self-registration, an **already-running check** (just opens the
+  page instead of a port-conflict crash), and **QV_DETACH=1** (Mac: nohup+disown to
+  `<support>/engine.log`, window closable; Windows: minimized "OCHA QuickVid engine"
+  console). Manual double-click keeps the old visible-window behavior.
+- Card rebuilt: per-OS "First time here?" (installer) / "Already installed?"
+  (starter) with the one-per-file Gatekeeper/SmartScreen note. README: buttons are
+  the primary path; ZIP demoted to a collapsible developer note.
+- Idle engine cost, measured: ~63 MB RAM, 0.0% CPU — always-on remains OPT-OUT by
+  simply not starting it; auto-start-at-login deliberately NOT added (Javier: people
+  don't edit every day; "stays on until shutdown" is the chosen model).
+
 ## 2026-07-12 — Windows: auto-install Python (no manual download)
 `Start QuickVid.bat` now installs Python itself when none is found: downloads the
 official python.org installer (pinned 3.12.8, PSF-signed, URL verified 200/27 MB)

@@ -18,56 +18,37 @@ Two modes:
   ending, and packages everything into a tidy job folder. Needs the free local
   engine below (Mac; a Windows version is planned).
 
-## The full tool on your Mac
+## Getting the full tool (Mac & Windows)
 
-One-time setup, about 10 minutes, **no admin rights and no Homebrew needed** —
-the start script sets everything up by itself (a portable video engine, the
-OCHA brand font, and the speech-recognition model).
+Everything happens from the **Edit tab of the web app** — no ZIPs, no folders
+to keep track of, **no admin rights**:
 
-1. **Download QuickVid** — [grab the ZIP](https://github.com/UN-OCHA/quickvid_BDU/archive/refs/heads/main.zip)
-   and unzip it anywhere (Desktop is fine).
-2. **Right-click `Start QuickVid` → Open → Open.**
-   - ⚠️ The first time, macOS says *“can’t be opened — unidentified
-     developer.”* That's normal for anything downloaded from the internet:
-     **right-click → Open** is the official way past it, and you only do it
-     once. (Double-clicking shows the same warning without the Open option.)
-   - ⏳ The first run downloads its tools and a ~500 MB speech model — watch
-     the progress in the Terminal window it opens. If your Mac has no
-     developer tools yet, it may offer to install Apple's *Command Line
-     Tools* — accept and let it finish, then run `Start QuickVid` again.
-   - Every run after the first starts in a few seconds.
-3. **Go to the QuickVid page in your browser** (the script opens it for you).
-   The page detects the engine within seconds and the **Edit tab unlocks by
-   itself** — the chip at the top turns cyan: *QuickVid Full*. Keep the
-   little Terminal window open while you work.
+- **First time** → download the **installer** the page offers
+  (`Install QuickVid`), double-click it in your Downloads. It sets everything
+  up by itself (~10 minutes: Python if missing, the video engine, the
+  speech-recognition model), installs QuickVid into a system folder you never
+  need to open, and **starts it when done** — the page unlocks on its own.
+- **Every time after** → download the tiny **starter** (`Start QuickVid`) once,
+  keep it in Downloads or on your Desktop, and double-click it whenever you
+  want to edit. The engine runs quietly in the background until you shut down;
+  the page unlocks in seconds. Re-running the **installer** later = update.
 
-## The full tool on Windows
-
-Same idea, one-time setup, **no admin rights needed** — `Start QuickVid.bat`
-sets **everything** up by itself, **including Python if you don't have it**
-(a portable video engine and the speech-recognition model too; the brand fonts
-are built into the app).
-
-1. **Download QuickVid** — [grab the ZIP](https://github.com/UN-OCHA/quickvid_BDU/archive/refs/heads/main.zip)
-   and unzip it anywhere (Desktop is fine).
-2. **Double-click `Start QuickVid.bat`.**
-   - ⚠️ The first time, Windows may show *“Windows protected your PC”*
-     (SmartScreen). That's normal for anything downloaded from the internet:
-     click **More info → Run anyway**. You only do it once.
-   - 🐍 **No Python? It installs it for you** — the official python.org
-     installer, user-scope, no admin. Only if your network blocks that does it
-     open the download page; there, click **“Latest Python install manager”**
-     near the top, run it, then double-click `Start QuickVid.bat` again.
-   - ⏳ The first run downloads its tools and a ~500 MB speech model — watch
-     the progress in the command window. Every run after starts in seconds.
-3. **Go to the QuickVid page in your browser** (the script opens it for you).
-   The page detects the engine and the **Edit tab unlocks by itself** — the
-   chip turns cyan: *QuickVid Full*. Keep the black command window open while
-   you work.
+Each freshly downloaded file triggers one security nag — that's normal for
+internet downloads: macOS says *“unidentified developer”* (**right-click →
+Open → Open**); Windows shows SmartScreen (**More info → Run anyway**).
 
 > The Windows engine is fresh — if anything misbehaves, tell
 > [ochavisual@un.org](mailto:ochavisual@un.org) and use **Titles & branding**
 > (works fully in the browser) in the meantime.
+
+<details>
+<summary><strong>Manual / developer install</strong> (the old way — still works)</summary>
+
+[Grab the ZIP](https://github.com/UN-OCHA/quickvid_BDU/archive/refs/heads/main.zip),
+unzip anywhere, and run `Start QuickVid.command` (Mac; right-click → Open the
+first time) or `Start QuickVid.bat` (Windows). Same self-setup, but the engine
+lives in your folder and the window stays open while you work.
+</details>
 
 ## Design
 

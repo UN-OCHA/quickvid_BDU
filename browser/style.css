@@ -96,6 +96,10 @@ body.is-full .footer-unlock { display: none; }
 .st-proj-name { flex: 1 1 16rem; min-width: 0; }
 /* Use-AI modal paste box */
 .st-ai-paste { width: 100%; font-family: var(--mono-font, ui-monospace, monospace); font-size: 0.8rem; resize: vertical; }
+/* Locked-Edit card: installer / starter blocks */
+.st-setup-block { margin-top: 1.1rem; padding-top: 0.35rem; }
+.st-setup-block + .st-setup-block { border-top: 1px solid var(--line); margin-top: 1.35rem; padding-top: 1.1rem; }
+.st-setup-block .app-hint { margin-top: 0.5rem; }
 /* step 4: stacked from/to range rows */
 #st-ranges { display: flex; flex-direction: column; gap: 0.5rem; }
 .st-range .st-range-del { align-self: end; }
