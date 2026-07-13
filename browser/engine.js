@@ -106,7 +106,7 @@
 
     const orient = (W / H) > 1.25 ? 'landscape' : ((W / H) < 0.85 ? 'portrait' : 'square');
     const name = S.uppercase_name ? (lt.name || '').toUpperCase() : (lt.name || '');
-    const org = lt.org || '';
+    const titles = [lt.org, lt.org2].filter((t) => t && String(t).trim());   // 1–2 org lines (bilingual)
     const nsize = Math.max(20, Math.round(H * G.name_ratio[orient]));
     const osize = Math.max(12, Math.round(nsize * G.org_scale));
     const npx = Math.round(nsize * G.name_pad_x), npy = Math.round(nsize * G.name_pad_y);
@@ -118,10 +118,12 @@
     const nameW = ctx.measureText(name).width;
     ctx.letterSpacing = '0px';
     ctx.font = `${F.org_weight} ${osize}px ${F.family}, Arial, sans-serif`;
-    const orgW = org ? ctx.measureText(org).width : 0;
+    const orgW = titles.length ? Math.max(...titles.map((t) => ctx.measureText(t).width)) : 0;
+    const oline = Math.round(osize * (G.org_line || 1.42));
 
     const nBoxW = nameW + npx * 2, nBoxH = nsize + npy * 2;
-    const oBoxW = org ? orgW + opx * 2 : 0, oBoxH = org ? osize + opy * 2 : 0;
+    const oBoxW = titles.length ? orgW + opx * 2 : 0;
+    const oBoxH = titles.length ? (osize + opy * 2 + (titles.length - 1) * oline) : 0;
     const blockW = Math.max(nBoxW, oBoxW);
     const pan = Math.round(nsize * G.pan) * panf;
 
@@ -144,14 +146,14 @@
     ctx.fillText(name, nX + npx, nY + nBoxH / 2 + nsize * 0.04);
     ctx.restore();
     // org bar — delayed wipe + settle pan (drawn like the Python clip group)
-    if (org && orr > 0.001) {
+    if (titles.length && orr > 0.001) {
       ctx.save();
       ctx.beginPath(); ctx.rect(oX - 1, oY - 1, Math.ceil(oBoxW * orr) + 2, oBoxH + 2); ctx.clip();
       ctx.fillStyle = C.org_bg; ctx.fillRect(oX, oY, oBoxW, oBoxH);
       ctx.fillStyle = C.org_text;
       ctx.letterSpacing = '0px';
       ctx.font = `${F.org_weight} ${osize}px ${F.family}, Arial, sans-serif`;
-      ctx.fillText(org, oX + opx, oY + oBoxH / 2 + osize * 0.04);
+      titles.forEach((t, i) => ctx.fillText(t, oX + opx, oY + opy + osize / 2 + i * oline + osize * 0.04));
       ctx.restore();
     }
     ctx.restore();

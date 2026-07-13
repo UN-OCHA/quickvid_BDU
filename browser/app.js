@@ -36,6 +36,8 @@ function setChip() {
     ? '<i class="fa-solid fa-bolt" aria-hidden="true"></i> QuickVid Full — engine connected, no limits'
     : '<i class="fa-solid fa-globe" aria-hidden="true"></i> QuickVid Lite — runs in your browser';
   document.body.classList.toggle("is-full", full);
+  const tf = $("#t-subs-full"), tl = $("#t-subs-lite");
+  if (tf && tl) { tf.hidden = !full; tl.hidden = full; }          // Titles subtitles: controls vs install-CTA
   if (typeof stModeChanged === "function") stModeChanged(full);   // Edit tab unlocks with the engine
   if (!state.file && !state.enginePath)
     $("#drop-text").textContent = full
@@ -54,8 +56,9 @@ async function enginePick() {
 }
 
 // full mode: hand the job to the engine (real ffmpeg) and stream the result back over localhost
-async function renderViaEngine(lowerThirds, ending) {
-  const body = { video: state.enginePath, lower_thirds: lowerThirds, ending: { style: ending.style } };
+async function renderViaEngine(lowerThirds, ending, subtitles) {
+  const body = { video: state.enginePath, lower_thirds: lowerThirds, ending: { style: ending.style },
+                 subtitles: subtitles || { on: false, style: "box" } };
   const r = await fetch(ENGINE + "/api/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) { let m = "Engine error"; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
   const { job_id } = await r.json();
@@ -83,6 +86,7 @@ function addLtRow() {
   row.innerHTML =
     `<input class="cd-form__input lt-name" placeholder="e.g. Vanessa May" autocomplete="off">
      <input class="cd-form__input lt-org" placeholder="e.g. OCHA Venezuela" autocomplete="off">
+     <input class="cd-form__input lt-org2" placeholder="2nd line (optional)" autocomplete="off">
      <span class="lt-start timefield">
        <input class="cd-form__input timefield__input" type="text" inputmode="numeric" value="00:10" maxlength="5" aria-label="Start time (mm:ss)" title="When it appears (mm:ss)">
        <span class="timefield__spin">
@@ -138,16 +142,18 @@ drop.addEventListener("click", e => { if (state.mode === "full") { e.preventDefa
 $("#run").onclick = async () => {
   const haveVideo = state.mode === "full" ? state.enginePath : state.file;
   if (!haveVideo) return setStatus("Choose a video first.", "warn");
-  const lowerThirds = [...document.querySelectorAll(".lt-row")].map((r) => ({
+  const lowerThirds = [...document.querySelectorAll("#lt-rows .lt-row")].map((r) => ({
     name: r.querySelector(".lt-name").value.trim(),
     org: r.querySelector(".lt-org").value.trim(),
+    org2: r.querySelector(".lt-org2").value.trim(),
     start: parseTime(r.querySelector(".timefield__input").value),
     duration: parseFloat(r.querySelector(".durfield__input").value) || 4,
     align: r.querySelector(".lt-align").value,
   })).filter((lt) => lt.name);
   const ending = { style: document.querySelector('input[name="ending"]:checked').value };
-  if (!lowerThirds.length && ending.style === "none")
-    return setStatus("Add at least one lower third, or pick an ending.", "warn");
+  const subtitles = { on: state.mode === "full" && $("#t-subs-on").checked, style: tSubsStyle };
+  if (!lowerThirds.length && ending.style === "none" && !subtitles.on)
+    return setStatus("Add at least one lower third, subtitles, or pick an ending.", "warn");
 
   $("#run").disabled = true;
   const t0 = performance.now();
@@ -155,7 +161,7 @@ $("#run").onclick = async () => {
     let blob, meta = null;
     if (state.mode === "full") {
       setStatus("Rendering with the OCHA engine…", "busy");
-      blob = await renderViaEngine(lowerThirds, ending);           // real ffmpeg, no limits
+      blob = await renderViaEngine(lowerThirds, ending, subtitles);           // real ffmpeg, no limits
     } else {
       meta = await QVEngine.render(state.file, { lowerThirds, ending }, (m) => setStatus(m, "busy")); // in-tab WebCodecs
       blob = meta.blob;
@@ -180,6 +186,28 @@ $("#run").onclick = async () => {
   } finally {
     $("#run").disabled = false;
   }
+};
+
+// ---- Titles subtitles: ON/OFF + Social/Event style with preview; Lite shows the install CTA ----
+let tSubsStyle = "box";
+function tSetSubStyle(style) {
+  tSubsStyle = style;
+  $("#t-substyle-box").classList.toggle("cd-button--outline", style !== "box");
+  $("#t-substyle-event").classList.toggle("cd-button--outline", style === "box");
+  const img = $("#t-subs-preview");                    // box = 9:16 reel, event = 16:9 — set intrinsic size to avoid stretch/shift
+  img.width = 360; img.height = style === "box" ? 640 : 203;
+  img.src = style === "box" ? "img/ex-sub-box.jpg" : "img/ex-sub-event.jpg";
+  $("#t-subs-cap").textContent = style === "box"
+    ? "Social — white text on a grey box (feeds & reels)."
+    : "Event — clean white text over a soft gradient (16:9 screens).";
+}
+$("#t-substyle-box").onclick = () => tSetSubStyle("box");
+$("#t-substyle-event").onclick = () => tSetSubStyle("gradient");
+$("#t-subs-on").addEventListener("change", () => { $("#t-subs-opts").hidden = !$("#t-subs-on").checked; });
+$("#t-subs-install").onclick = (e) => {                       // → the Edit tab's install card
+  e.preventDefault();
+  if (typeof stShowPanel === "function") stShowPanel("edit");
+  window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
 // ---- step help (?) toggles — kit component .cd-help__btn / .cd-help__panel ----

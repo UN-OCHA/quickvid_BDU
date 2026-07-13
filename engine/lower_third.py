@@ -144,10 +144,11 @@ def render_seq(g, fps, outdir):
     return n
 
 
-def render(name, org, canvas_h, align, fps, hold, outdir, name_ratio=None, orient="portrait"):
+def render(name, org, canvas_h, align, fps, hold, outdir, name_ratio=None, orient="portrait", org2=None):
     """finish.py-compatible API. Sizes come from the shared spec (per
-    orientation); an explicit name_ratio still overrides for special cases."""
-    lt = {"name": name, "org": org, "align": align, "hold": hold}
+    orientation); an explicit name_ratio still overrides for special cases.
+    org2 = optional second title line (bilingual)."""
+    lt = {"name": name, "titles": [t for t in [org, org2] if t], "align": align, "hold": hold}
     if name_ratio:
         lt["name_size"] = max(20, round(canvas_h * name_ratio))
     g = build(lt, canvas_h=canvas_h, orient=orient)

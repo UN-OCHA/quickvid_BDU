@@ -230,18 +230,71 @@ def statement_render(job) -> None:
 
 def finish(job) -> None:
     """Titles & branding mode: add lower thirds + ending to an already-edited
-    video via engine/finish.py. No transcribe/cut — just the branding pass."""
+    video. Plain branding runs engine/finish.py; with SUBTITLES ON the job routes
+    through the statement renderer instead: transcribe the finished clip, then
+    social_brand burns captions + lower thirds + ending in one pass."""
     workdir = settings.WORKSPACE / job.id
     workdir.mkdir(parents=True, exist_ok=True)
     out = workdir / "branded.mp4"
-    spec = {
-        "video": job.meta["video"],
-        "out": str(out),
-        "lower_thirds": job.meta.get("lower_thirds", []),
-        "ending": job.meta.get("ending", {"style": "none"}),
-    }
-    spec_path = workdir / "spec.json"
-    spec_path.write_text(json.dumps(spec, indent=2))
-    job.progress = "Adding titles & branding…"
-    _run([sys.executable, settings.ENGINE_DIR / "finish.py", "--spec", spec_path], job)
+    if (job.meta.get("subtitles") or {}).get("on"):
+        _finish_with_subtitles(job, workdir, out)
+    else:
+        spec = {
+            "video": job.meta["video"],
+            "out": str(out),
+            "lower_thirds": job.meta.get("lower_thirds", []),
+            "ending": job.meta.get("ending", {"style": "none"}),
+        }
+        spec_path = workdir / "spec.json"
+        spec_path.write_text(json.dumps(spec, indent=2))
+        job.progress = "Adding titles & branding…"
+        _run([sys.executable, settings.ENGINE_DIR / "finish.py", "--spec", spec_path], job)
     job.result = {"workdir": str(workdir), "mp4": str(out)}
+
+
+def _finish_with_subtitles(job, workdir, out) -> None:
+    """Titles + subtitles: Whisper the finished clip → burn captions (chosen
+    style) + lower thirds + ending via engine/social_brand.py."""
+    sys.path.insert(0, str(settings.ENGINE_DIR))
+    import statement as st                              # noqa: E402 — cue/timing helpers
+    import lower_third as LT                            # noqa: E402 — shared animation constants
+
+    video = job.meta["video"]
+    seg_json = workdir / "segments.json"
+    job.progress = "Transcribing the video for subtitles…"
+    _statement_action(job, "transcribe", {"src": video, "model": settings.DEFAULT_MODEL,
+                                          "out_json": str(seg_json)})
+    segments = json.loads(seg_json.read_text())
+    cues = st.cues_real_timeline(segments)
+
+    pw, ph, _, dur = st._probe(video)
+    style = (job.meta.get("subtitles") or {}).get("style", "box")
+    sub = {                                             # preset numbers as fractions → any canvas
+        "size": max(24, round(ph * 0.024)), "max_w": round(pw * 0.85),
+        "bottom_hi": round(ph * 0.6875), "bottom_lo": round(ph * 0.77),
+        "box": style != "gradient",
+    }
+    lts = [{"name": l["name"],
+            "titles": [t for t in [l.get("org"), l.get("org2")] if t],
+            "align": l.get("align", "left"), "in": float(l.get("start", 1.0)),
+            "hold": max(0.5, float(l.get("duration", 5)) - LT.ENTER_END - LT.EXIT_DUR)}
+           for l in job.meta.get("lower_thirds", []) if l.get("name")]
+
+    est = (job.meta.get("ending") or {}).get("style", "none")
+    if est == "over_footage":                           # logo over the last 1.5s (finish.py's HOLD)
+        ending = {"style": "over_footage", "at": max(0.0, round(dur - 1.5, 2)), "click": True}
+        footage_end = ending["at"]                      # no caption under the logo
+    elif est == "over_black":
+        ending = {"style": "over_black", "at": round(dur, 2), "hold": 1.5, "click": True}
+        footage_end = dur
+    else:
+        ending = {"style": "none"}
+        footage_end = dur
+
+    spec = {"src": video, "out": str(out), "canvas": [pw, ph],
+            "footage_end": round(footage_end, 2), "subtitle": sub, "cues": cues,
+            "lower_thirds": lts, "ending": ending}
+    spec_path = workdir / "brand_spec.json"
+    spec_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False))
+    job.progress = "Burning subtitles + branding…"
+    _run([sys.executable, settings.ENGINE_DIR / "social_brand.py", "--spec", spec_path], job)

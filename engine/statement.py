@@ -30,6 +30,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import social_brand  # noqa: E402  (same engine dir; shares fonts/logo/click plumbing)
+import lower_third   # noqa: E402  (shared LT animation timing constants — same brand-lt.json spec)
 
 FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 
@@ -112,6 +113,26 @@ def cues_from_segments(segments, max_len=7.0):
         elif text:
             cues.append([round(t, 2), text])
         t += dur
+    return cues
+
+
+def cues_real_timeline(segments, max_len=7.0):
+    """Caption cues on the ORIGINAL video timeline — for a FINISHED clip (Titles &
+    branding + subtitles): nothing is cut, so each segment's own time is the cue
+    time. Long segments split at word boundaries, like cues_from_segments."""
+    cues = []
+    for seg in segments:
+        dur = seg["out"] - seg["in"]
+        words = seg.get("words") or []
+        text = (seg.get("text") or "").strip()
+        if dur > max_len and len(words) > 3:
+            parts = max(2, math.ceil(dur / (max_len * 0.9)))
+            per = math.ceil(len(words) / parts)
+            for i in range(0, len(words), per):
+                chunk = words[i:i + per]
+                cues.append([round(chunk[0]["s"], 2), " ".join(w["w"] for w in chunk)])
+        elif text:
+            cues.append([round(seg["in"], 2), text])
     return cues
 
 
@@ -234,17 +255,31 @@ def do_render(spec):
         raise RuntimeError("cut ffmpeg failed: " + (r.stderr or "")[-500:])
 
     print("Branding — captions, lower third, OCHA ending…", flush=True)
-    lt = spec.get("lower_third") or {}
+    # Lower thirds: the multi-row UI sends lower_thirds[] with per-LT start/duration.
+    # Back-compat: an old single `lower_third` still works.
+    lts_in = spec.get("lower_thirds")
+    if lts_in is None:
+        one = spec.get("lower_third") or {}
+        lts_in = [{"name": one.get("name"), "org": one.get("title"), "org2": one.get("title2"),
+                   "align": one.get("align"), "start": 1.5, "duration": 3.6 + lower_third.ENTER_END + lower_third.EXIT_DUR}] if one.get("name") else []
     lts = []
-    if lt.get("name"):
-        titles = [t for t in [lt.get("title"), lt.get("title2")] if t]
-        lts = [{**preset["lt"], "name": lt["name"], "titles": titles,
-                "align": lt.get("align", "center"), "in": 1.5, "hold": 3.6}]
+    for l in lts_in:
+        if not (l.get("name") or "").strip():
+            continue
+        titles = [t for t in [l.get("org") or l.get("title"), l.get("org2") or l.get("title2")] if t]
+        hold = max(0.5, float(l.get("duration", 5)) - lower_third.ENTER_END - lower_third.EXIT_DUR)
+        lts.append({**preset["lt"], "name": l["name"], "titles": titles,
+                    "align": l.get("align", "center"), "in": float(l.get("start", 1.5)), "hold": hold})
     bspec = {
         "src": base, "out": out, "canvas": [cw, ch], "fps": fps,
         "footage_end": round(footage_end, 2),
-        "subtitle": preset["sub"],
-        "cues": cues_from_segments(segments) if spec.get("captions", True) else [],
+        # Subtitles: {"on": bool, "style": "box"|"gradient"} — style overrides the
+        # preset default (boxed social vs clean-over-gradient event look).
+        "subtitle": {**preset["sub"],
+                     **({"box": (spec.get("subtitles") or {}).get("style") == "box"}
+                        if (spec.get("subtitles") or {}).get("style") else {})},
+        "cues": cues_from_segments(segments)
+                if (spec.get("subtitles") or {}).get("on", spec.get("captions", True)) else [],
         "lower_thirds": lts,
         "ending": {"style": style, "at": round(footage_end + (LOGO_LEAD if style == "over_footage" else 0), 2),
                    "hold": float(ending.get("hold", 2.0)), "click": ending.get("click", True)},

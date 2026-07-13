@@ -187,6 +187,74 @@ Venezuela look. Consolidation (was 3 divergent implementations):
   working (`ending.logo` auto-translated); black-tail clips need explicit
   `footage_end` (auto-detection retired).
 
+## 2026-07-13 — Subtitles everywhere (Increment 2, UNPUBLISHED, local)
+Javier's rules: subtitles are ENGINE-ONLY (no .srt path); Lite users get a plain CTA.
+- **Both tabs**: "Burn in captions" is gone → a **Subtitles** ON/OFF toggle + a
+  **Social (boxed) / Event (clean-over-gradient)** style choice with a real preview
+  (`browser/img/ex-sub-box|event.jpg`, generated with the actual caption renderer
+  over field footage). The **Social preview is a 9:16 portrait reel** (rendered at the
+  real reels canvas 1080×1920 through social_brand, downscaled to 360×640) so it reads
+  as a reel; Event stays 16:9. The preview `<img>` sets its width/height per style in
+  JS (`stSetSubStyle`/`tSetSubStyle`) so the aspect ratio never stretches on swap;
+  `.ex-thumb img` caps it (`max-height:280`) to a tidy 158×280 reel. Edit: the format
+  preset sets the default style (event → gradient),
+  switching presets resets it (predictable).
+- **Engine**: statement.py render takes `subtitles: {on, style}` (style overrides the
+  preset's box flag; `captions` bool still honoured). Verified: reels forced to
+  gradient renders no-box + scrim; off → no cues.
+- **Titles + subtitles (Full)**: /api/finish gains `subtitles`; when ON the bridge
+  routes: statement transcribe (whole clip) → `cues_real_timeline()` (new helper —
+  original-timeline cues, unlike the cut-timeline builder) → **social_brand.render**
+  burns captions + LTs + ending in one pass (caption sizes derived as fractions of the
+  canvas: size .024·H, bottom_lo .77·H, hi .6875·H; over_footage logo at dur−1.5 with
+  footage_end capping cues; HI/LO caption lift verified working). finish.py stays the
+  no-subtitles path (keeps its HDR→SDR handling — known limitation: the subtitle path
+  skips SDR conversion for HDR sources).
+- **Titles Lite**: controls replaced by the CTA — "To add subtitles, install the free
+  engine — click here" → jumps to the Edit tab's install card. Verified incl. the
+  mode swap and navigation.
+- E2E test: /api/finish with subtitles on over a spoken test clip → transcribed boxed
+  caption + bilingual LT + over_black ending, frame-checked.
+
+## 2026-07-13 — Branding UI unified: Edit LT = Titles component (UNPUBLISHED, local)
+Increment 1 of the "unify branding" batch (Javier's Windows-test feedback + spacing).
+- **Edit step 7 lower third** rebuilt as the SAME multi-row component as the Titles
+  tab: example preview image + Name + Job title + **2nd line (bilingual)** + **Start** +
+  **Duration** + Alignment + add/remove rows (was a single fixed-timing LT with no
+  preview/start/duration). Sends `lower_thirds[]`; engine maps duration→hold via
+  `lower_third.ENTER_END/EXIT_DUR` (the shared brand-lt.json timing — NOT social_brand,
+  which doesn't expose them; caught in test before it shipped).
+- **2nd line now in BOTH tabs and all three renderers**: Edit (social_brand, already),
+  Titles engine (`lower_third.render(org2=)` → `titles[]`, finish.py passes it), and
+  Titles **Lite/browser** canvas (`engine.js` draws N org lines). Frame-verified on
+  Edit (Indrika + "Vicejefe adjunto") and Titles (Vanessa May + "Portavoz").
+- **Ending thumbnails added to Edit** (#19 — Edit simply had none; the images load
+  fine on Pages). All ending/example imgs got width/height + loading attrs (robustness
+  vs the Edge report).
+- **Spacing pass** (#20): primary actions (#run/#st-render) are full-width with real
+  margins; status/alerts get air.
+- Back-compat: old single-LT projects (`lt:{}`) restore onto the new rows; `main.py`
+  keeps `lower_third` alongside new `lower_thirds`.
+- **Still pending (Increment 2):** subtitles overhaul — "Subtitles ON/OFF" toggle,
+  Social/Event style toggle + live preview, Titles no-engine path (paste/.srt burned by
+  engine.js) with an "install the full engine to auto-generate" CTA. Titles-Full caption
+  routing too. (Javier: subtitles are for users who can't install the engine → offer a
+  no-engine path, CTA fallback; style = a toggle with preview.)
+
+## 2026-07-13 — Open a saved project (UNPUBLISHED, local testing)
+"Add a field to open project" — reopen a former clip from its .ochaquickvid.json to
+keep editing.
+- `POST /api/statement/open-project`: native file picker → read + validate the json
+  (dict with `v`) → return `{project, dir}`. `dir` is the file's REAL parent, which
+  wins over the possibly-stale `jobDir` stored inside (folders get moved) — so edits
+  save back to where the file actually is now.
+- UI: "Open a saved project…" button on step 1 (under the new-project fields);
+  handler restores the state and re-points jobDir to the picked location.
+- Verified: valid load, and clear 400s for non-project json / unreadable / cancelled;
+  full front-end restore incl. the moved-folder case (segments, shots, ranges,
+  per-frame framing, preset, ending, titles, revealed cards). The native picker
+  itself needs a real click — untested headlessly.
+
 ## 2026-07-13 — Step 6 framing: per-frame drag + zoom (UNPUBLISHED, local testing)
 Javier: "left-right moves both frames, up-down only the punch-in" — the coupling was
 geometry (a portrait crop of a landscape source already uses the full height) but the

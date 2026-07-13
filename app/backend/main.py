@@ -174,6 +174,7 @@ def render(req: RenderReq):
 class LowerThirdReq(BaseModel):
     name: str
     org: str = ""
+    org2: str = ""                           # optional 2nd title line (bilingual)
     start: float = 0.0
     duration: float = 4.0
     align: str = "left"                      # left | center — left is the OCHA default
@@ -184,10 +185,16 @@ class EndingReq(BaseModel):
     darken: float = 0.0
 
 
+class SubtitlesReq(BaseModel):
+    on: bool = False
+    style: str = "box"                        # box (social) | gradient (event)
+
+
 class FinishReq(BaseModel):
     video: str
     lower_thirds: list[LowerThirdReq] = []
     ending: EndingReq = EndingReq()
+    subtitles: SubtitlesReq = SubtitlesReq()  # engine-only: transcribe + burn captions
 
 
 @app.post("/api/finish")
@@ -195,12 +202,13 @@ def finish(req: FinishReq):
     """Titles & branding: add lower thirds + an ending to an already-edited video."""
     if not Path(req.video).is_file():
         raise HTTPException(400, f"Not a video file: {req.video}")
-    if not req.lower_thirds and req.ending.style == "none":
-        raise HTTPException(400, "Nothing to add — set at least a lower third or an ending.")
+    if not req.lower_thirds and req.ending.style == "none" and not req.subtitles.on:
+        raise HTTPException(400, "Nothing to add — set a lower third, an ending, or subtitles.")
     job = jobs.create("finish", {
         "video": req.video,
         "lower_thirds": [lt.model_dump() for lt in req.lower_thirds],
         "ending": req.ending.model_dump(),
+        "subtitles": req.subtitles.model_dump(),
     })
     jobs.run_async(job, engine_bridge.finish)
     return {"job_id": job.id}
@@ -401,7 +409,8 @@ class StRenderReq(BaseModel):
     subject: dict = {"x": 0.5, "y": 0.40}               # legacy single-point framing (kept for old projects)
     framing: Optional[dict] = None                      # {"general": {x,y,zoom}, "close": {x,y,zoom}}
     preset: str = "reels"
-    lower_third: dict = {}
+    lower_third: dict = {}                              # legacy single LT (old projects)
+    lower_thirds: Optional[list] = None                 # [{name,org,org2,start,duration,align}] — the multi-row UI
     ending: dict = {"style": "over_footage"}
     captions: bool = True
     dir: Optional[str] = None                          # job folder → final lands in <dir>/export/
@@ -473,6 +482,27 @@ def st_load_project(dir: str):
         return json.loads(candidates[0].read_text(encoding="utf-8"))
     except Exception:
         raise HTTPException(400, "That folder's project file is unreadable.")
+
+
+@app.post("/api/statement/open-project")
+def st_open_project():
+    """Reopen an earlier project: pick its <name>.ochaquickvid.json file and get
+    the state back to keep editing. Returns the project + the folder it ACTUALLY
+    lives in now (authoritative — a folder can be moved after it was saved)."""
+    try:
+        path = _native_pick("file", "Open a QuickVid project (.ochaquickvid.json)")
+    except Exception as exc:                              # noqa: BLE001
+        raise HTTPException(400, f"File picker unavailable: {exc}")
+    if not path:
+        raise HTTPException(400, "No file chosen.")
+    p = Path(path)
+    try:
+        proj = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        raise HTTPException(400, "That file isn't a readable QuickVid project.")
+    if not isinstance(proj, dict) or "v" not in proj:
+        raise HTTPException(400, "That doesn't look like a QuickVid project file.")
+    return {"project": proj, "dir": str(p.parent)}
 
 
 # The single unified UI (also the Safari / offline fallback). Mounted LAST so every

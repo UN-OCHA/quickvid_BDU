@@ -81,6 +81,7 @@
         <div class="lt-labels" aria-hidden="true">
           <span class="lt-name">Name</span>
           <span class="lt-org">Job title</span>
+          <span class="lt-org2">2nd line</span>
           <span class="lt-start">Start</span>
           <span class="lt-dur">Duration</span>
           <span class="lt-align">Alignment</span>
@@ -91,10 +92,38 @@
       </div>
     </section>
 
-    <!-- Step 3 — ending -->
+    <!-- Step 3 — subtitles (engine-only feature; Lite shows the install CTA) -->
+    <section class="cd-card" aria-labelledby="s3s">
+      <div class="cd-card__content cd-flow">
+        <h2 class="cd-block-title" id="s3s"><span class="step-num" aria-hidden="true">3</span> Subtitles <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t3s" aria-label="Help: subtitles"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+        <div class="cd-help__panel" id="help-t3s" hidden>
+          <ul>
+            <li>QuickVid <strong>listens to the video on your computer</strong> (nothing is uploaded), writes down the words, and burns them in as subtitles. Adds a few minutes to the render.</li>
+            <li>Two looks: <strong>Social</strong> — white text on a grey box (feeds &amp; reels) — or <strong>Event</strong> — clean white text over a soft dark gradient (16:9 screens). The preview shows each.</li>
+            <li>This needs the free <strong>engine</strong> — the same one the Edit tab uses. Without it, the section shows an install link instead.</li>
+          </ul>
+        </div>
+        <div id="t-subs-full" hidden>
+          <label class="st-check"><input type="checkbox" id="t-subs-on" /> Subtitles <span class="app-hint">— the spoken words, transcribed on your Mac and burned in.</span></label>
+          <div id="t-subs-opts" hidden>
+            <div class="st-btn-row" role="group" aria-label="Subtitle style">
+              <button type="button" id="t-substyle-box" class="cd-button cd-button--small"><span class="cd-button__text">Social — boxed</span></button>
+              <button type="button" id="t-substyle-event" class="cd-button cd-button--small cd-button--outline"><span class="cd-button__text">Event — clean</span></button>
+            </div>
+            <figure class="ex-thumb">
+              <img id="t-subs-preview" src="img/ex-sub-box.jpg" width="360" height="640" alt="Subtitle style preview" />
+              <figcaption id="t-subs-cap">Social — white text on a grey box (feeds &amp; reels).</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div id="t-subs-lite" class="cd-alert"><div class="cd-alert__message"><p><strong>To add subtitles, install the free engine</strong> — it transcribes the speech on your computer, so nothing is uploaded. <a href="#" id="t-subs-install">Click here to install it</a> (the Edit tab walks you through — ~10 minutes, no admin rights), then come back and this option unlocks.</p></div></div>
+      </div>
+    </section>
+
+    <!-- Step 4 — ending -->
     <section class="cd-card" aria-labelledby="s3">
       <div class="cd-card__content cd-flow">
-        <h2 class="cd-block-title" id="s3"><span class="step-num" aria-hidden="true">3</span> Ending <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t3" aria-label="Help: ending"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+        <h2 class="cd-block-title" id="s3"><span class="step-num" aria-hidden="true">4</span> Ending <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t3" aria-label="Help: ending"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
         <div class="cd-help__panel" id="help-t3" hidden>
           <ul>
             <li><strong>Over footage</strong> — the OCHA logo snaps over your final shot, with the click sound. The standard for social clips; needs about 2 seconds of calm footage at the end.</li>
@@ -105,13 +134,13 @@
         <div class="end-options">
           <label class="end-opt">
             <input type="radio" name="ending" value="over_footage" checked />
-            <img src="img/ex-ending-footage.jpg" alt="OCHA logo over the last seconds of footage" />
+            <img src="img/ex-ending-footage.jpg" alt="OCHA logo over the last seconds of footage" width="360" height="203" />
             <span class="end-opt__label">Over footage</span>
             <span class="end-opt__hint">Logo over your last shot — needs ≥2s of footage at the end.</span>
           </label>
           <label class="end-opt">
             <input type="radio" name="ending" value="over_black" />
-            <img src="img/ex-ending-black.jpg" alt="OCHA logo centred on a black screen" />
+            <img src="img/ex-ending-black.jpg" alt="OCHA logo centred on a black screen" width="360" height="203" />
             <span class="end-opt__label">Over black</span>
             <span class="end-opt__hint">Logo on a clean black end card.</span>
           </label>
@@ -224,6 +253,10 @@
               <button class="cd-button cd-button--outline cd-button--small" id="st-folder-pick" type="button"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Choose where to save…</span></button>
             </div>
             <span class="app-hint" id="st-folder-path">Name the project, then pick a location — a folder with that name is created there, and everything lives inside: the download, the finished clip, the thumbnail and the project file (autosaved, so you can resume later). Optional: skip it and files go to a temporary spot.</span>
+            <div class="st-open-row">
+              <button class="cd-button cd-button--outline cd-button--small" id="st-open-proj" type="button"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Open a saved project…</span></button>
+              <span class="app-hint">Continuing an earlier clip? Pick its <code>.ochaquickvid.json</code> file to reload everything and keep editing.</span>
+            </div>
           </div>
         </div>
       </section>
@@ -371,24 +404,52 @@
           <h2 class="cd-block-title"><span class="step-num" aria-hidden="true">7</span> Titles &amp; ending <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-e7" aria-label="Help: titles and ending"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
           <div class="cd-help__panel" id="help-e7" hidden>
             <ul>
-              <li><strong>Name + Title</strong> fill the animated OCHA lower third near the start of the clip. <strong>2nd line</strong> adds a second title line — e.g. the Spanish translation for a bilingual strip.</li>
-              <li><strong>Captions</strong>: the speaker's words, burned in. Keep this on for social — most people watch muted.</li>
-              <li><strong>Ending</strong>: <em>Logo over footage</em> = the OCHA logo snaps over the closing shot with the click sound (the standard). <em>Over black</em> = clean black end card. <em>No ending</em> = finish on the last words.</li>
+              <li>A <strong>lower third</strong> introduces a speaker: name on top, job title under it. One row per person — <strong>Add lower third</strong> for more.</li>
+              <li><strong>Start</strong> = seconds into the finished clip; <strong>Duration</strong> = seconds on screen (5–6 reads well). <strong>2nd line</strong> adds a second title line — e.g. a Spanish translation for a bilingual strip.</li>
+              <li><strong>Subtitles</strong>: the speaker's words, burned in — keep ON for social (most people watch muted). Two looks: <strong>Social</strong> (white on a grey box) or <strong>Event</strong> (clean white over a soft gradient, for 16:9 screens); the preview shows each, and the format you picked in step 6 sets the sensible default.</li>
+              <li><strong>Ending</strong>: <em>Over footage</em> = the OCHA logo snaps over the closing shot with the click sound (the standard). <em>Over black</em> = clean black end card. <em>No ending</em> = finish on the last words.</li>
             </ul>
           </div>
-          <div class="field-row">
-            <label>Name <input class="cd-form__input" id="st-lt-name" placeholder="e.g. Tom Fletcher" /></label>
-            <label>Title <input class="cd-form__input" id="st-lt-title" placeholder="e.g. UN Relief Chief" /></label>
-            <label>2nd line <input class="cd-form__input" id="st-lt-title2" placeholder="optional (e.g. Spanish)" /></label>
-            <label>Alignment <select class="cd-form__input" id="st-lt-align"><option value="center">Centre</option><option value="left">Left</option></select></label>
+          <figure class="ex-thumb">
+            <img src="img/ex-lowerthird.jpg" alt="Example: a name and job-title lower third" width="320" height="569" />
+            <figcaption>A <strong>lower third</strong> — name + job title, animated on and off.</figcaption>
+          </figure>
+          <p class="app-hint">A lower third for each person on screen. <strong>Start</strong> = seconds into the finished clip; <strong>Duration</strong> = seconds it stays.</p>
+          <div class="lt-labels" aria-hidden="true">
+            <span class="lt-name">Name</span>
+            <span class="lt-org">Job title</span>
+            <span class="lt-org2">2nd line</span>
+            <span class="lt-start">Start</span>
+            <span class="lt-dur">Duration</span>
+            <span class="lt-align">Alignment</span>
+            <span class="lt-remove"></span>
           </div>
-          <label class="st-check"><input type="checkbox" id="st-captions" checked /> Burn in captions (their own words)</label>
+          <div id="st-lt-rows"></div>
+          <button class="cd-button cd-button--outline cd-button--small" id="st-lt-add" type="button"><i class="fa-solid fa-plus" aria-hidden="true"></i><span class="cd-button__text">Add lower third</span></button>
+
+          <h3 class="cd-block-title st-subsection">Subtitles</h3>
+          <label class="st-check"><input type="checkbox" id="st-captions" checked /> Subtitles <span class="app-hint">— their words, burned in. Keep ON for social: most people watch muted.</span></label>
+          <div id="st-subs-opts">
+            <div class="st-btn-row" role="group" aria-label="Subtitle style">
+              <button type="button" id="st-substyle-box" class="cd-button cd-button--small"><span class="cd-button__text">Social — boxed</span></button>
+              <button type="button" id="st-substyle-event" class="cd-button cd-button--small cd-button--outline"><span class="cd-button__text">Event — clean</span></button>
+            </div>
+            <figure class="ex-thumb">
+              <img id="st-subs-preview" src="img/ex-sub-box.jpg" width="360" height="640" alt="Subtitle style preview" />
+              <figcaption id="st-subs-cap">Social — white text on a grey box (feeds &amp; reels).</figcaption>
+            </figure>
+          </div>
+
+          <h3 class="cd-block-title st-subsection">Ending</h3>
           <div class="end-options">
             <label class="end-opt"><input type="radio" name="st-ending" value="over_footage" checked />
-              <span class="end-opt__label">Logo over footage</span><span class="end-opt__hint">OCHA logo snaps over the closing shot, with the click.</span></label>
+              <img src="img/ex-ending-footage.jpg" alt="OCHA logo over the last seconds of footage" width="360" height="203" />
+              <span class="end-opt__label">Over footage</span><span class="end-opt__hint">Logo snaps over the closing shot, with the click.</span></label>
             <label class="end-opt"><input type="radio" name="st-ending" value="over_black" />
-              <span class="end-opt__label">Logo over black</span><span class="end-opt__hint">Clean black end card, with the click.</span></label>
-            <label class="end-opt"><input type="radio" name="st-ending" value="none" />
+              <img src="img/ex-ending-black.jpg" alt="OCHA logo centred on a black screen" width="360" height="203" />
+              <span class="end-opt__label">Over black</span><span class="end-opt__hint">Clean black end card, with the click.</span></label>
+            <label class="end-opt end-opt--none"><input type="radio" name="st-ending" value="none" />
+              <span class="end-opt__icon"><img src="img/ic-film.svg" alt="" /></span>
               <span class="end-opt__label">No ending</span><span class="end-opt__hint">End on the last words.</span></label>
           </div>
         </div>

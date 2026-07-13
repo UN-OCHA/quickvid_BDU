@@ -147,6 +147,24 @@ $st("#st-folder-pick").onclick = async () => {
   } catch (e) { stStatus("Couldn't open the folder picker.", "warn"); }
 };
 
+// Reopen an earlier project from its .ochaquickvid.json file (native picker on the engine).
+$st("#st-open-proj").onclick = async () => {
+  try {
+    stStatus("Opening the project file…", "busy");
+    const r = await fetch(`${ENGINE}/api/statement/open-project`, { method: "POST" });
+    if (!r.ok) { stStatus((await r.json()).detail || "Couldn't open that file.", "warn"); return; }
+    const { project, dir } = await r.json();
+    stRestore(project);
+    if (dir) {                                               // the file's real location wins over any stored (possibly moved) path
+      ST.jobDir = dir;
+      $st("#st-folder-path").innerHTML =
+        `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Reopened from <strong>${esc(dir)}</strong> — edits save back here.`;
+    }
+    stSave();
+    stStatus(`Opened “${(project.name || "project")}” — continue editing below.`, "ok");
+  } catch (e) { stStatus("Couldn't open the project: " + e.message, "error"); }
+};
+
 // ---------- E3: sync ----------
 const FR = 1 / 30;                                            // one frame at 30fps
 const SYNC_OFFSETS = [-4, -3, -2, 0, 2, 3, 4];                // in frames; + = audio later
@@ -484,6 +502,80 @@ $st("#st-zoom-close").oninput = (e) => { ST.framing.close.zoom = e.target.value 
 document.querySelectorAll('input[name="st-preset"]').forEach((r) => (r.onchange = stFrameRefresh));
 
 // ---------- E8: render + thumbnail ----------
+// ---------- E7: subtitles (ON/OFF + Social/Event style with preview) ----------
+function stSetSubStyle(style) {
+  ST.subsStyle = style;
+  $st("#st-substyle-box").classList.toggle("cd-button--outline", style !== "box");
+  $st("#st-substyle-event").classList.toggle("cd-button--outline", style === "box");
+  const img = $st("#st-subs-preview");                 // box = 9:16 reel, event = 16:9 — set intrinsic size to avoid stretch/shift
+  img.width = 360; img.height = style === "box" ? 640 : 203;
+  img.src = style === "box" ? "img/ex-sub-box.jpg" : "img/ex-sub-event.jpg";
+  $st("#st-subs-cap").textContent = style === "box"
+    ? "Social — white text on a grey box (feeds & reels)."
+    : "Event — clean white text over a soft gradient (16:9 screens).";
+}
+$st("#st-substyle-box").onclick = () => { stSetSubStyle("box"); stSave(); };
+$st("#st-substyle-event").onclick = () => { stSetSubStyle("gradient"); stSave(); };
+$st("#st-captions").addEventListener("change", () => { $st("#st-subs-opts").hidden = !$st("#st-captions").checked; });
+// the format sets the sensible default look (reels/feed = boxed; event screen = clean)
+document.querySelectorAll('input[name="st-preset"]').forEach((r) =>
+  r.addEventListener("change", () => stSetSubStyle(r.value === "event" ? "gradient" : "box")));
+stSetSubStyle("box");
+
+// ---------- E7: lower thirds (same multi-row component as the Titles tab) ----------
+const stFmtMMSS = (sec) => { sec = Math.max(0, Math.round(sec || 0)); return `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
+function stAddLt(v) {
+  v = v || {};
+  const row = document.createElement("div");
+  row.className = "lt-row";
+  row.innerHTML =
+    `<input class="cd-form__input lt-name" placeholder="e.g. Tom Fletcher" autocomplete="off">
+     <input class="cd-form__input lt-org" placeholder="e.g. UN Relief Chief" autocomplete="off">
+     <input class="cd-form__input lt-org2" placeholder="2nd line (optional)" autocomplete="off">
+     <span class="lt-start timefield">
+       <input class="cd-form__input timefield__input" type="text" inputmode="numeric" value="00:02" maxlength="5" aria-label="Start (mm:ss)">
+       <span class="timefield__spin"><button type="button" class="timefield__up" tabindex="-1" aria-label="Later">&#9650;</button><button type="button" class="timefield__down" tabindex="-1" aria-label="Earlier">&#9660;</button></span>
+     </span>
+     <span class="lt-dur timefield">
+       <input class="cd-form__input durfield__input" type="text" inputmode="numeric" value="5" maxlength="3" aria-label="Duration (seconds)">
+       <span class="durfield__unit" aria-hidden="true">sec</span>
+       <span class="timefield__spin"><button type="button" class="durfield__up" tabindex="-1" aria-label="Longer">&#9650;</button><button type="button" class="durfield__down" tabindex="-1" aria-label="Shorter">&#9660;</button></span>
+     </span>
+     <select class="cd-form__input lt-align"><option value="center">Centre</option><option value="left">Left</option></select>
+     <button class="cd-button cd-button--outline cd-button--small lt-remove" type="button" aria-label="Remove"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>`;
+  const tf = row.querySelector(".timefield__input"), df = row.querySelector(".durfield__input");
+  if (v.name) row.querySelector(".lt-name").value = v.name;
+  if (v.org) row.querySelector(".lt-org").value = v.org;
+  if (v.org2) row.querySelector(".lt-org2").value = v.org2;
+  if (v.start != null) tf.value = stFmtMMSS(v.start);
+  if (v.duration != null) df.value = String(v.duration);
+  if (v.align) row.querySelector(".lt-align").value = v.align;
+  const setTf = (s) => { tf.value = stFmtMMSS(s); stSave(); };
+  tf.addEventListener("blur", () => setTf(parseT(tf.value) || 0));
+  row.querySelector(".timefield__up").onclick = () => setTf((parseT(tf.value) || 0) + 1);
+  row.querySelector(".timefield__down").onclick = () => setTf((parseT(tf.value) || 0) - 1);
+  const setDf = (n) => { df.value = String(Math.max(1, Math.round(n || 1))); stSave(); };
+  df.addEventListener("blur", () => setDf(parseFloat(df.value)));
+  row.querySelector(".durfield__up").onclick = () => setDf((parseFloat(df.value) || 0) + 1);
+  row.querySelector(".durfield__down").onclick = () => setDf((parseFloat(df.value) || 0) - 1);
+  row.querySelector(".lt-remove").onclick = () => { row.remove(); stSave(); };
+  $st("#st-lt-rows").appendChild(row);
+  return row;
+}
+function stEnsureLt() { if (!$st("#st-lt-rows").children.length) stAddLt(); }
+function stCollectLts() {
+  return [...$st("#st-lt-rows").querySelectorAll(".lt-row")].map((r) => ({
+    name: r.querySelector(".lt-name").value.trim(),
+    org: r.querySelector(".lt-org").value.trim(),
+    org2: r.querySelector(".lt-org2").value.trim(),
+    start: parseT(r.querySelector(".timefield__input").value) || 0,
+    duration: parseFloat(r.querySelector(".durfield__input").value) || 5,
+    align: r.querySelector(".lt-align").value,
+  })).filter((l) => l.name);
+}
+$st("#st-lt-add").onclick = () => { stAddLt(); stSave(); };
+stEnsureLt();
+
 $st("#st-render").onclick = async () => {
   const sel = ST.segments.filter((s) => s.sel);
   if (!sel.length) return stStatus("Tick at least one sentence.", "warn");
@@ -493,14 +585,10 @@ $st("#st-render").onclick = async () => {
     framing: ST.framing,
     subject: { x: ST.framing.general.x, y: ST.framing.general.y },   // legacy field for old engine copies
     preset: document.querySelector('input[name="st-preset"]:checked').value,
-    lower_third: {
-      name: $st("#st-lt-name").value.trim(),
-      title: $st("#st-lt-title").value.trim(),
-      title2: $st("#st-lt-title2").value.trim(),
-      align: $st("#st-lt-align").value,
-    },
+    lower_thirds: stCollectLts(),
     ending: { style: document.querySelector('input[name="st-ending"]:checked').value },
     captions: $st("#st-captions").checked,
+    subtitles: { on: $st("#st-captions").checked, style: ST.subsStyle || "box" },
     dir: ST.jobDir,
   };
   try {
@@ -675,8 +763,8 @@ function stSnapshot() {
     preset: val('input[name="st-preset"]:checked') || "reels",
     ending: val('input[name="st-ending"]:checked') || "over_footage",
     captions: $st("#st-captions").checked,
-    lt: { name: $st("#st-lt-name").value, title: $st("#st-lt-title").value,
-          title2: $st("#st-lt-title2").value, align: $st("#st-lt-align").value },
+    subsStyle: ST.subsStyle || "box",
+    lts: stCollectLts(),
   };
 }
 const stWorthResuming = (p) => !!(p && (p.src || (p.segments && p.segments.length) || p.jobDir));
@@ -725,9 +813,14 @@ function stRestore(p) {
     ST.segments = p.segments || [];
     check("st-preset", p.preset || "reels");
     check("st-ending", p.ending || "over_footage");
-    if (p.lt) { $st("#st-lt-name").value = p.lt.name || ""; $st("#st-lt-title").value = p.lt.title || "";
-                $st("#st-lt-title2").value = p.lt.title2 || ""; $st("#st-lt-align").value = p.lt.align || "center"; }
+    $st("#st-lt-rows").innerHTML = "";
+    let lts = p.lts;
+    if (!lts && p.lt && p.lt.name)                             // old single-LT projects
+      lts = [{ name: p.lt.name, org: p.lt.title, org2: p.lt.title2, start: 2, duration: 5, align: p.lt.align }];
+    (lts && lts.length ? lts : [{}]).forEach(stAddLt);
     $st("#st-captions").checked = p.captions !== false;
+    stSetSubStyle(p.subsStyle || ((p.preset === "event") ? "gradient" : "box"));
+    $st("#st-subs-opts").hidden = !$st("#st-captions").checked;
     $st("#st-zoom-general").value = Math.round((ST.framing.general.zoom || 1) * 100);
     $st("#st-zoom-close").value = Math.round((ST.framing.close.zoom || 1.5) * 100);
     if (ST.src && ST.probe) {

@@ -4,6 +4,18 @@
    change the kit instead (see /CLAUDE.md). This file is only QuickVid-specific
    layout that no other app needs. Colours below are kit *tokens* (consumed, not defined). */
 
+/* ---- Vertical rhythm: the main "do it" buttons + status were cramped in the flow ---- */
+#run, #st-render {
+  display: flex; width: 100%;
+  margin: 1.6rem 0 0.4rem;
+  padding-block: 0.72rem;
+  font-size: 1rem;
+}
+.status-slot { margin-top: 0.9rem; }               /* the alert under the action button needs air */
+.status-slot .cd-alert { margin-block: 0.15rem; }
+/* result-card export buttons shouldn't hug the video/thumbnail above them */
+#preview .cd-button--export, #st-card-out .cd-button--export { margin-top: 0.6rem; }
+
 /* ---- Mode chip (browser vs engine-connected) ---- */
 .mode-chip { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 700; padding: 0.3rem 0.75rem; border-radius: var(--radius-pill); }
 .mode-chip--browser { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
@@ -23,7 +35,7 @@
 
 /* ---- Titles & branding : lower-third rows + column labels ---- */
 .lt-row, .lt-labels { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-.lt-name, .lt-org   { flex: 2 1 7rem; min-width: 0; }  /* small basis (they grow to fill) so the row fits one line; min-width:0 lets inputs shrink */
+.lt-name, .lt-org, .lt-org2 { flex: 2 1 7rem; min-width: 0; }  /* small basis (they grow to fill) so the row fits one line; min-width:0 lets inputs shrink */
 .lt-start           { flex: 0 0 5.75rem; }         /* time selector (mm:ss + spinner) */
 .lt-dur             { flex: 0 0 6rem; }             /* duration selector (secs + unit + spinner) */
 .lt-align           { flex: 0 0 6.5rem; }
@@ -62,6 +74,10 @@
 }
 .ex-thumb figcaption { font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem; }
 
+/* subsection divider — Subtitles / Ending stacked in the one Edit branding card
+   (the Titles tab splits these into separate cards, so it doesn't need this) */
+.st-subsection { border-top: 1px solid var(--line); margin-top: 2rem; padding-top: 1.5rem; }
+
 /* ---- Statement clip wizard (Edit tab) — layout only, kit tokens throughout ---- */
 .tab-lock { font-size: 0.68rem; font-weight: 700; margin-inline-start: 0.35rem; padding: 0.1rem 0.45rem; border-radius: var(--radius-pill); background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
 .st-source-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
@@ -94,6 +110,10 @@ body.is-full .footer-unlock { display: none; }
 .st-folder-row .cd-button { flex: none; }
 .st-folder-row .app-hint { margin: 0; flex: 1 1 18rem; }
 .st-proj-name { flex: 1 1 16rem; min-width: 0; }
+/* "Open a saved project" — a secondary entry point under the new-project fields */
+.st-open-row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid var(--line); }
+.st-open-row .cd-button { flex: none; }
+.st-open-row .app-hint { margin: 0; flex: 1 1 16rem; }
 /* Use-AI modal paste box */
 .st-ai-paste { width: 100%; font-family: var(--mono-font, ui-monospace, monospace); font-size: 0.8rem; resize: vertical; }
 /* Locked-Edit card: installer / starter blocks */
@@ -156,7 +176,7 @@ body.is-full .footer-unlock { display: none; }
   background: var(--card); border: 1px solid var(--input-border); border-radius: var(--radius-sm);
 }
 .end-opt input { position: absolute; opacity: 0; width: 0; height: 0; }
-.end-opt img { display: block; width: 100%; border-radius: 4px; }
+.end-opt img { display: block; width: 100%; height: auto; border-radius: 4px; }  /* height:auto — the width/height ATTRS reserve space; without this they'd stretch */
 .end-opt__label { font-weight: 700; font-size: 0.9rem; }
 .end-opt__hint  { font-size: 0.78rem; color: var(--muted); line-height: 1.35; }
 .end-opt--none  { justify-content: flex-start; }
