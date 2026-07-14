@@ -266,15 +266,16 @@
           <h2 class="cd-block-title"><span class="step-num" aria-hidden="true">2</span> The recording <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-e2" aria-label="Help: the recording"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
           <div class="cd-help__panel" id="help-e2" hidden>
             <ul>
-              <li>On <a href="https://webtv.un.org" target="_blank" rel="noopener">webtv.un.org</a>, open <strong>the meeting's own page</strong> — search its title (e.g. “Security Council … Ukraine”) — and paste that link. It works minutes after the meeting ends.</li>
-              <li><strong>Not</strong> the “24 Hour Live and pre-recorded Programming” page: that's the always-on channel, not your meeting, and the tool will refuse it.</li>
+              <li>On <a href="https://webtv.un.org" target="_blank" rel="noopener">webtv.un.org</a>, open <strong>the meeting's own page</strong> — search its title (e.g. “Security Council … Ukraine”) — and paste that link.</li>
+              <li><strong>Works even while the meeting is still live</strong> — QuickVid downloads whatever has streamed so far, right up to that moment. No need to wait for it to finish or request the file separately.</li>
+              <li>Just make sure it's that <strong>specific meeting's page</strong>, not the generic webtv.un.org homepage — the link should end in an ID, e.g. <code>webtv.un.org/en/asset/k1m/k1mx7fqwrz</code>.</li>
               <li>The download uses the <strong>floor</strong> sound — each speaker's real voice, not the interpreter.</li>
               <li>Already have the video? <strong>Pick a file</strong> and skip the download.</li>
             </ul>
           </div>
-          <p class="app-hint">Paste the link of the <strong>meeting's own UN Web TV page</strong> (works minutes after it ends — not the 24/7 live channel) — or pick a video file you already have.</p>
+          <p class="app-hint">Paste the link of the <strong>meeting's own UN Web TV page</strong> (works even while it's still live) — or pick a video file you already have.</p>
           <div class="st-source-row">
-            <input class="cd-form__input" id="st-url" placeholder="https://webtv.un.org/en/asset/…" autocomplete="off" />
+            <input class="cd-form__input" id="st-url" placeholder="https://webtv.un.org/en/asset/k1m/k1mx7fqwrz" autocomplete="off" />
             <button class="cd-button" id="st-get" type="button"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span class="cd-button__text">Get the video</span></button>
             <button class="cd-button cd-button--outline" id="st-pick" type="button"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Pick a file</span></button>
           </div>

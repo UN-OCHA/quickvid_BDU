@@ -9,7 +9,8 @@ VOD entry and downloads it with the FLOOR audio (each speaker's own voice):
   2. SAME-DAY fallback: the finished MP4s don't exist yet, but the live-DVR HLS
      is up — mux the video rendition + the floor audio track. The floor channel
      in UN HLS masters is labelled LANGUAGE="ina" ("Interlingua"). This fallback
-     is why the tool works minutes after a Security Council meeting ends.
+     is why the tool works even WHILE a Security Council meeting is still live
+     (grabs whatever's in the DVR buffer up to that moment), not just after.
 
 Interpretation audio (en/es/fr/ru/ar/zh) works through the same HLS path.
 
