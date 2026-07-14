@@ -3,6 +3,16 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-07-14 — Edit is the primary tab (engine-only app)
+Now that everything runs through the engine (Lite dropped), the flagship is the
+statement-clip editor, not the simpler "add titles" pass. So:
+- Tab order flipped: **"Edit a statement clip"** is first + active by default;
+  "Titles & branding" is secondary. (Renamed the terse "Edit" → "Edit a statement
+  clip" — it's the front door now, so it says what it does.)
+- `gate()` lands on the Edit panel when the engine comes up; initial HTML has the
+  Edit panel visible, Titles hidden. Lede rewritten to lead with editing.
+- No behaviour change to either pipeline — pure ordering/emphasis.
+
 ## 2026-06-25 — Runtime: local web app
 **Decision:** Build `app/` as a **local web app** — FastAPI backend on the Mac +
 a static single-page browser UI — running on a Python 3.11 venv.

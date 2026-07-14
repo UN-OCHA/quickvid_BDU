@@ -28,7 +28,7 @@
   </header>
 
   <main id="main" class="app-main cd-flow">
-    <p class="app-lede">Add OCHA <strong>lower thirds</strong>, <strong>subtitles</strong> and an <strong>ending</strong> to a video you've already cut — or <strong>edit a statement clip</strong> straight from UN&nbsp;Web&nbsp;TV. Everything runs <strong>on your computer; your video never leaves it.</strong></p>
+    <p class="app-lede"><strong>Edit a statement clip</strong> straight from UN&nbsp;Web&nbsp;TV — cut it, caption it, OCHA-brand it — or just <strong>add lower thirds, subtitles and an ending</strong> to a video you've already cut. Everything runs <strong>on your computer; your video never leaves it.</strong></p>
     <div id="mode-chip" class="mode-chip mode-chip--browser"><i class="fa-solid fa-plug" aria-hidden="true"></i> Looking for the engine…</div>
     <div id="st-update-banner" class="cd-alert cd-alert--status" hidden>
       <div class="cd-alert__message">
@@ -78,11 +78,11 @@
     </section>
 
     <nav class="mode-tabs" role="tablist" aria-label="QuickVid modes">
-      <button class="mode-tab is-active" id="tab-titles" role="tab" aria-selected="true" type="button"><i class="fa-solid fa-heading" aria-hidden="true"></i> Titles &amp; branding</button>
-      <button class="mode-tab" id="tab-edit" role="tab" aria-selected="false" type="button"><i class="fa-solid fa-scissors" aria-hidden="true"></i> Edit</button>
+      <button class="mode-tab is-active" id="tab-edit" role="tab" aria-selected="true" type="button"><i class="fa-solid fa-scissors" aria-hidden="true"></i> Edit a statement clip</button>
+      <button class="mode-tab" id="tab-titles" role="tab" aria-selected="false" type="button"><i class="fa-solid fa-heading" aria-hidden="true"></i> Titles &amp; branding</button>
     </nav>
 
-    <div id="panel-titles" role="tabpanel" class="cd-flow">
+    <div id="panel-titles" role="tabpanel" class="cd-flow" hidden>
     <!-- Step 1 — the video -->
     <section class="cd-card" aria-labelledby="s1">
       <div class="cd-card__content cd-flow">
@@ -207,7 +207,7 @@
     </div><!-- /panel-titles -->
 
     <!-- ================= EDIT MODE — Statement clip wizard (engine only) ================= -->
-    <div id="panel-edit" role="tabpanel" class="cd-flow" hidden>
+    <div id="panel-edit" role="tabpanel" class="cd-flow">
 
       <div id="st-wizard" hidden>
       <!-- Resume banner (autosaved project found) -->

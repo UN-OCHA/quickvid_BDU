@@ -69,7 +69,7 @@ function gate() {
   document.querySelector(".mode-tabs").hidden = !up;
   if (!up) { $("#panel-titles").hidden = true; $("#panel-edit").hidden = true; }
   else if ($("#panel-titles").hidden && $("#panel-edit").hidden) {
-    (typeof stShowPanel === "function") ? stShowPanel("titles") : ($("#panel-titles").hidden = false);
+    (typeof stShowPanel === "function") ? stShowPanel("edit") : ($("#panel-edit").hidden = false);
   }
   // gate card copy: OUTDATED reuses the same install buttons (re-running the installer IS the updater)
   $("#st-gate-title").textContent = outdated ? "Update the QuickVid engine" : "Set up QuickVid on this computer";
