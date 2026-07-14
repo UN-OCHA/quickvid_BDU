@@ -55,6 +55,11 @@ body {
 
 /* Vertical rhythm utility */
 .cd-flow > * + * { margin-top: var(--cd-flow-space, 1rem); }
+/* A component's own `margin: 0` reset (e.g. .cd-block-title) otherwise wins this tie by
+   source order, silently cancelling flow spacing wherever that component follows a
+   sibling — the exact bug that put a heading flush against an alert above it. Two
+   classes beats one, so this always wins regardless of where either rule is defined. */
+.cd-flow > * + .cd-block-title { margin-top: var(--cd-flow-space, 1rem); }
 
 /* ===== App shell ===== */
 /* Standard OCHA app header — the shared standard for OCHA web apps & tools (NOT websites),
@@ -138,18 +143,30 @@ textarea.cd-form__input { resize: vertical; }
 .app-player { width: 100%; aspect-ratio: 16 / 9; display: block; background: #000; border-radius: var(--radius-sm); }
 .app-player--fit { width: auto; max-width: 100%; max-height: 72vh; aspect-ratio: auto; margin-inline: auto; }
 
-/* ===== Status / alert ===== */
+/* ===== Status / alert =====
+   Matches the canonical DS component (components/cd-alert) — border + an offset
+   box-shadow accent bar, not a border-left. The old border-left + near-white wash
+   read as generic "AI-template" chrome; this is the real thing, same colour ramp
+   step (ramp step 6) the DS uses for its tint backgrounds. Bakes in its own
+   vertical margin (the DS component does too) so an alert never sits flush against
+   a neighbour — override locally (e.g. `.status-slot .cd-alert { margin: ... }`)
+   for a tighter spot, same as QuickVid already does under its render button. */
 .status-slot { margin-top: 0.25rem; }
 .status-slot:empty { display: none; }
 .cd-alert {
-  border-left: 4px solid var(--_ac, var(--ocha-blue));
-  background: var(--_ab, #EEF5FB); border-radius: var(--radius-sm);
-  padding: 0.6rem 0.9rem; font-size: 0.9rem; color: var(--ink);
+  margin: 1rem 0; padding: 0.85rem 1rem;
+  border: 1px solid var(--_ac, var(--ocha-blue));
+  border-radius: var(--radius-sm);
+  background: var(--_ab, #E3EDF6);
+  box-shadow: -6px 0 0 var(--_ac, var(--ocha-blue));
+  font-size: 0.9rem; color: var(--ink);
 }
+.cd-alert:first-child { margin-top: 0; }
+.cd-alert:last-child  { margin-bottom: 0; }
 .cd-alert__message p { margin: 0; }
-.cd-alert--status  { --_ac: var(--ok);   --_ab: #E9F3EC; }
-.cd-alert--warning { --_ac: var(--warn); --_ab: #FDECE3; }
-.cd-alert--error   { --_ac: var(--err);  --_ab: #FDE7EE; }
+.cd-alert--status  { --_ac: var(--ok);   --_ab: #CEE3A0; }
+.cd-alert--warning { --_ac: var(--warn); --_ab: #FEDCBD; }
+.cd-alert--error   { --_ac: var(--err);  --_ab: #F9C0C5; }
 
 /* ===== Modal ===== */
 /* Markup: <div class="cd-modal" hidden> <div class="cd-modal__panel cd-flow"> …

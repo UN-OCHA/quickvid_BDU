@@ -208,6 +208,30 @@ The Start scripts now UPDATE the engine before launching, so nobody re-downloads
 - Mac path verified end-to-end with a file:// mock (update, converge, all guards). Windows
   (robocopy/tar) shares the logic but is untested on real hardware — Parallels/second-machine test.
 
+## 2026-07-14 — Alert component: kit update (v0.1.4), synced from the source
+**Not a QuickVid-local fix — fixed in the OCHA App Kit** (`…/OCHA_design_system/
+ocha-common-design-system-BDU/app-kit/ocha-app-kit.css`) and synced here via `sync.py`,
+per the kit-first rule. Javier: "use the alerts from OCHA DS, not the ones with the left
+border — that's so AI made."
+- `.cd-alert` now matches the canonical `components/cd-alert` in the main DS repo: a
+  full 1px border + an offset `box-shadow` accent bar (not `border-left`), and the
+  DS's actual ramp-step-6 tints (`#E3EDF6`/`#CEE3A0`/`#FEDCBD`/`#F9C0C5`) — the kit had
+  drifted to a thin border-left + near-white wash, a generic look common in AI-templated
+  UI. Bakes in `margin: 1rem 0` (zeroed at `:first-child`/`:last-child`), matching the
+  real component; QuickVid's own `.status-slot .cd-alert { margin-block: 0.15rem; }`
+  override (for the tight spot under the render button) still applies unchanged.
+- **Root-caused the reported spacing bug**, not just patched the one spot: `.cd-block-title
+  { margin: 0 }` was silently cancelling `.cd-flow > * + *`'s top margin (equal
+  specificity, defined later → wins by source order) whenever a block-title directly
+  followed a flow sibling — e.g. the engine-update alert sitting flush against "Update
+  the QuickVid engine" below it. Fixed with `.cd-flow > * + .cd-block-title` (two
+  classes always wins the tie), so this can't recur anywhere the pattern occurs.
+- Verified: 16px gap now between the gate alert and its heading (was 0); all 5 cd-alert
+  instances across the app (gate, update banner, resume, saved, status) render with
+  consistent border/shadow/padding and correct margin behaviour.
+- Logged in the kit's own `CHANGELOG.md` (v0.1.4) and `HANDOFFS.md` (h7, Design System
+  Storybook session) per its discipline — remind Javier to prompt that session.
+
 ## 2026-07-14 — Engine version gate + subtitles-on-by-default
 **Version gate (page ↔ engine).** The page always ships newest (GitHub Pages); the engine
 reports `version` in /api/health. app.js compares:
