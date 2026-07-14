@@ -16,35 +16,91 @@ function setStatus(text, kind) {
   el.innerHTML = `<div class="cd-alert ${ALERT[kind] || ""}"><div class="cd-alert__message"><p>${esc(text)}</p></div></div>`;
 }
 
-// ---- engine gate: the app IS the engine's UI — without it, show the install card ----
+// ---- engine version contract ----------------------------------------------
+// The page always ships the newest code (GitHub Pages); the engine reports its
+// version in /api/health. So the page just compares.
+//  * ENGINE_MIN   — oldest engine whose /api contract matches THIS page. Below it,
+//    the engine would silently drop new fields (Paolo's v0.2 → dropped subtitles,
+//    tail, runs cutting…), so we HARD-GATE: block + "reinstall to update". Bump this
+//    ONLY when the page starts sending/expecting something older engines can't handle
+//    — not for UI-only tweaks (else people get nagged to reinstall for nothing).
+//  * ENGINE_LATEST — newest version worth prompting a (non-blocking) update to. Keep
+//    == ENGINE_MIN unless a newer engine adds a real user benefit an older-but-still-
+//    compatible engine lacks; then the soft banner appears.
+const ENGINE_MIN = "0.3.0";
+const ENGINE_LATEST = "0.3.0";
+
+// numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
+function cmpVer(a, b) {
+  const pa = String(a || "0").split("."), pb = String(b || "0").split(".");
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (parseInt(pa[i], 10) || 0) - (parseInt(pb[i], 10) || 0);
+    if (d) return d < 0 ? -1 : 1;
+  }
+  return 0;
+}
+const IS_WIN = /Windows/i.test(navigator.userAgent);
+const INSTALLER_HREF = IS_WIN ? "get/Install%20QuickVid.bat" : "get/Install%20QuickVid.command";
+
+// ---- engine gate: the app IS the engine's UI ----
+// Three states: UP (compatible) · OUTDATED (reachable but too old → hard gate) · DOWN (unreachable).
 async function detectEngine() {
-  let up = false;
+  let reachable = false, version = null;
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 900);
     const r = await fetch(ENGINE + "/api/health", { signal: ctrl.signal, cache: "no-store" });
     clearTimeout(t);
     const h = await r.json();
-    if (h && h.app === "ocha-quickvid-engine") { up = true; state.engine = h; }
+    if (h && h.app === "ocha-quickvid-engine") { reachable = true; version = h.version || "0"; state.engine = h; }
   } catch (e) { /* not running */ }
-  if (up !== state.engineUp || !state._gated) { state.engineUp = up; state._gated = true; gate(); }
+  const outdated = reachable && cmpVer(version, ENGINE_MIN) < 0;
+  const up = reachable && !outdated;
+  if (up !== state.engineUp || outdated !== state.engineOutdated || version !== state.engineVersion || !state._gated) {
+    state.engineUp = up; state.engineOutdated = outdated; state.engineVersion = version; state._gated = true;
+    gate();
+  }
 }
 
 function gate() {
-  const up = state.engineUp;
-  $("#st-need-engine").hidden = up;                     // the install card IS the app when the engine is down
+  const up = state.engineUp, outdated = state.engineOutdated, ver = state.engineVersion;
+  // the gate card shows whenever the app can't run: engine DOWN or too OLD
+  $("#st-need-engine").hidden = up;
   document.querySelector(".mode-tabs").hidden = !up;
   if (!up) { $("#panel-titles").hidden = true; $("#panel-edit").hidden = true; }
   else if ($("#panel-titles").hidden && $("#panel-edit").hidden) {
     (typeof stShowPanel === "function") ? stShowPanel("titles") : ($("#panel-titles").hidden = false);
   }
+  // gate card copy: OUTDATED reuses the same install buttons (re-running the installer IS the updater)
+  $("#st-gate-title").textContent = outdated ? "Update the QuickVid engine" : "Set up QuickVid on this computer";
+  $("#st-gate-intro").hidden = outdated;
+  const al = $("#st-gate-alert");
+  if (outdated) {
+    al.hidden = false;
+    al.querySelector("p").innerHTML =
+      `Your engine is <strong>v${esc(ver)}</strong>, but this page needs <strong>v${ENGINE_MIN}</strong> or newer — an old engine would quietly produce wrong output. ` +
+      `<strong>Re-run the installer below to update it</strong> (~2 min, your projects are safe). If it says the engine is already running, close it first (Mac: quit “QuickVid engine”; Windows: close the minimized engine window), then run the installer.`;
+  } else { al.hidden = true; }
+  // chip
   const el = $("#mode-chip");
   el.className = "mode-chip " + (up ? "mode-chip--full" : "mode-chip--browser");
   el.innerHTML = up
-    ? `<i class="fa-solid fa-bolt" aria-hidden="true"></i> Engine connected · v${(state.engine || {}).version || ""}`
-    : '<i class="fa-solid fa-plug" aria-hidden="true"></i> Engine not running — set up below';
+    ? `<i class="fa-solid fa-bolt" aria-hidden="true"></i> Engine connected · v${esc(ver || "")}`
+    : outdated
+      ? `<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Engine v${esc(ver)} — update needed`
+      : '<i class="fa-solid fa-plug" aria-hidden="true"></i> Engine not running — set up below';
+  // soft, dismissible "update available" banner — only when UP and behind ENGINE_LATEST
+  const banner = $("#st-update-banner");
+  if (up && !state._updDismissed && cmpVer(ver, ENGINE_LATEST) < 0) {
+    $("#st-upd-cur").textContent = ver; $("#st-upd-new").textContent = ENGINE_LATEST;
+    $("#st-upd-link").href = INSTALLER_HREF;
+    banner.hidden = false;
+  } else { banner.hidden = true; }
   if (typeof stModeChanged === "function") stModeChanged(up);     // Edit wizard shows/hides
 }
+document.addEventListener("click", (e) => {
+  if (e.target.closest("#st-upd-dismiss")) { state._updDismissed = true; $("#st-update-banner").hidden = true; }
+});
 
 // native picker on the engine → a path it reads straight off disk (no upload, no size limit)
 async function enginePick() {

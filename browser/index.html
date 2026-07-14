@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="vendor/ocha-app-kit.css" />
   <link rel="stylesheet" href="style.css" />
 
-  <script src="app.js?v=8" defer></script>
+  <script src="app.js?v=9" defer></script>
   <script src="statement.js?v=4" defer></script>
 </head>
 <body>
@@ -30,12 +30,18 @@
   <main id="main" class="app-main cd-flow">
     <p class="app-lede">Add OCHA <strong>lower thirds</strong>, <strong>subtitles</strong> and an <strong>ending</strong> to a video you've already cut — or <strong>edit a statement clip</strong> straight from UN&nbsp;Web&nbsp;TV. Everything runs <strong>on your computer; your video never leaves it.</strong></p>
     <div id="mode-chip" class="mode-chip mode-chip--browser"><i class="fa-solid fa-plug" aria-hidden="true"></i> Looking for the engine…</div>
+    <div id="st-update-banner" class="cd-alert cd-alert--status" hidden>
+      <div class="cd-alert__message">
+        <p><i class="fa-solid fa-arrow-rotate-right" aria-hidden="true"></i> A newer QuickVid engine is available (you have <strong>v<span id="st-upd-cur"></span></strong>, latest is <strong>v<span id="st-upd-new"></span></strong>). <a id="st-upd-link" href="#" download>Download the installer</a> and run it when convenient — it updates in place, your projects are safe. <button type="button" class="cd-button cd-button--outline cd-button--small" id="st-upd-dismiss"><span class="cd-button__text">Later</span></button></p>
+      </div>
+    </div>
 
     <!-- Engine gate — shows when the engine isn't running: the guided, no-admin install (Mac + Windows) -->
     <section class="cd-card" id="st-need-engine" hidden>
       <div class="cd-card__content cd-flow">
-        <h2 class="cd-block-title">Set up QuickVid on this computer</h2>
-        <p class="app-hint">QuickVid works on real video — cutting, transcribing, rendering — so it runs a small <strong>engine on your computer</strong>: free, sets itself up, <strong>no admin rights needed</strong>. Install once; this page unlocks by itself and stays up to date. Your videos never leave your machine.</p>
+        <div id="st-gate-alert" class="cd-alert cd-alert--warning" hidden><div class="cd-alert__message"><p></p></div></div>
+        <h2 class="cd-block-title" id="st-gate-title">Set up QuickVid on this computer</h2>
+        <p class="app-hint" id="st-gate-intro">QuickVid works on real video — cutting, transcribing, rendering — so it runs a small <strong>engine on your computer</strong>: free, sets itself up, <strong>no admin rights needed</strong>. Install once; this page unlocks by itself and stays up to date. Your videos never leave your machine.</p>
         <div class="st-btn-row" role="tablist" aria-label="Choose your system">
           <button class="cd-button cd-button--small" id="st-os-mac" type="button"><i class="fa-brands fa-apple" aria-hidden="true"></i><span class="cd-button__text">Mac</span></button>
           <button class="cd-button cd-button--small cd-button--outline" id="st-os-win" type="button"><i class="fa-brands fa-windows" aria-hidden="true"></i><span class="cd-button__text">Windows</span></button>
@@ -138,8 +144,8 @@
           </ul>
         </div>
         <div id="t-subs-full">
-          <label class="st-check"><input type="checkbox" id="t-subs-on" /> Subtitles <span class="app-hint">— the spoken words, transcribed on your Mac and burned in.</span></label>
-          <div id="t-subs-opts" hidden>
+          <label class="st-check"><input type="checkbox" id="t-subs-on" checked /> Subtitles <span class="app-hint">— the spoken words, transcribed on your computer and burned in. On by default: most social video is watched muted.</span></label>
+          <div id="t-subs-opts">
             <div class="st-btn-row" role="group" aria-label="Subtitle style">
               <button type="button" id="t-substyle-box" class="cd-button cd-button--small"><span class="cd-button__text">Social — boxed</span></button>
               <button type="button" id="t-substyle-event" class="cd-button cd-button--small cd-button--outline"><span class="cd-button__text">Event — clean</span></button>

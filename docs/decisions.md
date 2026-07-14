@@ -187,6 +187,26 @@ Venezuela look. Consolidation (was 3 divergent implementations):
   working (`ending.logo` auto-translated); black-tail clips need explicit
   `footage_end` (auto-detection retired).
 
+## 2026-07-14 — Engine version gate + subtitles-on-by-default
+**Version gate (page ↔ engine).** The page always ships newest (GitHub Pages); the engine
+reports `version` in /api/health. app.js compares:
+- `ENGINE_MIN` (0.3.0) = oldest engine whose /api CONTRACT matches this page. Below it the
+  engine silently drops new fields (Paolo's v0.2 → dropped subtitles/tail/runs-cutting =
+  wrong output, no error) → **HARD GATE**: block the app, show the install card reworded
+  ("Update the QuickVid engine", amber alert with the actual versions), tabs hidden. The
+  poll keeps running (engineUp=false) so a reinstall recovers it automatically.
+- `ENGINE_LATEST` (0.3.0, == MIN for now) = newest worth a NON-blocking nudge. When >MIN a
+  dismissible "update available" banner shows (OS-detected installer link + "Later").
+  Dormant while ==MIN, so nobody is nagged for a page-only release.
+- **Discipline (important):** bump `ENGINE_MIN` ONLY when the page starts sending/expecting
+  something older engines can't handle — never for UI-only changes. `cmpVer()` is numeric
+  semver. The "reinstall = update" story holds because the installer replaces in place; the
+  gate copy tells users to close a running old engine first (port 17870 conflict).
+- Phase 2 (not built): a self-updating starter that checks GitHub before launching, so the
+  next manual reinstall is the last. Queued for the second Windows test.
+**Subtitles on by default** in Titles & branding (`#t-subs-on` checked, options shown) —
+most social video is watched muted, so captions are the common case.
+
 ## 2026-07-14 — Drop "Lite": QuickVid is engine-only (v0.4.0)
 **Decision (Javier):** remove the in-browser WebCodecs renderer entirely. QuickVid is a
 full-capability tool for power users (BDU + trained focal points, Mac & the .bat-friendly
