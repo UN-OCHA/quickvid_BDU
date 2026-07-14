@@ -208,6 +208,21 @@ The Start scripts now UPDATE the engine before launching, so nobody re-downloads
 - Mac path verified end-to-end with a file:// mock (update, converge, all guards). Windows
   (robocopy/tar) shares the logic but is untested on real hardware — Parallels/second-machine test.
 
+## 2026-07-14 — Alert: drop the box-shadow accent bar too (kit v0.1.5)
+Same-day follow-up to the alert fix above. Javier, after seeing v0.1.4 live: "remove
+the left thicker border... this should affect all cd-alert." The v0.1.4 box-shadow
+accent was a faithful match of the DS repo's `components/cd-alert/cd-alert.css` at
+the time, but still read as a chunky left bar. Fixed at the true source this time,
+not just the app-kit copy: removed `box-shadow: -8px 0 0 var(--cd-alert-color)`
+from the canonical `components/cd-alert/cd-alert.css` itself, then mirrored into
+the app-kit's `.cd-alert` (dropped its `-6px` echo) and synced to QuickVid.
+`.cd-alert` is now a plain 1px border on all four sides + the ramp-step-6 tint —
+verified via computed styles (`boxShadow: none`, `borderLeftWidth: 1px` matching
+every other edge) across all four variants (info/status/warning/error).
+Logged in the kit's own CHANGELOG (v0.1.5) and corrected the stale h7 handoff
+(it described the box-shadow as the final look, which is no longer true) so the
+Design System session isn't misled about what to mirror in Storybook.
+
 ## 2026-07-14 — Spacing sweep: .st-setup-block joins the cd-flow rhythm
 Same disease as the alert-vs-heading bug, third location: Javier flagged "Already
 installed?" sitting flush against the previous block's button. Root cause was
