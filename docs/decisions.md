@@ -208,6 +208,25 @@ The Start scripts now UPDATE the engine before launching, so nobody re-downloads
 - Mac path verified end-to-end with a file:// mock (update, converge, all guards). Windows
   (robocopy/tar) shares the logic but is untested on real hardware — Parallels/second-machine test.
 
+## 2026-07-14 — Spacing sweep: .st-setup-block joins the cd-flow rhythm
+Same disease as the alert-vs-heading bug, third location: Javier flagged "Already
+installed?" sitting flush against the previous block's button. Root cause was
+identical in shape but a different mechanism — `.st-setup-block` (the Mac/Windows
+"First time?" / "Already installed?" panels) sits INSIDE `.cd-card__content.cd-flow`
+but is itself a plain `<div>`, so `.cd-flow > * + *` (a direct-child selector) never
+reaches its own children — the `<h3>` had NO spacing rule at all before the button
+row right after it.
+**Fix:** added the `cd-flow` class to `.st-setup-block` itself (4 instances: Mac ×2,
+Windows ×2) — reusing the kit's existing vertical-rhythm utility rather than inventing
+a bespoke rule. QuickVid-local (HTML only, no kit change): `.st-setup-block` is an
+app-specific container, not a reusable component. The already-tuned local overrides
+(`.st-setup-block .app-hint { margin-top: 0.5rem }`, `.st-setup__note { margin-top:
+0.5rem }`) still win by specificity, so those tighter, deliberate relationships are
+unaffected — only the previously-unstyled heading→button gap changed.
+**Also swept the rest of the app** for the same shape (a non-flow `<div>` whose first
+child is a heading) — found nothing else; this was the only recurring instance.
+Verified: h3→button gap is now 16px everywhere it was 0 (both OS panels, both blocks).
+
 ## 2026-07-14 — Alert component: kit update (v0.1.4), synced from the source
 **Not a QuickVid-local fix — fixed in the OCHA App Kit** (`…/OCHA_design_system/
 ocha-common-design-system-BDU/app-kit/ocha-app-kit.css`) and synced here via `sync.py`,
