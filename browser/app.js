@@ -1,11 +1,12 @@
-// OCHA QuickVid (browser) — drives the in-browser engine. No server, no upload.
+// OCHA QuickVid — the web UI for the LOCAL engine (engine-only since v0.4:
+// the in-browser "Lite" renderer is gone; every job runs through real ffmpeg).
 // One canonical host: localhost and 127.0.0.1 are DIFFERENT origins to the browser,
 // so autosave (localStorage) done on one is invisible on the other. Normalize early.
 if (location.hostname === "localhost") location.replace(location.href.replace("//localhost", "//127.0.0.1"));
 const $ = (s) => document.querySelector(s);
-const ENGINE = 'http://127.0.0.1:17870';                 // local companion engine → full mode
+const ENGINE = 'http://127.0.0.1:17870';                 // the local companion engine
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const state = { file: null, url: null, mode: 'browser', engine: null, enginePath: null };
+const state = { url: null, engineUp: false, engine: null, enginePath: null };
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
 const ALERT = { busy: "", ok: "cd-alert--status", warn: "cd-alert--warning", error: "cd-alert--error" };
@@ -15,43 +16,43 @@ function setStatus(text, kind) {
   el.innerHTML = `<div class="cd-alert ${ALERT[kind] || ""}"><div class="cd-alert__message"><p>${esc(text)}</p></div></div>`;
 }
 
-// ---- engine detection: FULL mode when the local companion answers, else BROWSER mode ----
+// ---- engine gate: the app IS the engine's UI — without it, show the install card ----
 async function detectEngine() {
+  let up = false;
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 900);
     const r = await fetch(ENGINE + "/api/health", { signal: ctrl.signal, cache: "no-store" });
     clearTimeout(t);
     const h = await r.json();
-    if (h && h.app === "ocha-quickvid-engine") { state.mode = "full"; state.engine = h; return setChip(); }
-  } catch (e) { /* no engine → browser mode */ }
-  state.mode = "browser"; state.engine = null; setChip();
+    if (h && h.app === "ocha-quickvid-engine") { up = true; state.engine = h; }
+  } catch (e) { /* not running */ }
+  if (up !== state.engineUp || !state._gated) { state.engineUp = up; state._gated = true; gate(); }
 }
 
-function setChip() {
+function gate() {
+  const up = state.engineUp;
+  $("#st-need-engine").hidden = up;                     // the install card IS the app when the engine is down
+  document.querySelector(".mode-tabs").hidden = !up;
+  if (!up) { $("#panel-titles").hidden = true; $("#panel-edit").hidden = true; }
+  else if ($("#panel-titles").hidden && $("#panel-edit").hidden) {
+    (typeof stShowPanel === "function") ? stShowPanel("titles") : ($("#panel-titles").hidden = false);
+  }
   const el = $("#mode-chip");
-  const full = state.mode === "full";
-  el.className = "mode-chip " + (full ? "mode-chip--full" : "mode-chip--browser");
-  el.innerHTML = full
-    ? '<i class="fa-solid fa-bolt" aria-hidden="true"></i> QuickVid Full — engine connected, no limits'
-    : '<i class="fa-solid fa-globe" aria-hidden="true"></i> QuickVid Lite — runs in your browser';
-  document.body.classList.toggle("is-full", full);
-  const tf = $("#t-subs-full"), tl = $("#t-subs-lite");
-  if (tf && tl) { tf.hidden = !full; tl.hidden = full; }          // Titles subtitles: controls vs install-CTA
-  if (typeof stModeChanged === "function") stModeChanged(full);   // Edit tab unlocks with the engine
-  if (!state.file && !state.enginePath)
-    $("#drop-text").textContent = full
-      ? "Choose a video — any size, any codec, kept full-resolution."
-      : "Choose a video, or drop it here — MP4 works best.";
+  el.className = "mode-chip " + (up ? "mode-chip--full" : "mode-chip--browser");
+  el.innerHTML = up
+    ? `<i class="fa-solid fa-bolt" aria-hidden="true"></i> Engine connected · v${(state.engine || {}).version || ""}`
+    : '<i class="fa-solid fa-plug" aria-hidden="true"></i> Engine not running — set up below';
+  if (typeof stModeChanged === "function") stModeChanged(up);     // Edit wizard shows/hides
 }
 
-// full mode: native picker on the engine → a path it reads straight off disk (no upload, no size limit)
+// native picker on the engine → a path it reads straight off disk (no upload, no size limit)
 async function enginePick() {
   try {
     const r = await fetch(ENGINE + "/api/pick-file", { method: "POST" });
     if (!r.ok) return;
     const { path } = await r.json();
-    if (path) { state.enginePath = path; state.file = null; $("#drop-text").textContent = path.split("/").pop(); $("#drop").classList.add("has-file"); setStatus(""); }
+    if (path) { state.enginePath = path; $("#drop-text").textContent = path.split(/[\\/]/).pop(); $("#drop").classList.add("has-file"); setStatus(""); }
   } catch (e) { setStatus("Couldn't open the file picker.", "warn"); }
 }
 
@@ -120,28 +121,14 @@ function addLtRow() {
 $("#lt-add").onclick = addLtRow;
 addLtRow();
 
-// ---- file input + drag/drop ----
-function setFile(f) {
-  if (!f) return;
-  state.file = f;
-  $("#drop-text").textContent = f.name + "  ·  " + (f.size / 1e6).toFixed(1) + " MB";
-  $("#drop").classList.add("has-file");
-  setStatus("");
-}
-$("#file").onchange = (e) => setFile(e.target.files[0]);
+// ---- the video box: click → the engine's native file picker ----
 const drop = $("#drop");
-["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("drag"); }));
-["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("drag"); }));
-drop.addEventListener("drop", e => {
-  if (state.mode === "full") return setStatus("In full mode, click the box to choose your video — it stays full-resolution.", "warn");
-  const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("video")) setFile(f);
-});
-drop.addEventListener("click", e => { if (state.mode === "full") { e.preventDefault(); enginePick(); } });
+drop.addEventListener("click", enginePick);
+drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); enginePick(); } });
 
 // ---- run ----
 $("#run").onclick = async () => {
-  const haveVideo = state.mode === "full" ? state.enginePath : state.file;
-  if (!haveVideo) return setStatus("Choose a video first.", "warn");
+  if (!state.enginePath) return setStatus("Choose a video first.", "warn");
   const lowerThirds = [...document.querySelectorAll("#lt-rows .lt-row")].map((r) => ({
     name: r.querySelector(".lt-name").value.trim(),
     org: r.querySelector(".lt-org").value.trim(),
@@ -151,34 +138,24 @@ $("#run").onclick = async () => {
     align: r.querySelector(".lt-align").value,
   })).filter((lt) => lt.name);
   const ending = { style: document.querySelector('input[name="ending"]:checked').value };
-  const subtitles = { on: state.mode === "full" && $("#t-subs-on").checked, style: tSubsStyle };
+  const subtitles = { on: $("#t-subs-on").checked, style: tSubsStyle };
   if (!lowerThirds.length && ending.style === "none" && !subtitles.on)
     return setStatus("Add at least one lower third, subtitles, or pick an ending.", "warn");
 
   $("#run").disabled = true;
   const t0 = performance.now();
   try {
-    let blob, meta = null;
-    if (state.mode === "full") {
-      setStatus("Rendering with the OCHA engine…", "busy");
-      blob = await renderViaEngine(lowerThirds, ending, subtitles);           // real ffmpeg, no limits
-    } else {
-      meta = await QVEngine.render(state.file, { lowerThirds, ending }, (m) => setStatus(m, "busy")); // in-tab WebCodecs
-      blob = meta.blob;
-    }
+    setStatus("Rendering with the OCHA engine…", "busy");
+    const blob = await renderViaEngine(lowerThirds, ending, subtitles);       // real ffmpeg, no limits
     if (state.url) URL.revokeObjectURL(state.url);
     state.url = URL.createObjectURL(blob);
     $("#player").src = state.url;
     const dl = $("#download");
     dl.href = state.url;
-    const srcName = state.mode === "full" ? state.enginePath.split("/").pop() : state.file.name;
-    dl.download = srcName.replace(/\.[^.]+$/, "") + "_OCHA.mp4";
+    dl.download = state.enginePath.split(/[\\/]/).pop().replace(/\.[^.]+$/, "") + "_OCHA.mp4";
     $("#preview").hidden = false;
     const secs = ((performance.now() - t0) / 1000).toFixed(1);
-    const done = state.mode === "full"
-      ? `Done — full quality (OCHA engine) · ${(blob.size / 1e6).toFixed(1)} MB · ${secs}s.`
-      : `Done — ${meta.W}×${meta.H} ${meta.orient}${meta.hasAudio ? " · with audio" : " · no audio"} · ${(blob.size / 1e6).toFixed(1)} MB · ${secs}s.`;
-    setStatus(done + " Preview below.", "ok");
+    setStatus(`Done — full quality · ${(blob.size / 1e6).toFixed(1)} MB · ${secs}s. Preview below.`, "ok");
     $("#preview").scrollIntoView({ behavior: "smooth" });
   } catch (e) {
     console.error(e);
@@ -188,7 +165,7 @@ $("#run").onclick = async () => {
   }
 };
 
-// ---- Titles subtitles: ON/OFF + Social/Event style with preview; Lite shows the install CTA ----
+// ---- Titles subtitles: ON/OFF + Social/Event style with preview ----
 let tSubsStyle = "box";
 function tSetSubStyle(style) {
   tSubsStyle = style;
@@ -204,11 +181,6 @@ function tSetSubStyle(style) {
 $("#t-substyle-box").onclick = () => tSetSubStyle("box");
 $("#t-substyle-event").onclick = () => tSetSubStyle("gradient");
 $("#t-subs-on").addEventListener("change", () => { $("#t-subs-opts").hidden = !$("#t-subs-on").checked; });
-$("#t-subs-install").onclick = (e) => {                       // → the Edit tab's install card
-  e.preventDefault();
-  if (typeof stShowPanel === "function") stShowPanel("edit");
-  window.scrollTo({ top: 0, behavior: "smooth" });
-};
 
 // ---- step help (?) toggles — kit component .cd-help__btn / .cd-help__panel ----
 document.addEventListener("click", (e) => {
@@ -221,10 +193,9 @@ document.addEventListener("click", (e) => {
   b.setAttribute("aria-expanded", String(open));
 });
 
-detectEngine();     // decide full vs browser mode on load
+detectEngine();     // gate the app on the engine
 
-// Browser mode: keep listening for the engine so the Edit tab unlocks BY ITSELF
-// the moment "Start QuickVid" finishes its first-run setup — the install steps
-// promise this ("come back to this page"), so no manual reload is needed.
+// While the engine is down, keep listening so the page unlocks BY ITSELF the
+// moment the installer/starter finishes — the install card promises this.
 // Localhost-only ping every few seconds; a refused connection resolves instantly.
-setInterval(() => { if (state.mode !== "full") detectEngine(); }, 4000);
+setInterval(() => { if (!state.engineUp) detectEngine(); }, 4000);

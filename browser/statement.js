@@ -47,9 +47,7 @@ async function stJob(jobId, onTick) {
 
 // ---------- tabs + gating (called from app.js when the mode chip updates) ----------
 function stModeChanged(full) {
-  $st("#st-need-engine").hidden = full;
-  $st("#st-wizard").hidden = !full;
-  $st("#edit-lock").hidden = full;
+  $st("#st-wizard").hidden = !full;                          // the global gate (app.js) owns the install card
   if (full) stMaybeOfferResume();                            // engine up → offer to restore an autosave
 }
 function stShowPanel(which) {
@@ -930,4 +928,4 @@ window.addEventListener("pagehide", () => { try { const s = stSnapshot(); if (!S
 // file finished loading (fast local engine + slow network page = the hosted case),
 // in which case its stModeChanged call hit the typeof-guard and the Edit tab would
 // stay locked until a reload. Sync now that everything above is defined.
-if (typeof state !== "undefined") stModeChanged(state.mode === "full");
+if (typeof state !== "undefined") stModeChanged(!!state.engineUp);

@@ -79,7 +79,6 @@
 .st-subsection { border-top: 1px solid var(--line); margin-top: 2rem; padding-top: 1.5rem; }
 
 /* ---- Statement clip wizard (Edit tab) — layout only, kit tokens throughout ---- */
-.tab-lock { font-size: 0.68rem; font-weight: 700; margin-inline-start: 0.35rem; padding: 0.1rem 0.45rem; border-radius: var(--radius-pill); background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
 .st-source-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .st-source-row .cd-form__input { flex: 1 1 16rem; min-width: 0; }
 .st-chip-row { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
@@ -102,8 +101,6 @@
 .st-time { width: 6rem; }
 /* "Find the words" window: compact mm:ss steppers (reuses the .timefield component) */
 .st-timefield { display: block; width: 6.25rem; }
-/* footer: the "install to unlock" nudge is only relevant in browser-only mode */
-body.is-full .footer-unlock { display: none; }
 /* step 1: job-folder picker (layout only) */
 .st-folder { margin-top: 0.5rem; }
 .st-folder-row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }

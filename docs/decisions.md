@@ -187,6 +187,25 @@ Venezuela look. Consolidation (was 3 divergent implementations):
   working (`ending.logo` auto-translated); black-tail clips need explicit
   `footage_end` (auto-detection retired).
 
+## 2026-07-14 — Drop "Lite": QuickVid is engine-only (v0.4.0)
+**Decision (Javier):** remove the in-browser WebCodecs renderer entirely. QuickVid is a
+full-capability tool for power users (BDU + trained focal points, Mac & the .bat-friendly
+Windows machines) rather than a limited tool for everyone — "a tool that only adds lower
+thirds and an ending" isn't worth a second mode. Paolo's field test proved the engine
+runs on real Windows without admin.
+**What changed:** browser/engine.js + lib/mp4box + lib/mp4-muxer deleted (the lower third
+now has ONE renderer: engine/lower_third.py); the Lite/Full chip is now a simple
+"Engine connected · vX" / "Engine not running" indicator; the install card moved out of
+the Edit tab to a TOP-LEVEL GATE — with no engine the page shows setup only (tabs hidden)
+and keeps polling every 4s so it unlocks by itself; the Titles dropzone is click-to-pick
+only (native picker via the engine — no File uploads); the Titles subtitles CTA for Lite
+users is gone (controls always shown); footer upsell + Edit-tab "engine" pill removed.
+**Kept:** the web-served page + local engine architecture (page updates itself), the
+web-served installer/starter flow, both tabs, everything else.
+**Fallback for blocked machines:** none by design — those users contact ochavisual@
+(README says so). If AppLocker-style policy turns out to block many field laptops,
+revisit with a signed installer, not with Lite.
+
 ## 2026-07-14 — Statement-clip fixes from Paolo's Windows test (ASG Yemen)
 The colleague's export was bumpy every ~10s, carried the next speaker's French, had a
 face-covering logo and read soft. Diagnosis + fixes (engine + UI, all verified against
