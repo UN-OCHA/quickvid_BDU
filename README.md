@@ -35,7 +35,8 @@ Everything happens from the web page — no ZIPs, no folders to keep track of,
 - **Every time after** → download the tiny **starter** (`Start QuickVid`) once,
   keep it in Downloads or on your Desktop, and double-click it whenever you
   want to edit. The engine runs quietly in the background until you shut down;
-  the page unlocks in seconds. Re-running the **installer** later = update.
+  the page unlocks in seconds. **It updates itself** — each launch quietly pulls
+  the latest QuickVid before starting (nothing to re-download by hand).
 
 Each freshly downloaded file triggers one security nag — that's normal for
 internet downloads: macOS says *“unidentified developer”* (**right-click →

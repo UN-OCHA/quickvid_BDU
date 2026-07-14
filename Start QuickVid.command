@@ -32,6 +32,39 @@ if curl -s -m 2 "http://127.0.0.1:$PORT/api/health" 2>/dev/null | grep -q quickv
   exit 0
 fi
 
+# --- Self-update: if GitHub has a newer version, refresh the app code before starting,
+#     so nobody has to re-download anything. Skipped for developer checkouts (a .git dir),
+#     and never allowed to block startup: any hiccup falls through to the current version.
+if [ -z "$QV_NO_UPDATE" ] && [ ! -d .git ]; then
+  LOCAL_V="$(cat VERSION 2>/dev/null || echo 0.0.0)"
+  REMOTE_V="$(curl -fsL -m 3 "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION" 2>/dev/null | tr -d '[:space:]')"
+  case "$REMOTE_V" in
+    [0-9]*.[0-9]*)
+      if [ "$REMOTE_V" != "$LOCAL_V" ] \
+         && [ "$(printf '%s\n%s\n' "$LOCAL_V" "$REMOTE_V" | sort -V | tail -1)" = "$REMOTE_V" ]; then
+        echo "Updating QuickVid  $LOCAL_V → $REMOTE_V …"
+        UTMP="$(mktemp -d)"
+        if curl -fsL -m 180 -o "$UTMP/qv.zip" "https://github.com/UN-OCHA/quickvid_BDU/archive/refs/heads/main.zip" \
+           && ditto -x -k "$UTMP/qv.zip" "$UTMP" && [ -f "$UTMP/quickvid_BDU-main/VERSION" ]; then
+          # Mirror the new code over this install: keep the Python env (.venv) and this
+          # running launcher (a file can't safely replace itself mid-run). --delete clears
+          # anything dropped upstream; -c (checksum) avoids the same-size/same-mtime skip
+          # that would strand VERSION and make it re-update every launch. rsync ships with macOS.
+          if rsync -ac --delete --exclude='.venv' --exclude='Start QuickVid.command' \
+                   "$UTMP/quickvid_BDU-main/" "./"; then
+            cp -f "$UTMP/quickvid_BDU-main/VERSION" ./VERSION   # guarantee the marker (belt + suspenders)
+            echo "Updated to $REMOTE_V."
+          else
+            echo "(update copy interrupted — starting your current version)"
+          fi
+        else
+          echo "(couldn't download the update — starting your current version)"
+        fi
+        rm -rf "$UTMP"
+      fi ;;
+  esac
+fi
+
 echo "OCHA QuickVid — checking your setup…"
 
 # 1) Python 3. macOS installs it with the Command Line Tools (guided, one-time).

@@ -79,7 +79,7 @@ function gate() {
     al.hidden = false;
     al.querySelector("p").innerHTML =
       `Your engine is <strong>v${esc(ver)}</strong>, but this page needs <strong>v${ENGINE_MIN}</strong> or newer — an old engine would quietly produce wrong output. ` +
-      `<strong>Re-run the installer below to update it</strong> (~2 min, your projects are safe). If it says the engine is already running, close it first (Mac: quit “QuickVid engine”; Windows: close the minimized engine window), then run the installer.`;
+      `<strong>Re-run the installer below to update it</strong> (~2 min, your projects are safe). If it says the engine is already running, close it first (Mac: quit “QuickVid engine”; Windows: close the minimized engine window), then run the installer. <em>After this one update, QuickVid keeps itself current automatically — you won’t need to do this again.</em>`;
   } else { al.hidden = true; }
   // chip
   const el = $("#mode-chip");

@@ -32,6 +32,36 @@ if not errorlevel 1 (
   exit /b 0
 )
 
+REM --- Self-update: if GitHub has a newer version, refresh the app code before starting,
+REM     so nobody re-downloads anything. Skipped for developer checkouts (.git) and when
+REM     QV_NO_UPDATE is set; never blocks startup - any failure falls through to the
+REM     current version.
+if defined QV_NO_UPDATE goto :afterupdate
+if exist ".git" goto :afterupdate
+set "LOCAL_V=0.0.0"
+if exist "VERSION" for /f "usebackq delims=" %%v in ("VERSION") do set "LOCAL_V=%%v"
+set "REMOTE_V="
+curl -fsL -m 3 "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION" -o "%TEMP%\qv_remote_ver.txt" 2>nul
+if exist "%TEMP%\qv_remote_ver.txt" for /f "usebackq delims=" %%v in ("%TEMP%\qv_remote_ver.txt") do set "REMOTE_V=%%v"
+del "%TEMP%\qv_remote_ver.txt" >nul 2>&1
+echo(%REMOTE_V%| findstr /r "^[0-9][0-9]*\.[0-9]" >nul 2>&1 || goto :afterupdate
+if "%REMOTE_V%"=="%LOCAL_V%" goto :afterupdate
+echo Updating QuickVid  %LOCAL_V% -^> %REMOTE_V% ...
+set "UTMP=%TEMP%\qv_update_%RANDOM%"
+mkdir "%UTMP%" 2>nul
+curl -fsL -m 180 -o "%UTMP%\qv.zip" "https://github.com/UN-OCHA/quickvid_BDU/archive/refs/heads/main.zip"
+if not exist "%UTMP%\qv.zip" ( echo ^(couldn't download the update - starting your current version^) & rd /s /q "%UTMP%" 2>nul & goto :afterupdate )
+tar -xf "%UTMP%\qv.zip" -C "%UTMP%" 2>nul
+if not exist "%UTMP%\quickvid_BDU-main\VERSION" ( echo ^(couldn't unpack the update - starting your current version^) & rd /s /q "%UTMP%" 2>nul & goto :afterupdate )
+REM Mirror the new code over this install; keep .venv and this running .bat (a file can't
+REM replace itself mid-run). /MIR clears anything dropped upstream; /IS re-copies even
+REM same-size/time files so VERSION can't be stranded (which would re-update every launch).
+robocopy "%UTMP%\quickvid_BDU-main" "%CD%" /MIR /IS /XD ".venv" ".git" /XF "Start QuickVid.bat" /NFL /NDL /NJH /NJS /NC /NS /NP >nul
+copy /y "%UTMP%\quickvid_BDU-main\VERSION" "%CD%\VERSION" >nul 2>&1
+echo Updated to %REMOTE_V%.
+rd /s /q "%UTMP%" 2>nul
+:afterupdate
+
 echo OCHA QuickVid - checking your setup...
 
 REM 1) Python 3.9-3.13. Find one; if none, install it JUST FOR THIS USER

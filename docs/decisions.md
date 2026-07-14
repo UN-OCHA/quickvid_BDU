@@ -187,6 +187,27 @@ Venezuela look. Consolidation (was 3 divergent implementations):
   working (`ending.logo` auto-translated); black-tail clips need explicit
   `footage_end` (auto-detection retired).
 
+## 2026-07-14 — Self-updating starter (auto-update on launch)
+The Start scripts now UPDATE the engine before launching, so nobody re-downloads by hand.
+- **Single source of truth:** a root `VERSION` file. `settings.py` reads it → /api/health, the
+  page's version gate, and the self-update check all compare the same number.
+- **On launch** (Start QuickVid.command/.bat, after the already-running check): fetch
+  `raw.githubusercontent.com/.../main/VERSION` (3s timeout). If newer than local, download the
+  repo zip, then MIRROR it over the install — keeping `.venv` and the currently-running launcher
+  (a file can't safely replace itself mid-run), `--delete`/`/MIR` clearing files dropped upstream.
+  Then the same run continues to pip-install (picks up new requirements) and launch the new code.
+- **Bulletproofing:** rsync `-c` / robocopy `/IS` + an explicit `VERSION` copy — otherwise a
+  same-size/same-mtime quick-check could strand VERSION and re-trigger the update every launch.
+- **Guards (all tested):** skip if a `.git` dir is present (never clobber a dev checkout), if
+  `QV_NO_UPDATE` is set, on any network failure, or if the remote isn't a valid version. Never
+  blocks startup — any hiccup falls through to the current version.
+- **Doesn't replace the running launcher**, so a launcher-script change still needs one manual
+  reinstall; app/engine/browser/requirements (all the features + served UI) auto-update.
+- **Caveat:** takes effect only once the user has a Start script that CONTAINS this logic — i.e.
+  after ONE more reinstall (Paolo needs that anyway to clear v0.2). "The next reinstall is the last."
+- Mac path verified end-to-end with a file:// mock (update, converge, all guards). Windows
+  (robocopy/tar) shares the logic but is untested on real hardware — Parallels/second-machine test.
+
 ## 2026-07-14 — Engine version gate + subtitles-on-by-default
 **Version gate (page ↔ engine).** The page always ships newest (GitHub Pages); the engine
 reports `version` in /api/health. app.js compares:
