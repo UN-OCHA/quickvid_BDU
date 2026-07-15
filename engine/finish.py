@@ -303,8 +303,9 @@ def run(spec, bitrate=12.0):
         r = pin_locator.render(pin.get("place", ""), pin.get("date", ""), H, fps, phold, seqdir,
                                icon=pin.get("icon", True), color=pin.get("color", "red"),
                                orient=prof["orient"])
-        px = round(prof["safe"]["left"] * W)
-        py = round(prof["safe"]["top"] * H)
+        pad = r.get("pad", 0)                             # undo the anti-crop headroom (bleeds into the safe margin)
+        px = max(0, round(prof["safe"]["left"] * W) - pad)
+        py = max(0, round(prof["safe"]["top"] * H) - pad)
         pstart = float(pin.get("start", 1.2))
         inputs += ["-framerate", str(fps), "-start_number", "0", "-i", os.path.join(seqdir, "%04d.png")]
         filt.append(f"[{idx}:v]setpts=PTS+{pstart}/TB[pn{idx}]")

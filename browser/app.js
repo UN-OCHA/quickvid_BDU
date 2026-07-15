@@ -31,7 +31,7 @@ function setStatus(text, kind, percent) {
 //    == ENGINE_MIN unless a newer engine adds a real user benefit an older-but-still-
 //    compatible engine lacks; then the soft banner appears.
 const ENGINE_MIN = "0.5.0";
-const ENGINE_LATEST = "0.5.2";   // 0.5.1 silent-video fix · 0.5.2 live % progress bar while rendering
+const ENGINE_LATEST = "0.5.3";   // 0.5.1 silent-video fix · 0.5.2 progress bar · 0.5.3 pin polish + start time
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
 function cmpVer(a, b) {
@@ -254,11 +254,23 @@ function tSetPinColor(c) {
 $("#t-pin-red").onclick = () => tSetPinColor("red");
 $("#t-pin-blue").onclick = () => tSetPinColor("blue");
 $("#t-pin-on").addEventListener("change", () => { $("#t-pin-opts").hidden = !$("#t-pin-on").checked; });
+// Start (mm:ss) + Duration (sec) steppers — identical behaviour to the lower-third fields
+(function () {
+  const tf = $("#t-pin-start"), setTf = (s) => { tf.value = fmtMMSS(Math.max(0, s)); };
+  tf.addEventListener("blur", () => setTf(parseTime(tf.value)));
+  $("#t-pin-start-up").onclick = () => setTf(parseTime(tf.value) + 1);
+  $("#t-pin-start-down").onclick = () => setTf(parseTime(tf.value) - 1);
+  const df = $("#t-pin-dur"), setDf = (n) => { df.value = String(Math.max(2, Math.round(n || 2))); };
+  df.addEventListener("blur", () => setDf(parseFloat(df.value)));
+  $("#t-pin-dur-up").onclick = () => setDf((parseFloat(df.value) || 0) + 1);
+  $("#t-pin-dur-down").onclick = () => setDf((parseFloat(df.value) || 0) - 1);
+})();
 function tCollectPin() {
   const on = $("#t-pin-on").checked;
   return {
     on, place: $("#t-pin-place").value.trim(), date: $("#t-pin-date").value.trim(),
     icon: $("#t-pin-icon").checked, color: tPinColor,
+    start: parseTime($("#t-pin-start").value),
     duration: parseFloat($("#t-pin-dur").value) || 5,
   };
 }

@@ -328,7 +328,8 @@ def render(spec: dict, log=print) -> str:
         prev = f"lb{k}"
     if pin_g:                                          # top-left location strip
         so = SAFE_AREA[LT.orient_of(W, H)]
-        px, py = round(W * so["left"]), round(H * so["top"])
+        pad = pin_g.get("pad", 0)                       # undo the anti-crop headroom (bleeds into the safe margin)
+        px, py = max(0, round(W * so["left"]) - pad), max(0, round(H * so["top"]) - pad)
         t_in = pin_g["t_in"]
         fc.append(f"[{pin_idx}:v]setpts=PTS+{t_in}/TB[pnv]")
         fc.append(f"[{prev}][pnv]overlay={px}:{py}:eof_action=pass:enable='gte(t,{t_in})'[pnb]")

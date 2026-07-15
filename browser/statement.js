@@ -571,11 +571,23 @@ function stSetPinColor(c) {
 $st("#st-pin-red").onclick = () => { stSetPinColor("red"); stSave(); };
 $st("#st-pin-blue").onclick = () => { stSetPinColor("blue"); stSave(); };
 $st("#st-pin-on").addEventListener("change", () => { $st("#st-pin-opts").hidden = !$st("#st-pin-on").checked; stSave(); });
+// Start (mm:ss) + Duration (sec) steppers — identical behaviour to the lower-third fields
+(function () {
+  const tf = $st("#st-pin-start"), setTf = (s) => { tf.value = stFmtMMSS(s); stSave(); };
+  tf.addEventListener("blur", () => setTf(parseT(tf.value) || 0));
+  $st("#st-pin-start-up").onclick = () => setTf((parseT(tf.value) || 0) + 1);
+  $st("#st-pin-start-down").onclick = () => setTf((parseT(tf.value) || 0) - 1);
+  const df = $st("#st-pin-dur"), setDf = (n) => { df.value = String(Math.max(2, Math.round(n || 2))); stSave(); };
+  df.addEventListener("blur", () => setDf(parseFloat(df.value)));
+  $st("#st-pin-dur-up").onclick = () => setDf((parseFloat(df.value) || 0) + 1);
+  $st("#st-pin-dur-down").onclick = () => setDf((parseFloat(df.value) || 0) - 1);
+})();
 function stCollectPin() {
   return {
     on: $st("#st-pin-on").checked,
     place: $st("#st-pin-place").value.trim(), date: $st("#st-pin-date").value.trim(),
     icon: $st("#st-pin-icon").checked, color: ST.pinColor,
+    start: parseT($st("#st-pin-start").value) ?? 1,
     duration: parseFloat($st("#st-pin-dur").value) || 5,
   };
 }
@@ -586,6 +598,7 @@ function stRestorePin(p) {
   $st("#st-pin-place").value = p.place || "";
   $st("#st-pin-date").value = p.date || "";
   $st("#st-pin-icon").checked = p.icon !== false;      // icon on by default
+  if (Number.isFinite(p.start)) $st("#st-pin-start").value = stFmtMMSS(p.start);
   if (Number.isFinite(p.duration)) $st("#st-pin-dur").value = p.duration;
   stSetPinColor(p.color === "blue" ? "blue" : "red");
 }

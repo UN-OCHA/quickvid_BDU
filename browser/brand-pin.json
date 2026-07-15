@@ -11,7 +11,7 @@
     "line1_out": 0.40,
     "pin_out_delay": 0.12,
     "pin_out": 0.36,
-    "pin_overshoot": 1.5
+    "pin_overshoot": 0.9
   },
   "geometry": {
     "line1_ratio": { "portrait": 0.0281, "square": 0.0344, "landscape": 0.0430 },

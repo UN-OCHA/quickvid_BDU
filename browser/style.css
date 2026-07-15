@@ -192,12 +192,18 @@
 #st-tail-row { align-items: center; gap: 0.6rem; }
 
 /* ---- Location strip (pin locator) controls — Titles & Edit ---- */
-.pin-fields label, .pin-row2 label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; font-weight: 700; color: var(--muted); }
-.pin-fields label { flex: 1 1 14rem; }
+.pin-fields label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; font-weight: 700; color: var(--muted); flex: 1 1 14rem; }
 .pin-fields .cd-form__input { font-weight: 400; }
-.pin-row2 { align-items: center; gap: 1rem; }
-.pin-icon-check { flex-direction: row; align-items: center; }
+.pin-row2 { align-items: center; gap: 1rem 1.25rem; flex-wrap: wrap; }
+/* keep the icon toggle a single [box] label row in BOTH tabs — .pin-row2 descendant
+   beats `.field-row label` (column) and #st-card-brand's flex:1 1 11rem by specificity */
+.pin-row2 .pin-icon-check, #st-card-brand .pin-row2 .pin-icon-check { display: flex; flex-direction: row; align-items: center; gap: 0.5rem; flex: 0 0 auto; }
 .pin-color { display: inline-flex; align-items: center; gap: 0.4rem; }
 .pin-color__label { font-size: 0.8rem; font-weight: 700; color: var(--muted); }
-.pin-dur { }
-.pin-dur__input { width: 5rem; font-weight: 400; }
+/* Start + Duration row — reuses the lower-third .timefield/.durfield components and their sizing */
+.pin-timing { gap: 1rem; }
+/* id-scoped variant overrides #st-card-brand's flex:1 1 11rem (line ~126) in the Edit tab */
+.pin-timing label, #st-card-brand .pin-timing label { flex: 0 0 auto; }
+.pin-timing .timefield { width: 5.75rem; }               /* matches .lt-start */
+.pin-timing label:last-child .timefield { width: 6rem; } /* Duration needs room for the "sec" unit (matches .lt-dur) */
+.pin-timing .cd-form__input { width: 100%; font-weight: 400; }

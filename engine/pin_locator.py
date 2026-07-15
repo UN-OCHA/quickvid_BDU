@@ -21,6 +21,7 @@ Motion (locked, mirrors the lower third's language — see engine/lower_third.py
 """
 import argparse
 import json
+import math
 import os
 import re
 import shutil
@@ -66,6 +67,16 @@ def ease(x):                                     # cubic ease-in-out
 def back_out(x, s=_T["pin_overshoot"]):          # ease-out with a subtle overshoot (the rebound)
     x = _c01(x) - 1.0
     return 1 + (s + 1) * x ** 3 + s * x ** 2
+
+
+def _peak_scale(s):
+    """The crest of back_out over x∈[0,1] — how far past 1× the rebound reaches
+    (e.g. s=0.9 → ≈1.03, a 3% overshoot). Used to size the anti-crop headroom so
+    the value tracks pin_overshoot automatically if it's ever retuned."""
+    if s <= 0:
+        return 1.0
+    u = -2 * s / (3 * (s + 1))                   # where d/dx back_out = 0 → the overshoot peak
+    return 1 + (s + 1) * u ** 3 + s * u ** 2
 
 
 def total(hold):
@@ -118,17 +129,22 @@ def build(lt, canvas_h=None, orient="portrait"):
     pin_w = round(pin_h * _PIN_W / _PIN_H) if icon_on else 0
     pin_gap = round(s1 * _G["pin_gap"]) if icon_on else 0
 
-    H = max(box_h, pin_h)
-    box_x = pin_w + pin_gap                       # 0 when the icon is off → text shifts left
-    box_y = round((H - box_h) / 2)
+    core_h = max(box_h, pin_h)
+    # The pin scales in from its bottom tip and briefly overshoots >1×, growing up
+    # and slightly out. Pad the PNG's top+left edges by that crest so it's NEVER
+    # clipped there; the compositor then shifts the overlay back by `pad` (up-left,
+    # into the safe margin) so the box's on-screen position is unchanged.
+    pad = (math.ceil(pin_h * (_peak_scale(_T["pin_overshoot"]) - 1)) + max(4, round(pin_h * 0.03))) if icon_on else 0
+    box_x = pad + pin_w + pin_gap                 # 0 when the icon is off → text shifts left
+    box_y = pad + round((core_h - box_h) / 2)
     split_y = box_y + pady + s1 + round(gap / 2)   # where the top band meets the bottom band
 
     return dict(place=place, date=date, icon_on=icon_on,
                 color=_C["pin_blue"] if lt.get("color") == "blue" else _C["pin_red"],
                 s1=s1, s2=s2, padx=padx, pady=pady, gap=gap,
                 box_x=box_x, box_y=box_y, box_w=box_w, box_h=box_h, split_y=split_y,
-                pin_w=pin_w, pin_h=pin_h,
-                W=box_x + box_w, H=H,
+                pin_w=pin_w, pin_h=pin_h, pad=pad, core_h=core_h,
+                W=box_x + box_w, H=pad + core_h,
                 hold=lt.get("hold", 3.7), t_in=lt.get("in", 1.2),
                 top=lt.get("top"), left=lt.get("left"))
 
@@ -138,7 +154,7 @@ def _pin_group(g, pin_s):
     left of the box and vertically centred on the full element."""
     rs = g["pin_h"] / _PIN_H                       # viewBox units → pixels
     pw, ph = g["pin_w"], g["pin_h"]
-    px, py = 0, round((g["H"] - ph) / 2)           # left column, vertically centred
+    px, py = g["pad"], g["pad"] + round((g["core_h"] - ph) / 2)   # inside the headroom, vertically centred
     tipx, tipy = pw / 2, ph                         # bottom-centre = the teardrop point
     # right-to-left: scale to px → move tip to origin → scale about tip → move back → position
     tf = (f"translate({px + 0:.2f},{py:.2f}) translate({tipx:.2f},{tipy:.2f}) "
@@ -189,7 +205,8 @@ def render(place, date, canvas_h, fps, hold, outdir, icon=True, color="red", ori
     g = build({"place": place, "date": date, "icon": icon, "color": color, "hold": hold},
               canvas_h=canvas_h, orient=orient)
     n = render_seq(g, fps, outdir)
-    return {"dir": outdir, "frames": n, "W": g["W"], "H": g["H"], "total": total(hold)}
+    return {"dir": outdir, "frames": n, "W": g["W"], "H": g["H"], "total": total(hold),
+            "pad": g["pad"]}         # compositor shifts the overlay up-left by this to undo the headroom
 
 
 def main():

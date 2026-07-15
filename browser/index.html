@@ -13,8 +13,8 @@
   <link rel="stylesheet" href="vendor/ocha-app-kit.css" />
   <link rel="stylesheet" href="style.css" />
 
-  <script src="app.js?v=13" defer></script>
-  <script src="statement.js?v=8" defer></script>
+  <script src="app.js?v=14" defer></script>
+  <script src="statement.js?v=9" defer></script>
 </head>
 <body>
   <a class="cd-skip-link" href="#main">Skip to main content</a>
@@ -187,7 +187,7 @@
             <li>A <strong>location strip</strong> top-left: a map pin beside the <strong>place</strong> (top line) and <strong>date</strong> (bottom line) — e.g. <em>Ankara, Türkiye · June 2026</em>. It animates in, holds, and animates out.</li>
             <li>The <strong>pin icon</strong> is on by default; turn it off and the text shifts left to fill its space.</li>
             <li>Pin colour: <strong>red</strong> normally, or <strong>blue</strong> if red clashes with the footage behind it.</li>
-            <li><strong>Seconds</strong> = how long it stays on screen (5 is the default).</li>
+            <li><strong>Start</strong> = when it animates in, as minutes:seconds (e.g. <code>0:01</code>). <strong>Duration</strong> = how long it stays (5 seconds is the default).</li>
           </ul>
         </div>
         <label class="st-check"><input type="checkbox" id="t-pin-on" /> Add a location strip <span class="app-hint">— place + date, top-left. Off by default.</span></label>
@@ -196,6 +196,21 @@
             <label>Place (top line)<input class="cd-form__input" id="t-pin-place" placeholder="e.g. Ankara, Türkiye" autocomplete="off" /></label>
             <label>Date (bottom line)<input class="cd-form__input" id="t-pin-date" placeholder="e.g. June 2026" autocomplete="off" /></label>
           </div>
+          <div class="field-row pin-timing">
+            <label>Start
+              <span class="timefield">
+                <input class="cd-form__input timefield__input" id="t-pin-start" type="text" inputmode="numeric" value="00:01" maxlength="5" aria-label="Start time (mm:ss)" title="When the strip animates in (mm:ss)" />
+                <span class="timefield__spin"><button type="button" id="t-pin-start-up" tabindex="-1" aria-label="Later">&#9650;</button><button type="button" id="t-pin-start-down" tabindex="-1" aria-label="Earlier">&#9660;</button></span>
+              </span>
+            </label>
+            <label>Duration
+              <span class="timefield">
+                <input class="cd-form__input durfield__input" id="t-pin-dur" type="text" inputmode="numeric" value="5" maxlength="3" aria-label="Duration in seconds" title="Seconds on screen" />
+                <span class="durfield__unit" aria-hidden="true">sec</span>
+                <span class="timefield__spin"><button type="button" id="t-pin-dur-up" tabindex="-1" aria-label="Longer">&#9650;</button><button type="button" id="t-pin-dur-down" tabindex="-1" aria-label="Shorter">&#9660;</button></span>
+              </span>
+            </label>
+          </div>
           <div class="field-row pin-row2">
             <label class="st-check pin-icon-check"><input type="checkbox" id="t-pin-icon" checked /> Show the pin icon</label>
             <span class="pin-color" role="group" aria-label="Pin colour">
@@ -203,7 +218,6 @@
               <button type="button" id="t-pin-red" class="cd-button cd-button--small"><span class="cd-button__text">Red</span></button>
               <button type="button" id="t-pin-blue" class="cd-button cd-button--small cd-button--outline"><span class="cd-button__text">Blue</span></button>
             </span>
-            <label class="pin-dur">Seconds<input class="cd-form__input pin-dur__input" id="t-pin-dur" type="number" min="2" max="12" step="0.5" value="5" /></label>
           </div>
           <figure class="ex-thumb">
             <img src="img/ex-pin.jpg" width="360" height="640" alt="Example: the OCHA location strip top-left, place over date with a map pin" />
@@ -510,6 +524,21 @@
               <label>Place (top line)<input class="cd-form__input" id="st-pin-place" placeholder="e.g. Ankara, Türkiye" autocomplete="off" /></label>
               <label>Date (bottom line)<input class="cd-form__input" id="st-pin-date" placeholder="e.g. June 2026" autocomplete="off" /></label>
             </div>
+            <div class="field-row pin-timing">
+              <label>Start
+                <span class="timefield">
+                  <input class="cd-form__input timefield__input" id="st-pin-start" type="text" inputmode="numeric" value="00:01" maxlength="5" aria-label="Start time (mm:ss)" title="When the strip animates in (mm:ss)" />
+                  <span class="timefield__spin"><button type="button" id="st-pin-start-up" tabindex="-1" aria-label="Later">&#9650;</button><button type="button" id="st-pin-start-down" tabindex="-1" aria-label="Earlier">&#9660;</button></span>
+                </span>
+              </label>
+              <label>Duration
+                <span class="timefield">
+                  <input class="cd-form__input durfield__input" id="st-pin-dur" type="text" inputmode="numeric" value="5" maxlength="3" aria-label="Duration in seconds" title="Seconds on screen" />
+                  <span class="durfield__unit" aria-hidden="true">sec</span>
+                  <span class="timefield__spin"><button type="button" id="st-pin-dur-up" tabindex="-1" aria-label="Longer">&#9650;</button><button type="button" id="st-pin-dur-down" tabindex="-1" aria-label="Shorter">&#9660;</button></span>
+                </span>
+              </label>
+            </div>
             <div class="field-row pin-row2">
               <label class="st-check pin-icon-check"><input type="checkbox" id="st-pin-icon" checked /> Show the pin icon</label>
               <span class="pin-color" role="group" aria-label="Pin colour">
@@ -517,7 +546,6 @@
                 <button type="button" id="st-pin-red" class="cd-button cd-button--small"><span class="cd-button__text">Red</span></button>
                 <button type="button" id="st-pin-blue" class="cd-button cd-button--small cd-button--outline"><span class="cd-button__text">Blue</span></button>
               </span>
-              <label class="pin-dur">Seconds<input class="cd-form__input pin-dur__input" id="st-pin-dur" type="number" min="2" max="12" step="0.5" value="5" /></label>
             </div>
             <figure class="ex-thumb">
               <img src="img/ex-pin.jpg" width="360" height="640" alt="Example: the OCHA location strip top-left, place over date with a map pin" />

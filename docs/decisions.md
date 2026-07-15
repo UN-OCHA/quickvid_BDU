@@ -3,6 +3,34 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-07-15 — Pin polish + start time + a live progress bar (v0.5.1 → 0.5.3)
+Three follow-ups after the pin locator shipped, from Javier's testing:
+- **v0.5.1 — silent-video crash fix.** Branding a video with NO audio stream (a
+  macOS screen recording is the everyday case) aborted ffmpeg with exit 234:
+  the ending + subtitle passes hard-referenced `[0:a]`. Both engines now probe
+  for audio (`has_audio`) and synthesize a silent stereo bed (`anullsrc`) when
+  there's none, so the logo click still lands. `finish.py` also prints an
+  `ERROR:` line on any uncaught exception so the UI shows the real reason, not
+  the bare "finish.py exited 1". Root cause was found from the on-disk job log,
+  not guessed — the trigger was the input file, not the bug/pin combo reported.
+- **v0.5.2 — live % progress bar.** The branding ffmpeg passes stream ffmpeg's
+  `-progress pipe:1` and emit `PROGRESS n` tokens (already parsed into
+  `job.percent` by engine_bridge). `finish.py` splits the bar between the
+  overlay composite (0–70) and the ending (70–100); `social_brand` drives 0–100.
+  The Titles-tab `setStatus` now renders the same `cd-progress` bar the Edit tab
+  already used; both poll loops pass `percent`.
+- **v0.5.3 — pin rebound + anti-crop + start time.** (a) `pin_overshoot` 1.5 → 0.9
+  (crest ~8% → ~3%) — subtler, not cartoonish. (b) The overshoot briefly grows the
+  pin past 1×; `build()` now pads the PNG top+left by that crest (`pad`, auto-sized
+  from `_peak_scale()`), and the compositors shift the overlay up-left by `pad`
+  (into the safe margin) so the box stays put and the pin is **never clipped**.
+  (c) A **Start** time (mm:ss) is now user-set in the UI — the engine already
+  supported `pin.start`; the field was just missing. The Location controls were
+  **restyled to match the lower thirds** (Place|Date row, Start|Duration steppers
+  reusing `.timefield`/`.durfield`, icon+colour row). CSS gotcha: `.field-row label`
+  forces `flex-direction:column`, so the icon toggle needed a `.pin-row2`-scoped
+  rule to win by specificity.
+
 ## 2026-07-15 — Pin locator (location strip) — the 2nd branding element
 An animated top-left location strip: a map pin beside a UN-blue rectangle with a
 place (top, Raleway ExtraBold) over a date (bottom, Raleway Medium). Built to
