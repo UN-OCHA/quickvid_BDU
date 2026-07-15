@@ -27,8 +27,8 @@ function setStatus(text, kind) {
 //  * ENGINE_LATEST — newest version worth prompting a (non-blocking) update to. Keep
 //    == ENGINE_MIN unless a newer engine adds a real user benefit an older-but-still-
 //    compatible engine lacks; then the soft banner appears.
-const ENGINE_MIN = "0.3.0";
-const ENGINE_LATEST = "0.3.0";
+const ENGINE_MIN = "0.5.0";
+const ENGINE_LATEST = "0.5.0";
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
 function cmpVer(a, b) {
@@ -113,9 +113,10 @@ async function enginePick() {
 }
 
 // full mode: hand the job to the engine (real ffmpeg) and stream the result back over localhost
-async function renderViaEngine(lowerThirds, ending, subtitles, bug) {
+async function renderViaEngine(lowerThirds, ending, subtitles, bug, pin) {
   const body = { video: state.enginePath, lower_thirds: lowerThirds, ending: { style: ending.style },
-                 subtitles: subtitles || { on: false, style: "box" }, bug: bug || { on: false } };
+                 subtitles: subtitles || { on: false, style: "box" }, bug: bug || { on: false },
+                 pin: pin || { on: false } };
   const r = await fetch(ENGINE + "/api/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) { let m = "Engine error"; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
   const { job_id } = await r.json();
@@ -196,14 +197,15 @@ $("#run").onclick = async () => {
   const ending = { style: document.querySelector('input[name="ending"]:checked').value };
   const subtitles = { on: $("#t-subs-on").checked, style: tSubsStyle };
   const bug = { on: $("#t-bug-on").checked };
-  if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on)
-    return setStatus("Add at least one lower third, subtitles, the bug, or pick an ending.", "warn");
+  const pin = tCollectPin();
+  if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on && !pin.on)
+    return setStatus("Add at least one lower third, subtitles, the bug, a location strip, or pick an ending.", "warn");
 
   $("#run").disabled = true;
   const t0 = performance.now();
   try {
     setStatus("Rendering with the OCHA engine…", "busy");
-    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug);  // real ffmpeg, no limits
+    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug, pin);  // real ffmpeg, no limits
     if (state.url) URL.revokeObjectURL(state.url);
     state.url = URL.createObjectURL(blob);
     $("#player").src = state.url;
@@ -237,6 +239,25 @@ function tSetSubStyle(style) {
 }
 $("#t-substyle-box").onclick = () => tSetSubStyle("box");
 $("#t-substyle-event").onclick = () => tSetSubStyle("gradient");
+// ---- Titles location strip (pin locator): opts toggle + colour + collector ----
+let tPinColor = "red";
+function tSetPinColor(c) {
+  tPinColor = c;
+  $("#t-pin-red").classList.toggle("cd-button--outline", c !== "red");
+  $("#t-pin-blue").classList.toggle("cd-button--outline", c === "red");
+}
+$("#t-pin-red").onclick = () => tSetPinColor("red");
+$("#t-pin-blue").onclick = () => tSetPinColor("blue");
+$("#t-pin-on").addEventListener("change", () => { $("#t-pin-opts").hidden = !$("#t-pin-on").checked; });
+function tCollectPin() {
+  const on = $("#t-pin-on").checked;
+  return {
+    on, place: $("#t-pin-place").value.trim(), date: $("#t-pin-date").value.trim(),
+    icon: $("#t-pin-icon").checked, color: tPinColor,
+    duration: parseFloat($("#t-pin-dur").value) || 5,
+  };
+}
+
 $("#t-subs-on").addEventListener("change", () => { $("#t-subs-opts").hidden = !$("#t-subs-on").checked; });
 
 // ---- step help (?) toggles — kit component .cd-help__btn / .cd-help__panel ----

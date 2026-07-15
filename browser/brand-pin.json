@@ -1,0 +1,33 @@
+{
+  "_comment": "OCHA pin locator (location strip) — SINGLE SOURCE OF TRUTH for the numbers. Consumed by engine/pin_locator.py (both Titles & branding and statement clips). Layout: a map-pin icon left of a UN-blue rectangle with two white text lines (top = place, Raleway ExtraBold; bottom = date, Raleway Medium). Top-left placement. Motion mirrors the lower third's language (no fade; left-anchored wipe; staggered lines; cubic ease) plus a bottom-anchored scale-rebound for the pin. Change the look here; drawing logic lives in engine/pin_locator.py.",
+  "timing": {
+    "pin_in": 0.42,
+    "line1_delay": 0.18,
+    "line1_in": 0.42,
+    "line2_delay": 0.16,
+    "line2_in": 0.42,
+    "line2_out": 0.40,
+    "line1_out_delay": 0.14,
+    "line1_out": 0.40,
+    "pin_out_delay": 0.12,
+    "pin_out": 0.36,
+    "pin_overshoot": 1.5
+  },
+  "geometry": {
+    "line1_ratio": { "portrait": 0.0281, "square": 0.0344, "landscape": 0.0430 },
+    "line2_scale": 0.70,
+    "pad_x": 0.66,
+    "pad_y": 0.40,
+    "line_gap": 0.30,
+    "pin_gap": 0.42,
+    "pin_scale": 1.05,
+    "letter_spacing": 0.3
+  },
+  "colors": {
+    "rect_bg": "#009EDB",
+    "text": "#FFFFFF",
+    "pin_red": "#ED1847",
+    "pin_blue": "#004987"
+  },
+  "fonts": { "family": "Raleway", "line1_weight": 800, "line2_weight": 500 }
+}

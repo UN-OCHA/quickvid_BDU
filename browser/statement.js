@@ -561,6 +561,35 @@ document.querySelectorAll('input[name="st-preset"]').forEach((r) =>
   r.addEventListener("change", () => stSetSubStyle(r.value === "event" ? "gradient" : "box")));
 stSetSubStyle("box");
 
+// ---- Edit location strip (pin locator): opts toggle + colour + collect/restore ----
+ST.pinColor = "red";
+function stSetPinColor(c) {
+  ST.pinColor = c;
+  $st("#st-pin-red").classList.toggle("cd-button--outline", c !== "red");
+  $st("#st-pin-blue").classList.toggle("cd-button--outline", c === "red");
+}
+$st("#st-pin-red").onclick = () => { stSetPinColor("red"); stSave(); };
+$st("#st-pin-blue").onclick = () => { stSetPinColor("blue"); stSave(); };
+$st("#st-pin-on").addEventListener("change", () => { $st("#st-pin-opts").hidden = !$st("#st-pin-on").checked; stSave(); });
+function stCollectPin() {
+  return {
+    on: $st("#st-pin-on").checked,
+    place: $st("#st-pin-place").value.trim(), date: $st("#st-pin-date").value.trim(),
+    icon: $st("#st-pin-icon").checked, color: ST.pinColor,
+    duration: parseFloat($st("#st-pin-dur").value) || 5,
+  };
+}
+function stRestorePin(p) {
+  p = p || {};
+  $st("#st-pin-on").checked = !!p.on;
+  $st("#st-pin-opts").hidden = !p.on;
+  $st("#st-pin-place").value = p.place || "";
+  $st("#st-pin-date").value = p.date || "";
+  $st("#st-pin-icon").checked = p.icon !== false;      // icon on by default
+  if (Number.isFinite(p.duration)) $st("#st-pin-dur").value = p.duration;
+  stSetPinColor(p.color === "blue" ? "blue" : "red");
+}
+
 // ---------- E7: lower thirds (same multi-row component as the Titles tab) ----------
 const stFmtMMSS = (sec) => { sec = Math.max(0, Math.round(sec || 0)); return `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
 function stAddLt(v) {
@@ -630,6 +659,7 @@ $st("#st-render").onclick = async () => {
     captions: $st("#st-captions").checked,
     subtitles: { on: $st("#st-captions").checked, style: ST.subsStyle || "box" },
     bug: { on: $st("#st-bug-on").checked },
+    pin: stCollectPin(),
     dir: ST.jobDir,
   };
   try {
@@ -809,6 +839,7 @@ function stSnapshot() {
     captions: $st("#st-captions").checked,
     subsStyle: ST.subsStyle || "box",
     bug: $st("#st-bug-on").checked,
+    pin: stCollectPin(),
     tail: parseFloat(($st("#st-tail") || {}).value),
     lts: stCollectLts(),
   };
@@ -878,6 +909,7 @@ function stRestore(p) {
     stSetSubStyle(p.subsStyle || ((p.preset === "event") ? "gradient" : "box"));
     $st("#st-subs-opts").hidden = !$st("#st-captions").checked;
     $st("#st-bug-on").checked = !!p.bug;                       // off by default — including for older saved projects
+    stRestorePin(p.pin);
     $st("#st-zoom-general").value = Math.round((ST.framing.general.zoom || 1) * 100);
     $st("#st-zoom-close").value = Math.round((ST.framing.close.zoom || 1.5) * 100);
     if (ST.src && ST.probe) {

@@ -17,7 +17,7 @@ BRAND_FILE = ROOT / "brand" / "brand.json"
 try:
     VERSION = (ROOT / "VERSION").read_text().strip() or "0.0.0"
 except OSError:
-    VERSION = "0.4.0"
+    VERSION = "0.5.0"          # pin locator (location strip) added
 ENGINE_PORT = 17870                              # fixed port the web app pings to detect the engine
 
 WORKSPACE.mkdir(parents=True, exist_ok=True)

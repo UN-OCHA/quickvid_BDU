@@ -59,8 +59,9 @@ BUG_HEIGHT_FRAC = 0.065    # corner watermark, mainly for EVENT (landscape) vide
 # table — kept as a separate literal here rather than a cross-module import, same
 # tolerance the LOGO_SVG/logo_ratio numbers already have between these two files).
 # landscape right=.06 matches the reference's ~6.6% margin (not .045 like finish.py's LT left).
-SAFE_AREA = {"landscape": {"top": .06, "right": .06}, "portrait": {"top": .11, "right": .06},
-             "square": {"top": .08, "right": .08}}
+SAFE_AREA = {"landscape": {"top": .06, "right": .06, "left": .045},
+             "portrait": {"top": .11, "right": .06, "left": .06},
+             "square": {"top": .08, "right": .08, "left": .08}}
 BRAND_JSON = os.path.join(ROOT, "brand", "brand.json")
 from svgpng import font_path as _font_path             # bundled fonts first - identical on every machine
 FONTS = {700: _font_path("Raleway-Bold.ttf"), 600: _font_path("Raleway-SemiBold.ttf"),
@@ -75,6 +76,7 @@ def _mw(text, weight, size): return ImageFont.truetype(FONTS[weight], size).getb
 # One implementation for every mode (look B). Numbers: browser/brand-lt.json;
 # logic: engine/lower_third.py. Do NOT re-implement the lower third here.
 import lower_third as LT
+import pin_locator as PIN
 
 # ---------------- captions ----------------
 def _wrap_lines(text, f, maxw):
@@ -205,6 +207,17 @@ def render(spec: dict, log=print) -> str:
         g["dir"] = os.path.join(work, f"lt{i}")
         LT.render_seq(g, fps, g["dir"])
 
+    pin_spec = spec.get("pin") or {}                   # location strip, top-left (animated)
+    pin_g = None
+    if pin_spec.get("on") and (pin_spec.get("place") or pin_spec.get("date")):
+        phold = max(0.4, float(pin_spec.get("duration", 5.0)) - PIN.ENTER_END - PIN.EXIT_DUR)
+        pin_g = PIN.build({"place": pin_spec.get("place", ""), "date": pin_spec.get("date", ""),
+                           "icon": pin_spec.get("icon", True), "color": pin_spec.get("color", "red"),
+                           "hold": phold, "in": float(pin_spec.get("start", 1.2))},
+                          canvas_h=H, orient=LT.orient_of(W, H))
+        pin_g["dir"] = os.path.join(work, "pin")
+        PIN.render_seq(pin_g, fps, pin_g["dir"])
+
     grad_png = None
     grad_h = round(H * sub["gradient_h_frac"])
     if subs and not sub.get("box", True):             # event look: bottom gradient scrim
@@ -248,6 +261,10 @@ def render(spec: dict, log=print) -> str:
     for g in lts:
         inputs += ["-framerate", str(fps), "-start_number", "0", "-i", os.path.join(g["dir"], "%04d.png")]
         lt_idx.append(idx); idx += 1
+    pin_idx = None
+    if pin_g:
+        inputs += ["-framerate", str(fps), "-start_number", "0", "-i", os.path.join(pin_g["dir"], "%04d.png")]
+        pin_idx = idx; idx += 1
     grad_idx = logo_idx = click_idx = bug_idx = None
     if grad_png:
         inputs += ["-loop", "1", "-i", grad_png]; grad_idx = idx; idx += 1
@@ -276,6 +293,13 @@ def render(spec: dict, log=print) -> str:
         fc.append(f"[{lt_idx[k]}:v]setpts=PTS+{g['t_in']}/TB[ltv{k}]")
         fc.append(f"[{prev}][ltv{k}]overlay={x}:{y}:eof_action=pass:enable='gte(t,{g['t_in']})'[lb{k}]")
         prev = f"lb{k}"
+    if pin_g:                                          # top-left location strip
+        so = SAFE_AREA[LT.orient_of(W, H)]
+        px, py = round(W * so["left"]), round(H * so["top"])
+        t_in = pin_g["t_in"]
+        fc.append(f"[{pin_idx}:v]setpts=PTS+{t_in}/TB[pnv]")
+        fc.append(f"[{prev}][pnv]overlay={px}:{py}:eof_action=pass:enable='gte(t,{t_in})'[pnb]")
+        prev = "pnb"
     for i, (s, e, p, w, h) in enumerate(subs):        # captions HARD-CUT, half-open [s,e)
         yb = cue_bottom(s, e)
         fc.append(f"[{prev}][{i + 1}:v]overlay={(W - w) // 2}:{yb - h}:enable='gte(t,{s})*lt(t,{e})'[v{i}]")

@@ -3,6 +3,51 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-07-15 — Pin locator (location strip) — the 2nd branding element
+An animated top-left location strip: a map pin beside a UN-blue rectangle with a
+place (top, Raleway ExtraBold) over a date (bottom, Raleway Medium). Built to
+Javier's spec + an "improve on the reference" brief (references/locatorpin/).
+- **New module `engine/pin_locator.py`**, mirroring `lower_third.py` exactly:
+  numbers in `browser/brand-pin.json`, logic in the module, rendered as a
+  transparent PNG sequence, composited by BOTH `finish.py` (Titles) and
+  `social_brand.py` (Edit) — same overlay-with-delayed-start pattern as the LT.
+- **Animation** (locked): no fade. The rectangle reveals as TWO stacked cyan
+  bands, each a left-anchored wipe — the top (place) line LEADS, the bottom
+  (date) line follows a beat later, so they never appear/disappear together
+  (Javier's ask). The pin does NOT fade: it SCALES in with a subtle back-ease
+  overshoot (~8%), anchored at its bottom tip via an SVG transform, so it grows
+  bottom→top and shrinks back to the tip on exit. Exit is the exact reverse
+  (date retracts, place retracts, pin shrinks last). Numerically verified:
+  scale 0 → 1.078 peak → 1.0.
+- **Sizing measured off a real OCHA video** (references/videos/HNPW... had its
+  own; the reference pin ≈ box height, ratio 1.016) → pin_scale 1.05 (a first
+  cut at 1.28 was too big). Place line ~2.8% of frame height, matched to the ref.
+- **Icon toggle** (on by default): off → the text block shifts left into the
+  freed space (responsive; box_x = 0 when no pin). **Colour** red #ED1847 default
+  / blue #004987 (user picks when red clashes). **Duration** 5s default,
+  adjustable; hold = duration − ENTER_END − EXIT_DUR.
+- **Placement** top-left at the format's safe margins (finish.py `profile()` /
+  social_brand `SAFE_AREA`, adding a `left` inset to the latter).
+- **Font:** bundled `Raleway-ExtraBold.ttf` (800) into engine/assets/fonts — the
+  engine ships its own fonts so it renders identically on every machine.
+- **Wiring:** `pin: {on,place,date,icon,color,start,duration}` through
+  `FinishReq`/`StRenderReq` (new `PinReq`) → `engine_bridge` (both finish
+  branches) → `finish.py` / `statement.py` → `social_brand.render()`. UI: a
+  "Location" step in Titles (Ending renumbered 5→6) and a Location subsection in
+  the Edit card (Lower thirds → Subtitles → Bug → Location → Ending). Off by
+  default; persists through Edit autosave (snapshot/restore), old projects
+  default off. Example thumbnail `img/ex-pin.jpg`.
+- **Gotcha fixed:** the Edit-tab JS block first landed INSIDE an onclick arrow
+  (two `stSetSubStyle("box")` in the file; matched the wrong one) → its function
+  declarations were scoped local, `stCollectPin` undefined. Moved to the correct
+  top-level anchor. (Function declarations hoist, so "defined earlier but
+  undefined at runtime" = it's nested, not a load error — a useful tell.)
+- Engine **v0.5.0**; page ENGINE_MIN/LATEST → 0.5.0 (the page now sends a `pin`
+  field older engines silently ignore). 0.4.0 engines self-update to it on next
+  launch. Verified: both engine paths, /api/finish (red+icon, blue+no-icon),
+  social_brand stack (pin + caption + LT together), UI toggle/colour/collect,
+  snapshot/restore round-trip, entrance+exit animation frames.
+
 ## 2026-07-15 — The bug (persistent corner watermark)
 First of two planned branding elements (bug + pin locator — see the brainstorm in
 chat). A small OCHA vertical-logo watermark, **top-right, on for the whole clip,

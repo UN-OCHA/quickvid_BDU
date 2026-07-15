@@ -34,6 +34,7 @@ import shutil
 from svgpng import svg2png as _svg2png   # cairosvg, or portable resvg on Macs without Homebrew
 from PIL import Image
 import lower_third
+import pin_locator
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BRAND = os.path.join(ROOT, "brand", "brand.json")
@@ -244,6 +245,24 @@ def run(spec, bitrate=12.0):
         prev = f"v{idx}"
         idx += 1
         print(f"  bug: OCHA vertical logo → {bx},{by}")
+
+    pin = spec.get("pin") or {}                          # location strip, top-left (animated)
+    if pin.get("on") and (pin.get("place") or pin.get("date")):
+        pdur = float(pin.get("duration", 5.0))
+        phold = max(0.4, pdur - pin_locator.ENTER_END - pin_locator.EXIT_DUR)
+        seqdir = os.path.join(tmp, "pin")
+        r = pin_locator.render(pin.get("place", ""), pin.get("date", ""), H, fps, phold, seqdir,
+                               icon=pin.get("icon", True), color=pin.get("color", "red"),
+                               orient=prof["orient"])
+        px = round(prof["safe"]["left"] * W)
+        py = round(prof["safe"]["top"] * H)
+        pstart = float(pin.get("start", 1.2))
+        inputs += ["-framerate", str(fps), "-start_number", "0", "-i", os.path.join(seqdir, "%04d.png")]
+        filt.append(f"[{idx}:v]setpts=PTS+{pstart}/TB[pn{idx}]")
+        filt.append(f"[{prev}][pn{idx}]overlay={px}:{py}:eof_action=pass:enable='gte(t,{pstart})'[v{idx}]")
+        prev = f"v{idx}"
+        idx += 1
+        print(f"  pin: '{pin.get('place')}' / '{pin.get('date')}' ({pin.get('color', 'red')}, icon={pin.get('icon', True)}) → {px},{py}")
 
     for i, lt in enumerate(spec.get("lower_thirds", [])):
         align = lt.get("align", "left")   # left is the OCHA default

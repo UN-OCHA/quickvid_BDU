@@ -190,3 +190,14 @@
 /* ---- ending tail control (Edit step 7) ---- */
 .st-tail-input { width: 5rem; flex: 0 0 auto; }
 #st-tail-row { align-items: center; gap: 0.6rem; }
+
+/* ---- Location strip (pin locator) controls — Titles & Edit ---- */
+.pin-fields label, .pin-row2 label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; font-weight: 700; color: var(--muted); }
+.pin-fields label { flex: 1 1 14rem; }
+.pin-fields .cd-form__input { font-weight: 400; }
+.pin-row2 { align-items: center; gap: 1rem; }
+.pin-icon-check { flex-direction: row; align-items: center; }
+.pin-color { display: inline-flex; align-items: center; gap: 0.4rem; }
+.pin-color__label { font-size: 0.8rem; font-weight: 700; color: var(--muted); }
+.pin-dur { }
+.pin-dur__input { width: 5rem; font-weight: 400; }

@@ -13,8 +13,8 @@
   <link rel="stylesheet" href="vendor/ocha-app-kit.css" />
   <link rel="stylesheet" href="style.css" />
 
-  <script src="app.js?v=9" defer></script>
-  <script src="statement.js?v=4" defer></script>
+  <script src="app.js?v=10" defer></script>
+  <script src="statement.js?v=7" defer></script>
 </head>
 <body>
   <a class="cd-skip-link" href="#main">Skip to main content</a>
@@ -178,10 +178,45 @@
       </div>
     </section>
 
+    <!-- Step 5 — location strip (pin locator) -->
+    <section class="cd-card" aria-labelledby="s3p">
+      <div class="cd-card__content cd-flow">
+        <h2 class="cd-block-title" id="s3p"><span class="step-num" aria-hidden="true">5</span> Location <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t3p" aria-label="Help: location strip"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+        <div class="cd-help__panel" id="help-t3p" hidden>
+          <ul>
+            <li>A <strong>location strip</strong> top-left: a map pin beside the <strong>place</strong> (top line) and <strong>date</strong> (bottom line) — e.g. <em>Ankara, Türkiye · June 2026</em>. It animates in, holds, and animates out.</li>
+            <li>The <strong>pin icon</strong> is on by default; turn it off and the text shifts left to fill its space.</li>
+            <li>Pin colour: <strong>red</strong> normally, or <strong>blue</strong> if red clashes with the footage behind it.</li>
+            <li><strong>Seconds</strong> = how long it stays on screen (5 is the default).</li>
+          </ul>
+        </div>
+        <label class="st-check"><input type="checkbox" id="t-pin-on" /> Add a location strip <span class="app-hint">— place + date, top-left. Off by default.</span></label>
+        <div id="t-pin-opts" hidden>
+          <div class="field-row pin-fields">
+            <label>Place (top line)<input class="cd-form__input" id="t-pin-place" placeholder="e.g. Ankara, Türkiye" autocomplete="off" /></label>
+            <label>Date (bottom line)<input class="cd-form__input" id="t-pin-date" placeholder="e.g. June 2026" autocomplete="off" /></label>
+          </div>
+          <div class="field-row pin-row2">
+            <label class="st-check pin-icon-check"><input type="checkbox" id="t-pin-icon" checked /> Show the pin icon</label>
+            <span class="pin-color" role="group" aria-label="Pin colour">
+              <span class="pin-color__label">Colour</span>
+              <button type="button" id="t-pin-red" class="cd-button cd-button--small"><span class="cd-button__text">Red</span></button>
+              <button type="button" id="t-pin-blue" class="cd-button cd-button--small cd-button--outline"><span class="cd-button__text">Blue</span></button>
+            </span>
+            <label class="pin-dur">Seconds<input class="cd-form__input pin-dur__input" id="t-pin-dur" type="number" min="2" max="12" step="0.5" value="5" /></label>
+          </div>
+          <figure class="ex-thumb">
+            <img src="img/ex-pin.jpg" width="360" height="640" alt="Example: the OCHA location strip top-left, place over date with a map pin" />
+            <figcaption>The location strip — top-left, animated in and out.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
     <!-- Step 5 — ending -->
     <section class="cd-card" aria-labelledby="s3">
       <div class="cd-card__content cd-flow">
-        <h2 class="cd-block-title" id="s3"><span class="step-num" aria-hidden="true">5</span> Ending <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t3" aria-label="Help: ending"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+        <h2 class="cd-block-title" id="s3"><span class="step-num" aria-hidden="true">6</span> Ending <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t3" aria-label="Help: ending"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
         <div class="cd-help__panel" id="help-t3" hidden>
           <ul>
             <li><strong>Over footage</strong> — the OCHA logo snaps over your final shot, with the click sound. The standard for social clips; needs about 2 seconds of calm footage at the end.</li>
@@ -467,6 +502,28 @@
             <img src="img/ex-bug.jpg" width="360" height="203" alt="Example: the OCHA bug watermark in the top-right corner of an event video" />
             <figcaption>The bug on an event video (16:9) — its usual home. Off by default; available for any format.</figcaption>
           </figure>
+
+          <h3 class="cd-block-title st-subsection">Location</h3>
+          <label class="st-check"><input type="checkbox" id="st-pin-on" /> Add a location strip <span class="app-hint">— place + date, top-left, animated. Off by default.</span></label>
+          <div id="st-pin-opts" hidden>
+            <div class="field-row pin-fields">
+              <label>Place (top line)<input class="cd-form__input" id="st-pin-place" placeholder="e.g. Ankara, Türkiye" autocomplete="off" /></label>
+              <label>Date (bottom line)<input class="cd-form__input" id="st-pin-date" placeholder="e.g. June 2026" autocomplete="off" /></label>
+            </div>
+            <div class="field-row pin-row2">
+              <label class="st-check pin-icon-check"><input type="checkbox" id="st-pin-icon" checked /> Show the pin icon</label>
+              <span class="pin-color" role="group" aria-label="Pin colour">
+                <span class="pin-color__label">Colour</span>
+                <button type="button" id="st-pin-red" class="cd-button cd-button--small"><span class="cd-button__text">Red</span></button>
+                <button type="button" id="st-pin-blue" class="cd-button cd-button--small cd-button--outline"><span class="cd-button__text">Blue</span></button>
+              </span>
+              <label class="pin-dur">Seconds<input class="cd-form__input pin-dur__input" id="st-pin-dur" type="number" min="2" max="12" step="0.5" value="5" /></label>
+            </div>
+            <figure class="ex-thumb">
+              <img src="img/ex-pin.jpg" width="360" height="640" alt="Example: the OCHA location strip top-left, place over date with a map pin" />
+              <figcaption>The location strip — top-left, animated in and out.</figcaption>
+            </figure>
+          </div>
 
           <h3 class="cd-block-title st-subsection">Ending</h3>
           <div class="end-options">
