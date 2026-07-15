@@ -629,6 +629,7 @@ $st("#st-render").onclick = async () => {
               tail: (() => { const v = parseFloat(($st("#st-tail") || {}).value); return Number.isFinite(v) ? v : undefined; })() },
     captions: $st("#st-captions").checked,
     subtitles: { on: $st("#st-captions").checked, style: ST.subsStyle || "box" },
+    bug: { on: $st("#st-bug-on").checked },
     dir: ST.jobDir,
   };
   try {
@@ -807,6 +808,7 @@ function stSnapshot() {
     ending: val('input[name="st-ending"]:checked') || "over_footage",
     captions: $st("#st-captions").checked,
     subsStyle: ST.subsStyle || "box",
+    bug: $st("#st-bug-on").checked,
     tail: parseFloat(($st("#st-tail") || {}).value),
     lts: stCollectLts(),
   };
@@ -875,6 +877,7 @@ function stRestore(p) {
     $st("#st-captions").checked = p.captions !== false;
     stSetSubStyle(p.subsStyle || ((p.preset === "event") ? "gradient" : "box"));
     $st("#st-subs-opts").hidden = !$st("#st-captions").checked;
+    $st("#st-bug-on").checked = !!p.bug;                       // off by default — including for older saved projects
     $st("#st-zoom-general").value = Math.round((ST.framing.general.zoom || 1) * 100);
     $st("#st-zoom-close").value = Math.round((ST.framing.close.zoom || 1.5) * 100);
     if (ST.src && ST.probe) {

@@ -206,9 +206,14 @@ class SubtitlesReq(BaseModel):
     style: str = "box"                        # box (social) | gradient (event)
 
 
+class BugReq(BaseModel):
+    on: bool = False                          # off by default — small OCHA vertical-logo watermark, top-right
+
+
 class FinishReq(BaseModel):
     video: str
     lower_thirds: list[LowerThirdReq] = []
+    bug: BugReq = BugReq()
     ending: EndingReq = EndingReq()
     subtitles: SubtitlesReq = SubtitlesReq()  # engine-only: transcribe + burn captions
 
@@ -218,11 +223,12 @@ def finish(req: FinishReq):
     """Titles & branding: add lower thirds + an ending to an already-edited video."""
     if not Path(req.video).is_file():
         raise HTTPException(400, f"Not a video file: {req.video}")
-    if not req.lower_thirds and req.ending.style == "none" and not req.subtitles.on:
-        raise HTTPException(400, "Nothing to add — set a lower third, an ending, or subtitles.")
+    if not req.lower_thirds and req.ending.style == "none" and not req.subtitles.on and not req.bug.on:
+        raise HTTPException(400, "Nothing to add — set a lower third, subtitles, the bug, or an ending.")
     job = jobs.create("finish", {
         "video": req.video,
         "lower_thirds": [lt.model_dump() for lt in req.lower_thirds],
+        "bug": req.bug.model_dump(),
         "ending": req.ending.model_dump(),
         "subtitles": req.subtitles.model_dump(),
     })
@@ -433,6 +439,7 @@ class StRenderReq(BaseModel):
     ending: dict = {"style": "over_footage"}           # {"style", "tail"?} — tail = footage secs after last sentence
     captions: bool = True
     subtitles: Optional[dict] = None                   # {"on": bool, "style": "box"|"gradient"}
+    bug: Optional[dict] = None                         # {"on": bool} — off by default, top-right vertical logo
     dir: Optional[str] = None                          # job folder → final lands in <dir>/export/
 
 

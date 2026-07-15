@@ -5,6 +5,7 @@ OCHA QuickVid — FINISH pass: brand an already-edited video.
 For people who cut their video anywhere (CapCut, Canva, Premiere…) and just want
 OCHA elements added. No transcribe, no cut — just:
   - lower thirds  (typed name/title, start + duration, centre or left)
+  - a bug         (small OCHA vertical-logo watermark, top-right, whole clip — off by default)
   - an ending     (over black, or over the last seconds of footage)
   - [later] location pins
 
@@ -18,6 +19,7 @@ Job spec (JSON or dict):
   "lower_thirds": [
      {"name":"Vanessa May","org":"OCHA Venezuela","start":2.0,"duration":4.0,"align":"center"}
   ],
+  "bug": {"on": false},
   "ending": {"style":"over_black"}          # or {"style":"over_footage","darken":0.4} or {"style":"none"}
 }
 """
@@ -36,6 +38,9 @@ import lower_third
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BRAND = os.path.join(ROOT, "brand", "brand.json")
 LOGO_SVG = os.path.join(ROOT, "assets", "OCHA_logo_horizontal_white.svg")
+BUG_SVG = os.path.join(ROOT, "assets", "OCHA_logo_vertical_white.svg")
+BUG_HEIGHT_FRAC = 0.032    # small corner watermark — deliberately smaller than the
+                           # ending logo's 0.054; mirrored in social_brand.py, keep in sync
 COLOR = ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"]
 
 
@@ -133,6 +138,24 @@ def render_logo(W, H, tmp):
     return png, im.size[0], im.size[1]
 
 
+def render_bug(H, tmp):
+    """The persistent corner watermark: the OCHA VERTICAL white lockup (distinct
+    from the horizontal ending logo), small, rasterized crisp from its own SVG."""
+    bug_h = round(H * BUG_HEIGHT_FRAC)
+    png = os.path.join(tmp, "bug.png")
+    _svg2png(url=BUG_SVG, write_to=png, output_height=bug_h)
+    im = Image.open(png)
+    return png, im.size[0], im.size[1]
+
+
+def bug_pos(W, H, prof, bw, bh):
+    """Top-right corner, inset by the format's own social safe-area margins —
+    the same convention lower thirds are placed against."""
+    x = round(W - prof["safe"]["right"] * W - bw)
+    y = round(prof["safe"]["top"] * H)
+    return x, y
+
+
 def add_ending(FF_, video, brand, style, darken, bitrate, tmp, out):
     """style 'over_black' | 'over_footage'. The logo is the crisp SVG; it SNAPS on
     (no fade — a rough cut) and HOLDS to the end. The darken (over_footage) and the
@@ -204,6 +227,17 @@ def run(spec, bitrate=12.0):
     filt = []
     prev = "0:v"
     idx = 1
+
+    if (spec.get("bug") or {}).get("on"):                # persistent corner watermark, on for the whole clip
+        bug_png, bw, bh = render_bug(H, tmp)
+        bx, by = bug_pos(W, H, prof, bw, bh)
+        inputs += ["-loop", "1", "-i", bug_png]
+        filt.append(f"[{idx}:v]format=rgba[bug]")
+        filt.append(f"[{prev}][bug]overlay={bx}:{by}[v{idx}]")
+        prev = f"v{idx}"
+        idx += 1
+        print(f"  bug: OCHA vertical logo → {bx},{by}")
+
     for i, lt in enumerate(spec.get("lower_thirds", [])):
         align = lt.get("align", "left")   # left is the OCHA default
         hold = max(0.5, float(lt.get("duration", 4.0)) - lower_third.ENTER_END - lower_third.EXIT_DUR)

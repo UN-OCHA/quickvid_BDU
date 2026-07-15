@@ -243,6 +243,7 @@ def finish(job) -> None:
             "video": job.meta["video"],
             "out": str(out),
             "lower_thirds": job.meta.get("lower_thirds", []),
+            "bug": job.meta.get("bug", {}),
             "ending": job.meta.get("ending", {"style": "none"}),
         }
         spec_path = workdir / "spec.json"
@@ -294,7 +295,7 @@ def _finish_with_subtitles(job, workdir, out) -> None:
     spec = {"src": video, "out": str(out), "canvas": [pw, ph],
             "bitrate": "12M",                           # 6M default reads soft at 1080p+
             "footage_end": round(footage_end, 2), "subtitle": sub, "cues": cues,
-            "lower_thirds": lts, "ending": ending}
+            "lower_thirds": lts, "bug": job.meta.get("bug", {}), "ending": ending}
     spec_path = workdir / "brand_spec.json"
     spec_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False))
     job.progress = "Burning subtitles + branding…"

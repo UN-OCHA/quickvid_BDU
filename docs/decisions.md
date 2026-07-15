@@ -3,6 +3,43 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-07-15 — The bug (persistent corner watermark)
+First of two planned branding elements (bug + pin locator — see the brainstorm in
+chat). A small OCHA vertical-logo watermark, **top-right, on for the whole clip,
+off by default**, toggleable in both tabs.
+- **Size/position locked by visual comparison** (2.5% / 3.2% / 4.0% of frame height
+  tested side by side on real footage): **3.2%** — clearly legible, clearly smaller
+  than the ending logo's 5.4%, doesn't compete with the subject. Position: the
+  SAME social-safe-area margins lower thirds already use (`finish.py`'s
+  `profile()` table), not a new number.
+- **Asset:** `assets/OCHA_logo_vertical_white.svg` (distinct from the ending's
+  horizontal lockup) — rasterized fresh at render time, per [[logos-always-svg]].
+- **Engine:** `finish.render_bug()`/`bug_pos()` (Titles path) and a mirrored
+  `BUG_HEIGHT_FRAC`/`SAFE_AREA` pair in `social_brand.py` (Edit path) — kept as
+  two small independent literals rather than a cross-module import, the same
+  tolerance `LOGO_SVG`/`logo_ratio` already has between these two files. In both
+  renderers the bug composites as the base layer (added right after the canvas
+  scale step) so every other overlay — LT, captions, ending — stacks above it.
+  No `enable=` gate needed: it's a `-loop 1` static image, on for the whole
+  render by construction.
+- **Wiring:** `bug: {"on": bool}` threaded through `FinishReq`/`StRenderReq` →
+  `engine_bridge.finish()` (BOTH branches — plain and the subtitles-routed
+  `_finish_with_subtitles`) → `engine/finish.py` / `engine/statement.py` →
+  `social_brand.render()`.
+- **UI:** Titles tab gained its own step ("4 · Bug", Ending renumbered 4→5); the
+  Edit tab's step-7 card gained a third `.st-subsection` (Lower thirds → Subtitles
+  → **Bug** → Ending — Javier's own stated element order). Checkbox off by
+  default in both; example thumbnail (`img/ex-bug.jpg`) always visible, not
+  gated behind the checkbox (the bug has no style variants to preview, unlike
+  subtitles). Persists through Edit-tab autosave; old saved projects (no `bug`
+  field) correctly default to off on restore.
+- Verified end-to-end: pixel-diff proof the overlay renders (0→14.4 mean
+  brightness on a solid-black synthetic source, isolating it from two
+  coincidental bright-background false negatives on real test footage first),
+  both API paths (`/api/finish`, `/api/statement/render`) through the live
+  server, snapshot/restore round-trip, legacy-project default-off.
+- Pin locator (the second element) is paused — needs Javier's reference asset.
+
 ## 2026-07-15 — Mac installer/starter ship as .zip (fixes "lacks access privileges")
 A colleague on a non-UN Mac hit *"No se ha podido ejecutar… careces de los privilegios
 de acceso necesarios"* double-clicking the downloaded `Install QuickVid.command`.

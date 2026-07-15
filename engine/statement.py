@@ -343,6 +343,7 @@ def do_render(spec):
         "cues": cues_from_runs(runs, sub_cfg)
                 if (spec.get("subtitles") or {}).get("on", spec.get("captions", True)) else [],
         "lower_thirds": lts,
+        "bug": spec.get("bug") or {},
         "ending": {"style": style, "at": round(footage_end + (LOGO_LEAD if style == "over_footage" else 0), 2),
                    "hold": float(ending.get("hold", 2.0)), "click": ending.get("click", True)},
     }

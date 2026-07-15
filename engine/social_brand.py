@@ -30,6 +30,7 @@ Spec (JSON; library entry point is render(spec, log)):
   "cues": [[start, "text"], ...],                      // end = next start; "" = boundary
   "lower_thirds": [{"name": "...", "titles": ["…","…"], "align": "center",
                      "in": 1.5, "hold": 3.6, "bottom": px?, "name_size": px?, "org_size": px?}],
+  "bug": {"on": false},             // small OCHA vertical-logo watermark, top-right, whole clip
   "ending": {"style": "over_footage" | "over_black" | "none",
               "at": secs?,          // logo snap time; default footage_end
               "hold": 2.0, "click": true, "logo_ratio": 0.055}
@@ -50,6 +51,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 FFPROBE = FF.replace("ffmpeg", "ffprobe")
 LOGO_SVG = os.path.join(ROOT, "assets", "OCHA_logo_horizontal_white.svg")
+BUG_SVG = os.path.join(ROOT, "assets", "OCHA_logo_vertical_white.svg")
+BUG_HEIGHT_FRAC = 0.032    # small corner watermark — mirrors engine/finish.py, keep in sync
+# Safe-area insets for bug/LT placement, by orientation (mirrors finish.py's profile()
+# table — kept as a separate literal here rather than a cross-module import, same
+# tolerance the LOGO_SVG/logo_ratio numbers already have between these two files).
+SAFE_AREA = {"landscape": {"top": .06, "right": .045}, "portrait": {"top": .11, "right": .06},
+             "square": {"top": .08, "right": .08}}
 BRAND_JSON = os.path.join(ROOT, "brand", "brand.json")
 from svgpng import font_path as _font_path             # bundled fonts first - identical on every machine
 FONTS = {700: _font_path("Raleway-Bold.ttf"), 600: _font_path("Raleway-SemiBold.ttf"),
@@ -206,6 +214,15 @@ def render(spec: dict, log=print) -> str:
             f'</linearGradient></defs><rect width="{W}" height="{grad_h}" fill="url(#g)"/></svg>').encode(),
             write_to=grad_png, output_width=W, output_height=grad_h)
 
+    bug_png = None; bw = bh = 0; bx = by = 0
+    if (spec.get("bug") or {}).get("on"):                 # persistent corner watermark, whole clip
+        bug_png = os.path.join(work, "bug.png")
+        _svg2png(url=BUG_SVG, write_to=bug_png, output_height=round(H * BUG_HEIGHT_FRAC))
+        from PIL import Image
+        bw, bh = Image.open(bug_png).size
+        safe = SAFE_AREA[LT.orient_of(W, H)]
+        bx, by = round(W - safe["right"] * W - bw), round(safe["top"] * H)
+
     logo_png = None; lw = lh_ = 0; click_mov = None
     if style != "none":
         logo_png = os.path.join(work, "logo.png")     # always rasterized fresh from the SVG
@@ -228,11 +245,13 @@ def render(spec: dict, log=print) -> str:
     for g in lts:
         inputs += ["-framerate", str(fps), "-start_number", "0", "-i", os.path.join(g["dir"], "%04d.png")]
         lt_idx.append(idx); idx += 1
-    grad_idx = logo_idx = click_idx = None
+    grad_idx = logo_idx = click_idx = bug_idx = None
     if grad_png:
         inputs += ["-loop", "1", "-i", grad_png]; grad_idx = idx; idx += 1
     if logo_png:
         inputs += ["-loop", "1", "-i", logo_png]; logo_idx = idx; idx += 1
+    if bug_png:
+        inputs += ["-loop", "1", "-i", bug_png]; bug_idx = idx; idx += 1
     if click_mov:
         inputs += ["-i", click_mov]; click_idx = idx; idx += 1
 
@@ -241,6 +260,9 @@ def render(spec: dict, log=print) -> str:
     prev = "0:v"
     if needs_scale:
         fc.append(f"[0:v]scale={W}:{H},setsar=1[v0]"); prev = "v0"
+    if bug_png:                                         # base layer — everything else stacks above it
+        fc.append(f"[{bug_idx}:v]format=rgba[bug]")
+        fc.append(f"[{prev}][bug]overlay={bx}:{by}[vbug]"); prev = "vbug"
     if grad_png:                                       # under LT + captions
         fc.append(f"[{grad_idx}:v]format=rgba[grad]")
         fc.append(f"[{prev}][grad]overlay=0:{H - grad_h}[vg]"); prev = "vg"

@@ -113,9 +113,9 @@ async function enginePick() {
 }
 
 // full mode: hand the job to the engine (real ffmpeg) and stream the result back over localhost
-async function renderViaEngine(lowerThirds, ending, subtitles) {
+async function renderViaEngine(lowerThirds, ending, subtitles, bug) {
   const body = { video: state.enginePath, lower_thirds: lowerThirds, ending: { style: ending.style },
-                 subtitles: subtitles || { on: false, style: "box" } };
+                 subtitles: subtitles || { on: false, style: "box" }, bug: bug || { on: false } };
   const r = await fetch(ENGINE + "/api/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) { let m = "Engine error"; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
   const { job_id } = await r.json();
@@ -195,14 +195,15 @@ $("#run").onclick = async () => {
   })).filter((lt) => lt.name);
   const ending = { style: document.querySelector('input[name="ending"]:checked').value };
   const subtitles = { on: $("#t-subs-on").checked, style: tSubsStyle };
-  if (!lowerThirds.length && ending.style === "none" && !subtitles.on)
-    return setStatus("Add at least one lower third, subtitles, or pick an ending.", "warn");
+  const bug = { on: $("#t-bug-on").checked };
+  if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on)
+    return setStatus("Add at least one lower third, subtitles, the bug, or pick an ending.", "warn");
 
   $("#run").disabled = true;
   const t0 = performance.now();
   try {
     setStatus("Rendering with the OCHA engine…", "busy");
-    const blob = await renderViaEngine(lowerThirds, ending, subtitles);       // real ffmpeg, no limits
+    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug);  // real ffmpeg, no limits
     if (state.url) URL.revokeObjectURL(state.url);
     state.url = URL.createObjectURL(blob);
     $("#player").src = state.url;
