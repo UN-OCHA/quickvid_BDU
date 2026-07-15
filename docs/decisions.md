@@ -3,6 +3,28 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-07-15 — Mac installer/starter ship as .zip (fixes "lacks access privileges")
+A colleague on a non-UN Mac hit *"No se ha podido ejecutar… careces de los privilegios
+de acceso necesarios"* double-clicking the downloaded `Install QuickVid.command`.
+**Root cause:** HTTP carries no Unix permissions, so a `.command` downloaded straight
+from a browser loses its executable bit (repo copy is `-rwxr-xr-x`; after download,
+`-rw-r--r--`). This is a *different* error from the already-documented Gatekeeper
+"unidentified developer" nag — right-click → Open does **not** fix it (that only
+clears the quarantine flag, not the missing +x). Reproduced and confirmed exactly:
+`chmod 644` on the repo file reproduces the message.
+**Fix:** the two Mac buttons (`get/Install QuickVid.*`, `get/Start QuickVid.*`) now
+download `.zip` wrappers instead of the bare `.command`. A zip's central directory
+stores the Unix mode, and Archive Utility (incl. Safari's automatic "open safe
+downloads" unzip) restores it on extraction — verified with a full round-trip
+through the real HTTP server (curl → unzip → `-rwxr-xr-x` restored). For Safari
+users (the default browser for the intended audience), this is invisible — same
+double-click flow as before, just no longer broken; for other browsers, one extra
+double-click to unzip, called out in the button copy as "if it lands as a .zip…".
+Windows `.bat` files are unaffected (no Unix-permissions concept) — left untouched.
+**Regenerate after editing either `.command`:** `bash browser/get/make-zips.sh`
+(zips are build output, not hand-maintained — added `*.zip -text -diff binary` to
+`.gitattributes` so git never mangles them).
+
 ## 2026-07-14 — Edit is the primary tab (engine-only app)
 Now that everything runs through the engine (Lite dropped), the flagship is the
 statement-clip editor, not the simpler "add titles" pass. So:

@@ -6,3 +6,7 @@
 *.sh  text eol=lf
 *.py  text eol=lf
 *.js  text eol=lf
+
+# The installer/starter .zip wrappers (browser/get/) carry a real Unix mode
+# (executable bit) in their central directory — never treat as text/diff it.
+*.zip -text -diff binary
