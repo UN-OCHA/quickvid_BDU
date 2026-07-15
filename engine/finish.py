@@ -39,8 +39,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BRAND = os.path.join(ROOT, "brand", "brand.json")
 LOGO_SVG = os.path.join(ROOT, "assets", "OCHA_logo_horizontal_white.svg")
 BUG_SVG = os.path.join(ROOT, "assets", "OCHA_logo_vertical_white.svg")
-BUG_HEIGHT_FRAC = 0.032    # small corner watermark — deliberately smaller than the
-                           # ending logo's 0.054; mirrored in social_brand.py, keep in sync
+BUG_HEIGHT_FRAC = 0.065    # corner watermark, mainly for EVENT (landscape) videos — sized to
+                           # match a real reference (references/videos/HNPW2026_USG_remarks.mp4,
+                           # measured ~6.67% of frame height); still bigger than the ending logo's
+                           # 0.054 since it has to read as a persistent mark, not a closing beat.
+                           # (First cut at 0.032 was too small — tuned for reels, never checked
+                           # against actual event-video usage.) Mirrored in social_brand.py, keep in sync.
 COLOR = ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"]
 
 
@@ -94,7 +98,10 @@ def profile(W, H):
     # orientation — profiles only carry placement safe areas.
     if r > 1.25:                                     # 16:9-ish landscape
         return {"orient": "landscape",
-                "safe": {"top": .06, "bottom": .09, "left": .045, "right": .045}}
+                # right=.06 (not .045 like left/LT) — matches the bug's real-world
+                # margin in references/videos/HNPW2026_USG_remarks.mp4 (measured ~6.6%);
+                # "right"/"top" here are consumed only by the bug, not by LT placement.
+                "safe": {"top": .06, "bottom": .09, "left": .045, "right": .06}}
     if r < 0.85:                                     # 9:16 / 4:5 portrait
         return {"orient": "portrait",
                 "safe": {"top": .11, "bottom": .20, "left": .06, "right": .06}}

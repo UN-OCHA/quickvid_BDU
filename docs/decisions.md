@@ -38,6 +38,41 @@ off by default**, toggleable in both tabs.
   coincidental bright-background false negatives on real test footage first),
   both API paths (`/api/finish`, `/api/statement/render`) through the live
   server, snapshot/restore round-trip, legacy-project default-off.
+
+## 2026-07-15 — Bug: corrected size + reframed as an EVENT-video element
+The 3.2% first cut was tuned on portrait test footage and never checked against
+how OCHA actually uses this mark. Javier: it's mainly for **event videos**
+(16:9), and it "has to be bigger." Corrected against a real example he pointed
+to (`references/videos/HNPW2026_USG_remarks.mp4`, a finished OCHA event video
+that already carries its own bug).
+- **Measured the reference directly** (brightness-threshold pixel scan, not by
+  eye): logo height **6.67%** of frame height, top margin **5.83%**, right
+  margin **6.61%**. `BUG_HEIGHT_FRAC` 0.032 → **0.065** in both `finish.py` and
+  `social_brand.py`. Landscape's `right` safe-margin 0.045 → **0.06** (only the
+  bug reads `safe["right"]`/`safe["top"]` — confirmed no other caller — so this
+  doesn't touch lower-third placement, which still uses `safe["left"]`).
+  Rendering the corrected bug directly onto the reference video landed it
+  almost exactly on top of the original — strong confirmation the numbers now
+  match real OCHA practice, not just a plausible guess.
+- Kept as ONE global size (not split further per-orientation): Javier's ask was
+  "bigger," not a per-format size table, and the feature already had a shared
+  size before this fix. It now also reads bolder on portrait/square — accepted,
+  since the copy now correctly frames the bug as the event-video default and
+  the toggle stays available everywhere per his explicit "no matter what
+  format" instruction.
+- **Thumbnail rebuilt as landscape**, from the same reference video — the clip
+  already carries its own baked-in bug, so a straight crop was cropped
+  (`crop=1600:900:50:90` before scaling to 1920x1080) to exclude the original
+  top-right corner entirely, keeping the presenter, before compositing OUR bug
+  fresh via the real `render_bug()`/`bug_pos()` functions. Avoids a confusing
+  double-logo in the example while still using 100% authentic OCHA footage.
+  Saved at 360x203 — the app's standard landscape-example size (matches
+  `ex-ending-footage.jpg` etc.), not the portrait 360x640 used for the reels
+  examples.
+- **Copy added in both tabs + both help panels**: "Typically for event videos
+  (16:9 screens, screenings, livestreams) — social media rarely needs it.
+  Available for any format if you want it." The toggle itself is unchanged —
+  still just an on/off, no format gating.
 - Pin locator (the second element) is paused — needs Javier's reference asset.
 
 ## 2026-07-15 — Mac installer/starter ship as .zip (fixes "lacks access privileges")

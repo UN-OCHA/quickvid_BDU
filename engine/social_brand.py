@@ -52,11 +52,14 @@ FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 FFPROBE = FF.replace("ffmpeg", "ffprobe")
 LOGO_SVG = os.path.join(ROOT, "assets", "OCHA_logo_horizontal_white.svg")
 BUG_SVG = os.path.join(ROOT, "assets", "OCHA_logo_vertical_white.svg")
-BUG_HEIGHT_FRAC = 0.032    # small corner watermark — mirrors engine/finish.py, keep in sync
+BUG_HEIGHT_FRAC = 0.065    # corner watermark, mainly for EVENT (landscape) videos — mirrors
+                           # engine/finish.py; sized to a real reference (~6.67% measured on
+                           # references/videos/HNPW2026_USG_remarks.mp4), keep in sync
 # Safe-area insets for bug/LT placement, by orientation (mirrors finish.py's profile()
 # table — kept as a separate literal here rather than a cross-module import, same
 # tolerance the LOGO_SVG/logo_ratio numbers already have between these two files).
-SAFE_AREA = {"landscape": {"top": .06, "right": .045}, "portrait": {"top": .11, "right": .06},
+# landscape right=.06 matches the reference's ~6.6% margin (not .045 like finish.py's LT left).
+SAFE_AREA = {"landscape": {"top": .06, "right": .06}, "portrait": {"top": .11, "right": .06},
              "square": {"top": .08, "right": .08}}
 BRAND_JSON = os.path.join(ROOT, "brand", "brand.json")
 from svgpng import font_path as _font_path             # bundled fonts first - identical on every machine
