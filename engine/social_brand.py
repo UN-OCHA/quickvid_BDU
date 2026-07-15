@@ -254,6 +254,14 @@ def render(spec: dict, log=print) -> str:
 
     out_dur = dur if style == "over_footage" else (at + hold if style == "over_black" else footage_end)
 
+    # Screen recordings and some exports carry NO audio stream — a graph that
+    # references [0:a] then aborts ffmpeg with AVERROR(EINVAL) (exit 234), so
+    # every [0:a] below is guarded and silence is synthesized instead.
+    has_aud = bool(subprocess.run(
+        [FFPROBE, "-v", "error", "-select_streams", "a",
+         "-show_entries", "stream=codec_type", "-of", "csv=p=0", src],
+        capture_output=True, text=True).stdout.strip())
+
     inputs = ["-i", src]
     for _, _, p, _, _ in subs:
         inputs += ["-i", p]
@@ -309,15 +317,21 @@ def render(spec: dict, log=print) -> str:
         fc.append(f"[{prev}]trim=0:{at},setpts=PTS-STARTPTS,tpad=stop_duration={hold}:color=black[vend]")
         fc.append(f"[{logo_idx}:v]format=rgba[lg]")
         fc.append(f"[vend][lg]overlay={(W - lw) // 2}:{(H - lh_) // 2}:eof_action=pass:enable='gte(t,{at})',format=yuv420p[vout]")
-        fc.append(f"[0:a]atrim=0:{at},asetpts=PTS-STARTPTS,afade=t=out:st={at - 0.06:.2f}:d=0.06,apad=pad_dur={hold}[amain]")
+        if has_aud:
+            fc.append(f"[0:a]atrim=0:{at},asetpts=PTS-STARTPTS,afade=t=out:st={at - 0.06:.2f}:d=0.06,apad=pad_dur={hold}[amain]")
     elif style == "over_footage":                      # logo snaps on over the running footage — no scrim, ever
         fc.append(f"[{logo_idx}:v]format=rgba[lg]")
         logo_y = round(H * float(end.get("logo_y_frac", 0.58)) - lh_ / 2)   # below the face, above the caption zone
         fc.append(f"[{prev}][lg]overlay={(W - lw) // 2}:{logo_y}:eof_action=pass:enable='gte(t,{at})',format=yuv420p[vout]")
-        fc.append("[0:a]anull[amain]")
+        if has_aud:
+            fc.append("[0:a]anull[amain]")
     else:
         fc.append(f"[{prev}]trim=0:{footage_end},setpts=PTS-STARTPTS,format=yuv420p[vout]")
-        fc.append(f"[0:a]atrim=0:{footage_end},asetpts=PTS-STARTPTS[amain]")
+        if has_aud:
+            fc.append(f"[0:a]atrim=0:{footage_end},asetpts=PTS-STARTPTS[amain]")
+
+    if not has_aud:                                    # no source audio → silent bed (see note above)
+        fc.append(f"anullsrc=r=48000:cl=stereo:d={out_dur:.2f}[amain]")
 
     if click_mov and style != "none":                  # click peak @0.30s lands on the snap
         delay = int(max(0, at - 0.30) * 1000)

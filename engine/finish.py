@@ -29,6 +29,7 @@ import json
 import argparse
 import subprocess
 import tempfile
+import traceback
 import shutil
 
 from svgpng import svg2png as _svg2png   # cairosvg, or portable resvg on Macs without Homebrew
@@ -88,6 +89,19 @@ def probe(video):
     return {"W": int(s["width"]), "H": int(s["height"]),
             "dur": float(meta["format"]["duration"]),
             "fps": fps or 30, "hdr": hdr}
+
+
+def has_audio(video):
+    """True if the file carries at least one audio stream. Screen recordings —
+    a common Titles-tab input — often have NONE, and a filter graph that
+    references [0:a] on such a file aborts ffmpeg with AVERROR(EINVAL)
+    (exit 234). Every audio graph below must check this and synthesize
+    silence (anullsrc) instead of assuming [0:a] exists."""
+    out = subprocess.run(
+        [FP, "-v", "error", "-select_streams", "a",
+         "-show_entries", "stream=codec_type", "-of", "csv=p=0", video],
+        capture_output=True, text=True).stdout.strip()
+    return bool(out)
 
 
 def profile(W, H):
@@ -170,6 +184,7 @@ def add_ending(FF_, video, brand, style, darken, bitrate, tmp, out):
     cut to black (over_black) are hard too. Click SOUND from the logo-click .mov."""
     info = probe(video)
     dur, W, H = info["dur"], info["W"], info["H"]
+    silent = not has_audio(video)                    # e.g. a screen recording
     logo, lw, lh = render_logo(W, H, tmp)
     lx, ly = (W - lw) // 2, (H - lh) // 2
     mov = os.path.join(ROOT, brand["ending"]["asset"])
@@ -189,7 +204,8 @@ def add_ending(FF_, video, brand, style, darken, bitrate, tmp, out):
         vfilt = (dk +
                  f"[1:v]format=rgba[lg];"
                  f"[bg][lg]overlay={lx}:{ly}:enable='gte(t,{at:.2f})',format=yuv420p[v]")
-        aud_main = "[0:a]anull[va];"
+        aud_main = (f"anullsrc=r=48000:cl=stereo:d={out_dur:.2f}[va];" if silent
+                    else "[0:a]anull[va];")
         adur = "first"
     else:                                            # over_black — hard cut to black, logo snaps on
         at = dur                                       # logo on the first black frame
@@ -197,7 +213,8 @@ def add_ending(FF_, video, brand, style, darken, bitrate, tmp, out):
         vfilt = (f"[0:v]tpad=stop_duration=3:color=black[bv];"          # footage → hard cut to black
                  f"[1:v]format=rgba[lg];"
                  f"[bv][lg]overlay={lx}:{ly}:enable='gte(t,{at:.2f})',format=yuv420p[v]")
-        aud_main = f"[0:a]afade=t=out:st={dur - 0.06:.2f}:d=0.06[va];"  # tiny fade only to avoid a pop
+        aud_main = (f"anullsrc=r=48000:cl=stereo:d={out_dur:.2f}[va];" if silent
+                    else f"[0:a]afade=t=out:st={dur - 0.06:.2f}:d=0.06[va];")  # tiny fade only to avoid a pop
         adur = "longest"
 
     if click:
@@ -314,7 +331,20 @@ def main():
     ap.add_argument("--spec", required=True, help="job spec JSON file")
     ap.add_argument("--bitrate", type=float, default=12.0)
     args = ap.parse_args()
-    run(json.loads(open(args.spec).read()), args.bitrate)
+    try:
+        run(json.loads(open(args.spec).read()), args.bitrate)
+    except Exception as e:
+        # Keep the full traceback in the job log, but ALSO print an "ERROR:"
+        # line — engine_bridge surfaces the last such line in the UI instead
+        # of the useless "finish.py exited 1".
+        traceback.print_exc()
+        if isinstance(e, subprocess.CalledProcessError):
+            step = os.path.basename(str(e.cmd[0] if isinstance(e.cmd, (list, tuple)) else e.cmd))
+            print(f"ERROR: {step} failed (exit {e.returncode}) — its own message is a few lines up in this log.",
+                  flush=True)
+        else:
+            print(f"ERROR: {e}", flush=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

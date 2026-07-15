@@ -28,7 +28,7 @@ function setStatus(text, kind) {
 //    == ENGINE_MIN unless a newer engine adds a real user benefit an older-but-still-
 //    compatible engine lacks; then the soft banner appears.
 const ENGINE_MIN = "0.5.0";
-const ENGINE_LATEST = "0.5.0";
+const ENGINE_LATEST = "0.5.1";   // 0.5.1 fixes branding silent videos (e.g. screen recordings)
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
 function cmpVer(a, b) {
