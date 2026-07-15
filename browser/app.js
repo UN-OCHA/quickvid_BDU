@@ -10,10 +10,13 @@ const state = { url: null, engineUp: false, engine: null, enginePath: null };
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
 const ALERT = { busy: "", ok: "cd-alert--status", warn: "cd-alert--warning", error: "cd-alert--error" };
-function setStatus(text, kind) {
+function setStatus(text, kind, percent) {
   const el = $("#status");
   if (!text) { el.innerHTML = ""; return; }
-  el.innerHTML = `<div class="cd-alert ${ALERT[kind] || ""}"><div class="cd-alert__message"><p>${esc(text)}</p></div></div>`;
+  const p = typeof percent === "number" ? Math.max(0, Math.min(100, Math.round(percent))) : null;
+  const bar = p === null ? "" :
+    `<div class="cd-progress"><div class="cd-progress__fill" style="width:${p}%"></div></div><div class="cd-progress__pct">${p}%</div>`;
+  el.innerHTML = `<div class="cd-alert ${ALERT[kind] || ""}"><div class="cd-alert__message"><p>${esc(text)}</p>${bar}</div></div>`;
 }
 
 // ---- engine version contract ----------------------------------------------
@@ -28,7 +31,7 @@ function setStatus(text, kind) {
 //    == ENGINE_MIN unless a newer engine adds a real user benefit an older-but-still-
 //    compatible engine lacks; then the soft banner appears.
 const ENGINE_MIN = "0.5.0";
-const ENGINE_LATEST = "0.5.1";   // 0.5.1 fixes branding silent videos (e.g. screen recordings)
+const ENGINE_LATEST = "0.5.2";   // 0.5.1 silent-video fix · 0.5.2 live % progress bar while rendering
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
 function cmpVer(a, b) {
@@ -126,7 +129,7 @@ async function renderViaEngine(lowerThirds, ending, subtitles, bug, pin) {
   do {
     await sleep(1000);
     job = await (await fetch(ENGINE + "/api/jobs/" + job_id)).json();
-    setStatus(job.progress || "Rendering with the OCHA engine…", "busy");
+    setStatus(job.progress || "Rendering with the OCHA engine…", "busy", job.percent);
   } while (job.status !== "done" && job.status !== "error");
   if (job.status === "error") throw new Error(job.error || "Render failed");
   return (await fetch(ENGINE + "/api/export/" + job_id)).blob();

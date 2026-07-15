@@ -17,7 +17,7 @@ BRAND_FILE = ROOT / "brand" / "brand.json"
 try:
     VERSION = (ROOT / "VERSION").read_text().strip() or "0.0.0"
 except OSError:
-    VERSION = "0.5.1"          # silent-video (no audio stream) branding fix
+    VERSION = "0.5.2"          # live % progress bar during branding renders
 ENGINE_PORT = 17870                              # fixed port the web app pings to detect the engine
 
 WORKSPACE.mkdir(parents=True, exist_ok=True)

@@ -43,6 +43,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 
 from svgpng import svg2png as _svg2png   # cairosvg, or portable resvg on Macs without Homebrew
 from PIL import ImageFont
@@ -162,6 +163,29 @@ def probe(src):
     return st["width"], st["height"], round(float(num) / float(den)) or 30, float(j["format"]["duration"])
 
 
+def _ff_progress(cmd, total_dur):
+    """Run the composite and translate ffmpeg's `-progress` stream into
+    `PROGRESS n` (0–100) tokens so the UI shows a live % bar. `total_dur` = the
+    output duration in seconds. Returns (returncode, stderr_text) — the caller
+    keeps its own error handling. Drop-in for subprocess.run(capture_output)."""
+    full = [str(c) for c in cmd] + ["-progress", "pipe:1", "-nostats"]
+    proc = subprocess.Popen(full, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    err = []
+    et = threading.Thread(target=lambda: err.append(proc.stderr.read()), daemon=True)
+    et.start()
+    last = -1
+    for line in proc.stdout:                          # out_time_us ticks ~every frame
+        k, _, v = line.strip().partition("=")
+        if k in ("out_time_us", "out_time_ms") and v.isdigit():   # both are µs (ffmpeg quirk)
+            p = int(100 * min(1.0, (int(v) / 1e6) / total_dur)) if total_dur > 0 else 0
+            if p != last:
+                last = p
+                print(f"PROGRESS {p}", flush=True)
+    proc.wait()
+    et.join(timeout=1)
+    return proc.returncode, "".join(err)
+
+
 SUB_DEFAULTS = dict(size=44, max_w=800, box=True, box_color="#3F3F3F", opacity=0.75, radius=16,
                     pad=[22, 14], line_h=1.28, weight=500, bottom_hi=806, bottom_lo=900,
                     gradient_h_frac=0.42, gradient_opacity=0.80)
@@ -196,6 +220,7 @@ def render(spec: dict, log=print) -> str:
         return sub["bottom_hi"] if lifted else sub["bottom_lo"]
 
     log("Rendering caption + title layers…")
+    print("PROGRESS 0", flush=True)                    # bar appears now; ffmpeg drives it to 100
     subs = []
     for i, (s, e, t) in enumerate(cues):
         if not t:
@@ -346,9 +371,10 @@ def render(spec: dict, log=print) -> str:
         "-t", f"{out_dur:.2f}", "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
         "-b:v", spec.get("bitrate", "6M"), "-c:a", "aac", "-b:a", "160k", "-r", str(fps),
         "-movflags", "+faststart", out]
-    r = subprocess.run(cmd, capture_output=True, text=True)
-    if r.returncode != 0:
-        raise RuntimeError("branding ffmpeg failed: " + (r.stderr or "")[-500:])
+    rc, err = _ff_progress(cmd, out_dur)
+    if rc != 0:
+        raise RuntimeError("branding ffmpeg failed: " + (err or "")[-500:])
+    print("PROGRESS 100", flush=True)                  # snap the bar to full before "done"
     shutil.rmtree(work, ignore_errors=True)
     log(f"Branded: {out}")
     return out

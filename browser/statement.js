@@ -670,7 +670,7 @@ $st("#st-render").onclick = async () => {
     });
     if (!r.ok) throw new Error((await r.json()).detail || "Render failed");
     const { job_id } = await r.json();
-    const j = await stJob(job_id, (jj) => stStatus(jj.progress || "Rendering…", "busy"));
+    const j = await stJob(job_id, (jj) => stStatus(jj.progress || "Rendering…", "busy", jj.percent));
     ST.renderJob = job_id;
     $st("#st-player").src = `${ENGINE}/api/preview/${job_id}?cb=${Date.now()}`;
     $st("#st-download").href = `${ENGINE}/api/export/${job_id}?name=` +

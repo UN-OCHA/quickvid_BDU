@@ -29,6 +29,7 @@ import json
 import argparse
 import subprocess
 import tempfile
+import threading
 import traceback
 import shutil
 
@@ -73,6 +74,36 @@ def _ffmpeg_hdr():
 
 FF = _ffmpeg()
 FP = FF.replace("ffmpeg", "ffprobe") if FF.endswith("ffmpeg") else "ffprobe"
+
+
+def ff_progress(cmd, total_dur, lo=0, hi=100):
+    """Run an ffmpeg command and translate its `-progress` stream into our own
+    `PROGRESS n` tokens (mapped into the [lo,hi] slice of the overall job) so
+    the UI shows a live % bar. `total_dur` = the OUTPUT duration in seconds.
+    On failure, ffmpeg's real stderr is echoed (so it lands in the job log) and
+    CalledProcessError is raised — main()'s handler then surfaces a clean reason
+    instead of the useless 'exited 1'. Replaces subprocess.run(..., check=True)."""
+    full = [str(c) for c in cmd] + ["-progress", "pipe:1", "-nostats"]
+    proc = subprocess.Popen(full, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    err = []
+    et = threading.Thread(target=lambda: err.append(proc.stderr.read()), daemon=True)
+    et.start()
+    last = -1
+    for line in proc.stdout:                          # ffmpeg emits out_time_us roughly every frame
+        k, _, v = line.strip().partition("=")
+        if k in ("out_time_us", "out_time_ms") and v.isdigit():   # both keys are µs (ffmpeg quirk)
+            p = int(lo + (hi - lo) * min(1.0, (int(v) / 1e6) / total_dur)) if total_dur > 0 else lo
+            if p != last:
+                last = p
+                print(f"PROGRESS {p}", flush=True)
+    proc.wait()
+    et.join(timeout=1)
+    if proc.returncode != 0:
+        sys.stderr.write("".join(err))                # keep ffmpeg's own message visible in the log
+        sys.stderr.flush()
+        raise subprocess.CalledProcessError(proc.returncode, full)
+    if hi > last:
+        print(f"PROGRESS {hi}", flush=True)           # snap to the stage ceiling on a clean finish
 
 
 def probe(video):
@@ -178,7 +209,7 @@ def bug_pos(W, H, prof, bw, bh):
     return x, y
 
 
-def add_ending(FF_, video, brand, style, darken, bitrate, tmp, out):
+def add_ending(FF_, video, brand, style, darken, bitrate, tmp, out, p_lo=0, p_hi=100):
     """style 'over_black' | 'over_footage'. The logo is the crisp SVG; it SNAPS on
     (no fade — a rough cut) and HOLDS to the end. The darken (over_footage) and the
     cut to black (over_black) are hard too. Click SOUND from the logo-click .mov."""
@@ -225,12 +256,12 @@ def add_ending(FF_, video, brand, style, darken, bitrate, tmp, out):
     else:
         fc = vfilt + ";" + aud_main.replace("[va]", "[a]")
 
-    subprocess.run([FF_, "-y", "-v", "error"] + inputs + [
+    ff_progress([FF_, "-y", "-v", "error"] + inputs + [
         "-filter_complex", fc, "-map", "[v]", "-map", "[a]",
         "-t", f"{out_dur:.2f}",
         "-c:v", "h264_videotoolbox", "-b:v", f"{bitrate}M"] + COLOR
         + ["-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
-           "-pix_fmt", "yuv420p", "-r", "30", out], check=True)
+           "-pix_fmt", "yuv420p", "-r", "30", out], out_dur, p_lo, p_hi)
 
 
 def run(spec, bitrate=12.0):
@@ -242,6 +273,7 @@ def run(spec, bitrate=12.0):
     prof = profile(W, H)
     print(f"finish: {W}x{H} {prof['orient']} @ {fps}fps, {info['dur']:.1f}s"
           f"{' (HDR→SDR)' if info['hdr'] else ''}")
+    print("PROGRESS 0", flush=True)                  # show the bar immediately (PNG prep precedes ffmpeg)
     tmp = tempfile.mkdtemp(prefix="ocha_finish_")
 
     if info["hdr"]:
@@ -298,25 +330,31 @@ def run(spec, bitrate=12.0):
         idx += 1
         print(f"  LT {i}: '{lt['name']}' @ {start:.1f}s ({align}) → {x},{y}")
 
+    # Split the 0–100 bar between the two ffmpeg passes: when an ending follows,
+    # the overlay composite owns 0–70 and the ending owns 70–100; with no ending
+    # the composite owns the whole bar (and vice-versa when there's no composite).
+    style = spec.get("ending", {"style": "none"}).get("style", "none")
+    has_ending = style in ("over_black", "over_footage")
+    body_hi = 70 if has_ending else 100
+
     body = os.path.join(tmp, "body.mp4")
     if filt:
         filt.append(f"[{prev}]null[vout]")
-        subprocess.run([FF, "-y", "-v", "error"] + inputs + [
+        ff_progress([FF, "-y", "-v", "error"] + inputs + [
             "-filter_complex", ";".join(filt), "-map", "[vout]", "-map", "0:a?",
             "-t", f"{info['dur']:.3f}",
             "-c:v", "h264_videotoolbox", "-b:v", f"{bitrate}M"] + COLOR
             + ["-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
-               "-pix_fmt", "yuv420p", "-r", str(fps), body], check=True)
+               "-pix_fmt", "yuv420p", "-r", str(fps), body], info["dur"], 0, body_hi)
     else:
         body = video
 
     # --- ending ---
     ending = spec.get("ending", {"style": "none"})
-    style = ending.get("style", "none")
-    if style in ("over_black", "over_footage"):
+    if has_ending:
         print(f"  ending: {style}")
         add_ending(FF, body, brand, style, float(ending.get("darken", 0.0)),
-                   bitrate, tmp, out)
+                   bitrate, tmp, out, p_lo=(body_hi if filt else 0), p_hi=100)
     else:
         subprocess.run([FF, "-y", "-v", "error", "-i", body, "-c", "copy",
                         "-movflags", "+faststart", out], check=True)
