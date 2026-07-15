@@ -40,7 +40,9 @@ function cmpVer(a, b) {
   return 0;
 }
 const IS_WIN = /Windows/i.test(navigator.userAgent);
-const INSTALLER_HREF = IS_WIN ? "get/Install%20QuickVid.bat" : "get/Install%20QuickVid.command";
+// Mac gets the .zip (a bare .command loses its exec bit over HTTP download —
+// same reason as the install card); .bat needs no exec bit, so Windows stays direct.
+const INSTALLER_HREF = IS_WIN ? "get/Install%20QuickVid.bat" : "get/Install%20QuickVid.zip";
 
 // ---- engine gate: the app IS the engine's UI ----
 // Three states: UP (compatible) · OUTDATED (reachable but too old → hard gate) · DOWN (unreachable).
