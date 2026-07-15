@@ -31,3 +31,6 @@ Thumbs.db
 # Real video jobs & scratch working area — local only, never publish
 video_editing/
 temp/
+
+# stray dir if a test ever leaves the literal string unexpanded
+$SB/
