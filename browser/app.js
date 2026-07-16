@@ -31,7 +31,7 @@ function setStatus(text, kind, percent) {
 //    == ENGINE_MIN unless a newer engine adds a real user benefit an older-but-still-
 //    compatible engine lacks; then the soft banner appears.
 const ENGINE_MIN = "0.5.0";
-const ENGINE_LATEST = "0.6.2";   // 0.5.3 pin polish · 0.6.0 rename + Mac Terminal install · 0.6.1 Start script health-check (was blind sleep) · 0.6.2 fix crash on Python 3.9 (stock macOS): "Job | None" is 3.10+ syntax → use Optional
+const ENGINE_LATEST = "0.6.3";   // 0.6.3 resvg fallback fix (fresh-Mac installs: float zoom crashed every render)
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
 function cmpVer(a, b) {

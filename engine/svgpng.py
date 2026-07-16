@@ -41,14 +41,17 @@ def svg2png(bytestring=None, url=None, write_to=None, output_width=None, output_
                               output_width=output_width, output_height=output_height)
     import resvg_py
     svg = bytestring.decode("utf-8") if bytestring is not None else open(url, encoding="utf-8").read()
-    zoom = None
-    if output_width or output_height:               # cairosvg semantics: scale to the given pixel size
-        iw, ih = _intrinsic(svg)
-        if output_height and ih:
-            zoom = output_height / ih
-        elif output_width and iw:
-            zoom = output_width / iw
-    png = resvg_py.svg_to_bytes(svg_string=svg, zoom=zoom, font_dirs=[_FONT_DIR])
+    # Pass width/height (ints) instead of zoom: resvg scales proportionally from
+    # either one, and resvg_py 0.3.2 (what Python 3.9 installs — stock-macOS
+    # colleagues) declares zoom as int-only, so a float zoom crashes every
+    # element render with "argument 'zoom': 'float' object cannot be
+    # interpreted as an integer". width/height work on 0.3.2 and 0.3.3 alike.
+    kw = {}
+    if output_height:
+        kw["height"] = int(round(output_height))
+    elif output_width:
+        kw["width"] = int(round(output_width))
+    png = resvg_py.svg_to_bytes(svg_string=svg, font_dirs=[_FONT_DIR], **kw)
     with open(write_to, "wb") as fh:
         fh.write(bytes(png))
 
