@@ -285,7 +285,7 @@ function buildLT(fmt) {
     "var r = thisLayer.sourceRectAtTime(time, false);\n" +
     "var nw = r.width + 2*" + NPX + ";\n" +
     "var x = (c ? (thisComp.width - nw)/2 : " + SAFEL + ") + " + NPX + " - r.left;\n" +
-    "[x, " + BOT + " - oh - " + NH + " + " + (NH / 2) + " + " + (CAP_CENTER * NSIZE) + "];";
+    "[x, " + BOT + " - oh - " + (NH / 2) + " - r.top - r.height/2];";   // ink-centre in the name band
 
   // --- title block (parented to a mover null for the settle pan) ---
   var mover = comp.layers.addNull(DUR);
@@ -310,11 +310,13 @@ function buildLT(fmt) {
     }
     t.transform.position.expression = centreExpr + ohExpr + owExpr +
       "var me = ('' + text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
-      "var r = me.length ? thisLayer.sourceRectAtTime(time, false) : {left: 0, width: 0};\n" +
+      "var r = me.length ? thisLayer.sourceRectAtTime(time, false) : {left:0, width:0, top:0, height:0};\n" +
       "var bx = c ? (thisComp.width - ow)/2 : " + SAFEL + ";\n" +
       "var x = (c ? bx + (ow - r.width)/2 : bx + " + OPX + ") - r.left;\n" +
-      "var y0 = " + BOT + " - oh + " + OPY + " + " + (0.82 * OSIZE) + ";\n" +
-      "[x, y0" + (n === 2 ? " + " + OLINE : "") + "];";
+      // ink-centre this line in its equal row of the org band (1 or 2 lines)
+      "var rowH = oh / Math.max(1, lines);\n" +
+      "var rc = (" + BOT + " - oh) + (" + n + " - 0.5) * rowH;\n" +
+      "[x, rc - r.top - r.height/2];";
     if (n === 2) t.transform.opacity.expression =
       "('' + text.sourceText).replace(/^\\s+|\\s+$/g, '').length ? 100 : 0;";
     return t;
@@ -374,36 +376,35 @@ function buildPin(fmt) {
   var boxXExpr = ckExpr + "var bx = " + SAFEL + " + (ck ? " + SHIFT + " : 0);\n";
   var boxYExpr = ckExpr + "var by = ck ? " + (SAFET + Math.round((PINH - BOXH) / 2)) +
                  " : " + SAFET + ";\n";
-  var bwExpr = "var p1 = ('' + thisComp.layer('Pin place').text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
-               "var p2 = ('' + thisComp.layer('Pin date').text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
-               "var w1 = p1.length ? thisComp.layer('Pin place').sourceRectAtTime(time, false).width : 0;\n" +
-               "var w2 = p2.length ? thisComp.layer('Pin date').sourceRectAtTime(time, false).width : 0;\n" +
-               "var bw = Math.max(w1, w2) + 2*" + PADX + ";\n";
-
-  function band(name, y0, h) {
-    var size = bwExpr + "[bw, " + h + "];";
+  // each band hugs ITS OWN line's text (place band = place width, date band =
+  // date width) — a shared max width left the shorter line with a cyan overhang.
+  function band(name, y0, h, txtLayer) {
+    var size = "var pp = ('' + thisComp.layer('" + txtLayer + "').text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
+               "var bw = pp.length ? thisComp.layer('" + txtLayer + "').sourceRectAtTime(time, false).width + 2*" + PADX + " : 0;\n" +
+               "[bw, " + h + "];";
     var pos = boxXExpr + boxYExpr + "[bx, by + " + y0 + "];";
     return { band: rectLayer(comp, name + " band", C.rect_bg, size, pos),
              matte: rectLayer(comp, name + " matte", "#FFFFFF", size, pos) };
   }
-  var b1 = band("Pin line 1", 0, SPLIT);
-  var b2 = band("Pin line 2", SPLIT, BOXH - SPLIT);
+  var b1 = band("Pin line 1", 0, SPLIT, "Pin place");
+  var b2 = band("Pin line 2", SPLIT, BOXH - SPLIT, "Pin date");
 
-  function pinText(name, defTxt, font, size, yMid, trackPx) {
+  function pinText(name, defTxt, font, size, bc, trackPx) {   // bc = band centre (rel. to by)
     var t = comp.layers.addText(defTxt);
     t.name = name;
     setText(t, defTxt, font, size, hex2rgb(C.text), trackPx);
-    // centre the MEASURED glyph box on the line's slot (yMid) — a fixed baseline
-    // constant sat mixed-case text too low (descenders drag the optical mass down)
+    // centre the MEASURED glyph box in the BAND (bc = band centre relative to by).
+    // Targeting the typographic slot instead left place 7px low / date 7px high
+    // (the slot sits ~7px off the band centre); band-centre is what reads centred.
     t.transform.position.expression = boxXExpr + boxYExpr +
       "var r = thisLayer.sourceRectAtTime(time, false);\n" +
-      "[bx + " + PADX + " - r.left, by + " + yMid + " - r.top - r.height/2];";
+      "[bx + " + PADX + " - r.left, by + " + bc + " - r.top - r.height/2];";
     return t;
   }
   var place = pinText("Pin place", "City, Country", PIN.fonts.family + "-ExtraBold",
-                      S1, PADY + S1 / 2, G.letter_spacing);
+                      S1, SPLIT / 2, G.letter_spacing);                 // ink-centre in band 1
   var date = pinText("Pin date", "Month 2026", PIN.fonts.family + "-Medium",
-                     S2, PADY + S1 + GAP + S2 / 2, 0);
+                     S2, SPLIT + (BOXH - SPLIT) / 2, 0);                 // ink-centre in band 2
 
   applyMatte([b1.band, place], b1.matte);
   applyMatte([b2.band, date], b2.matte);
