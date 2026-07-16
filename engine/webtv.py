@@ -26,6 +26,7 @@ import subprocess
 import sys
 import urllib.parse
 import urllib.request
+from typing import Optional          # "str | None" is PEP 604 (3.10+); stock macOS python is 3.9
 
 PARTNER = "2503451"                       # UN Web TV's Kaltura partner id
 API = "https://cdnapisec.kaltura.com/api_v3/service"
@@ -162,7 +163,7 @@ def _playlist_bounds(url: str):
     return "#EXT-X-ENDLIST" not in pl, dur
 
 
-def _download_hls(vurl: str, aurl: "str | None", out: str) -> None:
+def _download_hls(vurl: str, aurl: Optional[str], out: str) -> None:
     """Mux video rendition + chosen audio track (aurl=None → audio already muxed
     into the video, so download a single input). For a LIVE (DVR) stream, cap the
     output at what's recorded so far so we don't sit waiting on the live edge."""

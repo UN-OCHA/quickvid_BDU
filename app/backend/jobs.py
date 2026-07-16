@@ -6,6 +6,8 @@ import threading
 import traceback
 import uuid
 from dataclasses import dataclass, field
+from typing import Optional          # PEP 604 "X | None" is 3.10+; the stock macOS
+                                     # Command Line Tools Python is 3.9 — use Optional.
 
 _JOBS: dict[str, "Job"] = {}
 
@@ -17,7 +19,7 @@ class Job:
     meta: dict = field(default_factory=dict)
     status: str = "queued"          # queued | running | done | error
     progress: str = ""              # last line of engine output, for the UI
-    percent: "int | None" = None    # 0-100 when the engine emits `PROGRESS n`, else None
+    percent: Optional[int] = None   # 0-100 when the engine emits `PROGRESS n`, else None
     error: str = ""
     result: dict = field(default_factory=dict)
     log: list = field(default_factory=list)
@@ -29,7 +31,7 @@ def create(kind: str, meta: dict) -> Job:
     return job
 
 
-def get(jid: str) -> Job | None:
+def get(jid: str) -> Optional[Job]:
     return _JOBS.get(jid)
 
 

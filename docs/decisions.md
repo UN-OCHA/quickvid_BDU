@@ -3,6 +3,34 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-07-16 — Engine crashed on Python 3.9 / PEP 604 unions (v0.6.2)
+Surfaced BY the v0.6.1 fix: a colleague's launcher now printed the real
+traceback instead of a false success — `TypeError: unsupported operand
+type(s) for |: 'type' and 'NoneType'` at `app/backend/jobs.py:32`,
+`def get(jid: str) -> Job | None:`.
+**Root cause:** `X | None` (PEP 604) is Python **3.10+**; it's evaluated when
+the `def` runs, so it crashes at import on 3.9. The **stock macOS Command Line
+Tools Python is 3.9** (`/Library/Developer/CommandLineTools/.../3.9`), and the
+Start script deliberately accepts 3.9–3.13 — so the engine MUST run on 3.9.
+Reproduced exactly on this Mac's `/usr/bin/python3` (also 3.9).
+**Fix:** `Optional[...]` from `typing` (bulletproof — evaluates on every
+version and survives `get_type_hints`) in the two spots that had it: jobs.py
+(return type + the `percent` field) and webtv.py (`aurl`, which was quoted so
+merely latent). Chose explicit `Optional` over `from __future__ import
+annotations` so it can't be re-broken by anything that introspects the hints
+at runtime (Pydantic, FastAPI). Verified: the exact crash reproduced then
+gone; all 17 backend/engine files compile on 3.9; grep confirms no remaining
+unquoted `|` unions; and a full `import app.backend.main` in a fresh 3.9 venv
+loads clean.
+**Propagation (contrast with 0.6.1):** this fix IS in the engine code, which
+self-update mirrors — it is NOT the excluded Start script. So a colleague on
+0.6.1 only needs to **launch again**: the Start script self-updates the engine
+(pulling fixed jobs.py) before starting uvicorn, and it comes up. No re-install
+needed this time.
+**Standing guard:** keep engine code 3.9-clean. No `X | Y` unions in evaluated
+positions, no `match`/`case`. (`list[...]`/`dict[...]` annotations are fine on
+3.9.) When in doubt, `/usr/bin/python3 -m py_compile` + a real import on 3.9.
+
 ## 2026-07-16 — Start script declared success without checking (v0.6.1)
 A colleague's install ran to completion — Python, ffmpeg, font, Whisper model
 all fine, ending in "OCHA QuickVid is running in the background — you can

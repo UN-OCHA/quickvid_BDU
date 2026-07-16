@@ -31,7 +31,7 @@ function setStatus(text, kind, percent) {
 //    == ENGINE_MIN unless a newer engine adds a real user benefit an older-but-still-
 //    compatible engine lacks; then the soft banner appears.
 const ENGINE_MIN = "0.5.0";
-const ENGINE_LATEST = "0.6.1";   // 0.5.1 silent-video fix · 0.5.2 progress bar · 0.5.3 pin polish · 0.6.0 rename to "OCHA QuickVid" + Mac Terminal install (.app launcher) · 0.6.1 Start script waits for a real health-check before declaring the engine up (was a blind 2s sleep)
+const ENGINE_LATEST = "0.6.2";   // 0.5.3 pin polish · 0.6.0 rename + Mac Terminal install · 0.6.1 Start script health-check (was blind sleep) · 0.6.2 fix crash on Python 3.9 (stock macOS): "Job | None" is 3.10+ syntax → use Optional
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
 function cmpVer(a, b) {
