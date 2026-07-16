@@ -342,10 +342,13 @@ function buildLT(fmt) {
 
   protectRegions(comp, ENTER, EXIT);
   comp.motionGraphicsTemplateName = comp.name;
-  addEGP(nameText.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Name");
-  addEGP(t1.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Title");
-  addEGP(t2.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Title line 2 (optional)");
+  // Add in REVERSE of the desired display order: AE prepends each control to the
+  // Essential Graphics list, so the last added shows at the TOP. Desired top→bottom
+  // (matching the on-screen stack): Name, Title, Title line 2, then Centre align.
   addEGP(ctl.effect("Centre align").property(1), comp, "Centre align");
+  addEGP(t2.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Title line 2 (optional)");
+  addEGP(t1.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Title");
+  addEGP(nameText.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Name");
   return comp;
 }
 
@@ -468,10 +471,11 @@ function buildPin(fmt) {
 
   protectRegions(comp, ENTER, EXIT);
   comp.motionGraphicsTemplateName = comp.name;
-  addEGP(place.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Place");
-  addEGP(date.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Date");
-  addEGP(ctl.effect("Pin colour").property(1), comp, "Pin colour");
+  // reverse order (AE prepends) → displays top→bottom: Place, Date, Pin colour, Show pin icon
   addEGP(ctl.effect("Show pin icon").property(1), comp, "Show pin icon");
+  addEGP(ctl.effect("Pin colour").property(1), comp, "Pin colour");
+  addEGP(date.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Date");
+  addEGP(place.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Place");
   return comp;
 }
 
