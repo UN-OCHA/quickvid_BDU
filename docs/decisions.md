@@ -3,6 +3,38 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-07-16 — Start script declared success without checking (v0.6.1)
+A colleague's install ran to completion — Python, ffmpeg, font, Whisper model
+all fine, ending in "OCHA QuickVid is running in the background — you can
+CLOSE this window" — then the browser hit `ERR_CONNECTION_REFUSED` /
+"Can't Connect to the Server" on 127.0.0.1:17870.
+**Root cause:** the `QV_DETACH` branch (used by both platforms' installer/
+starter and the Mac `.app` launcher) backgrounded uvicorn, slept a **blind
+2 seconds**, then unconditionally opened the browser and printed success —
+with no check that the server actually came up. A cold start slower than 2s,
+or an outright crash on import, both looked identical from the script's
+point of view: silence, followed by a lie.
+**Fix:** replace the blind sleep with a real poll of `/api/health` (Mac:
+0.5s steps up to ~20s, with an early exit via `kill -0` if the process died;
+Windows: 1s steps up to ~20s via curl, since batch has no cheap PID-liveness
+check). If it never comes up, the script now prints the last 25 lines of
+`engine.log` directly in the terminal (`tail -n 25` / PowerShell
+`Get-Content -Tail 25`) instead of declaring victory — self-diagnosing
+instead of needing a follow-up round-trip to ask "can you check the log."
+Verified with two isolated bash harnesses (fake slow-start server, fake
+instant-crash process) exercising the real polling loop; the Windows `.bat`
+mirrors the same logic but is unverified live (no Windows box in this
+session — flagged for Paolo/Parallels to confirm).
+**Important operational note:** the self-update mechanism explicitly
+excludes the running Start script from being overwritten (rsync
+`--exclude='Start OCHA QuickVid.command'` / robocopy `/XF "Start OCHA
+QuickVid.bat"` — a script can't safely replace itself mid-execution). That
+means **this class of fix cannot self-propagate** to an already-broken
+install: re-launching the existing (buggy) Start icon will keep running the
+old buggy logic forever. Anyone stuck on the old behavior needs to **re-run
+the install one-liner** (which downloads a fresh copy of everything,
+including the Start script itself), not just click Start again.
+
 ## 2026-07-16 — Premiere plugin, phase 1: UXP + generated MOGRTs (premiere/)
 For Premiere-native editors, the OCHA branding elements ship as **MOGRTs +
 (phase 2) a UXP panel** — NOT CEP, NOT a QuickVid-engine dependency:

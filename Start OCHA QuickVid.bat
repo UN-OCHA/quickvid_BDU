@@ -143,13 +143,38 @@ REM    until the PC shuts down.
 echo.
 if defined QV_DETACH (
   start "OCHA QuickVid engine" /min cmd /c ""%VPY%" -m uvicorn app.backend.main:app --host 127.0.0.1 --port %PORT% >> "%QV_SUPPORT%\engine.log" 2>&1"
-  timeout /t 2 /nobreak >nul
-  if not defined QV_NO_OPEN start "" "http://127.0.0.1:%PORT%"
-  echo OCHA QuickVid is running - you can CLOSE this window.
-  echo It stays on as a minimized "OCHA QuickVid engine" window in your taskbar
-  echo until you shut down the PC.
-  timeout /t 5 >nul
-  exit /b 0
+
+  REM Don't declare success on a blind wait - POLL for the real thing (mirrors
+  REM the "already running" check above). A cold start can take longer than a
+  REM fixed 2s, and a fixed wait can't tell "still starting" from "crashed" -
+  REM it used to open the browser to a dead port either way and call it done.
+  echo Starting the engine...
+  set "UP="
+  for /l %%n in (1,1,20) do (
+    if not defined UP (
+      curl -s -m 1 "http://127.0.0.1:%PORT%/api/health" 2>nul | findstr /c:"quickvid" >nul
+      if not errorlevel 1 set "UP=1"
+      if not defined UP timeout /t 1 /nobreak >nul
+    )
+  )
+
+  if defined UP (
+    if not defined QV_NO_OPEN start "" "http://127.0.0.1:%PORT%"
+    echo OCHA QuickVid is running - you can CLOSE this window.
+    echo It stays on as a minimized "OCHA QuickVid engine" window in your taskbar
+    echo until you shut down the PC.
+    timeout /t 5 >nul
+    exit /b 0
+  )
+
+  echo.
+  echo The engine didn't start. Here's what it said (full log: %QV_SUPPORT%\engine.log):
+  echo ----------------------------------------------------------------------
+  powershell -NoProfile -Command "if (Test-Path '%QV_SUPPORT%\engine.log') { Get-Content -Path '%QV_SUPPORT%\engine.log' -Tail 25 }"
+  echo ----------------------------------------------------------------------
+  echo Copy the lines above and send them to ochavisual@un.org - we'll sort it out.
+  pause
+  exit /b 1
 )
 echo Starting OCHA QuickVid at http://127.0.0.1:%PORT%   (leave this window open)
 start "" "http://127.0.0.1:%PORT%"

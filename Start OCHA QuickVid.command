@@ -141,12 +141,41 @@ echo ""
 if [ -n "$QV_DETACH" ]; then
   nohup ./.venv/bin/uvicorn app.backend.main:app --host 127.0.0.1 --port "$PORT" \
     >> "$QV_SUPPORT/engine.log" 2>&1 &
+  UVICORN_PID=$!
   disown
-  sleep 2
-  [ -z "$QV_NO_OPEN" ] && open "http://127.0.0.1:$PORT"
-  echo "OCHA QuickVid is running in the background — you can CLOSE this window."
-  echo "It stays on until you shut down or log out. (Log: $QV_SUPPORT/engine.log)"
-  exit 0
+
+  # Don't declare success on a blind sleep — POLL for the real thing. A cold
+  # start (first-ever import: ffmpeg symlinking, etc.) can take longer than a
+  # fixed 2s, and a fixed sleep can't tell "still starting" from "crashed" —
+  # it used to open the browser to a dead port either way and call it done.
+  echo "Starting the engine…"
+  UP=""
+  i=0
+  while [ $i -lt 40 ]; do                       # ~20s ceiling, 0.5s steps
+    if curl -s -m 1 "http://127.0.0.1:$PORT/api/health" 2>/dev/null | grep -q quickvid; then
+      UP=1
+      break
+    fi
+    kill -0 "$UVICORN_PID" 2>/dev/null || break  # process died — no point polling a corpse
+    sleep 0.5
+    i=$((i + 1))
+  done
+
+  if [ -n "$UP" ]; then
+    [ -z "$QV_NO_OPEN" ] && open "http://127.0.0.1:$PORT"
+    echo "OCHA QuickVid is running in the background — you can CLOSE this window."
+    echo "It stays on until you shut down or log out. (Log: $QV_SUPPORT/engine.log)"
+    exit 0
+  fi
+
+  echo ""
+  echo "The engine didn't start. Here's what it said (full log: $QV_SUPPORT/engine.log):"
+  echo "----------------------------------------------------------------------"
+  tail -n 25 "$QV_SUPPORT/engine.log" 2>/dev/null
+  echo "----------------------------------------------------------------------"
+  echo "Copy the lines above and send them to ochavisual@un.org — we'll sort it out."
+  read -r -p "Press Enter to close…"
+  exit 1
 fi
 echo "Starting OCHA QuickVid at http://127.0.0.1:$PORT  (leave this window open)"
 if [ -z "$QV_NO_OPEN" ]; then (sleep 2 && open "http://127.0.0.1:$PORT") & fi
