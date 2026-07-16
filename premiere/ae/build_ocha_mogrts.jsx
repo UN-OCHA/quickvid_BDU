@@ -686,9 +686,11 @@ function buildPin(fmt) {
     var t = comp.layers.addText(defTxt);
     t.name = name;
     setText(t, defTxt, font, size, hex2rgb(C.text), trackPx);
+    // centre the MEASURED glyph box on the line's slot (yMid) — a fixed baseline
+    // constant sat mixed-case text too low (descenders drag the optical mass down)
     t.transform.position.expression = boxXExpr + boxYExpr +
       "var r = thisLayer.sourceRectAtTime(time, false);\n" +
-      "[bx + " + PADX + " - r.left, by + " + yMid + " + " + (CAP_CENTER * size) + "];";
+      "[bx + " + PADX + " - r.left, by + " + yMid + " - r.top - r.height/2];";
     return t;
   }
   var place = pinText("Pin place", "City, Country", PIN.fonts.family + "-ExtraBold",
