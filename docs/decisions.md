@@ -3,6 +3,31 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-07-16 — Premiere plugin, phase 1: UXP + generated MOGRTs (premiere/)
+For Premiere-native editors, the OCHA branding elements ship as **MOGRTs +
+(phase 2) a UXP panel** — NOT CEP, NOT a QuickVid-engine dependency:
+- **UXP over CEP**: officially released for Premiere since 25.6 ("approaching
+  parity"), actively developed (26.x added Hybrid C++, EncoderManager,
+  Transcript APIs); CEP is frozen legacy. Everything our panel needs exists
+  (`Project.importFiles`, `SequenceEditor.insertMogrtFromPath/createInsert…`).
+- **Distribution = direct .ccx sharing** (double-click → Creative Cloud installs;
+  one "trusted sources" click-through). No Marketplace review, no certificates.
+- **MOGRTs, not engine renders**: native Premiere objects, editable in Essential
+  Graphics, zero dependencies. The engine stays QuickVid's business.
+- **The MOGRTs are GENERATED, not hand-built**: `premiere/ae/make_assets.py`
+  bakes brand-lt.json + brand-pin.json (same source of truth as the engine) +
+  converts pin_location.svg to AE beziers, and emits a self-contained
+  ExtendScript that builds 4 comps × 4 formats with EGP controls + responsive-
+  time protected regions, then exports every .mogrt. Javier QCs in AE; the look
+  can never drift from the engine because the numbers are the same file.
+- **AE scripting gotchas paid for in blood** (kept here so nobody re-buys them):
+  `TextDocument.tracking` must be an INTEGER; `sourceRectAtTime` THROWS on an
+  empty text layer (gate every width lookup); `setPropertyParameters` REPLACES
+  the dropdown effect (references go stale — re-fetch by name); and
+  `exportAsMotionGraphicsTemplate`'s path argument is a destination FOLDER and
+  a successful export INVALIDATES every project reference (project, folders,
+  footage items) — re-resolve by name before each subsequent build.
+
 ## 2026-07-15 — Pin polish + start time + a live progress bar (v0.5.1 → 0.5.3)
 Three follow-ups after the pin locator shipped, from Javier's testing:
 - **v0.5.1 — silent-video crash fix.** Branding a video with NO audio stream (a

@@ -34,3 +34,6 @@ temp/
 
 # stray dir if a test ever leaves the literal string unexpanded
 $SB/
+# After Effects auto-saves during MOGRT builds (premiere/ae) — transient
+after_effects/
+premiere/ae/build_log.txt
