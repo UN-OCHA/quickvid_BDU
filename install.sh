@@ -98,11 +98,21 @@ RUN
   touch "$appdir"                           # nudge Finder to pick up the icon
 }
 
-mkdir -p "$HOME/Applications"
-rm -f "$HOME/Desktop/Start OCHA QuickVid.command"    # sweep away the old plain-script launcher, if any
-build_launcher "$HOME/Applications/Start OCHA QuickVid.app"
+# Prefer the all-users /Applications when we can write it without a password — true
+# for admin accounts (most personal Macs; /Applications is group-writable by `admin`).
+# Standard/managed accounts fall back to the per-user ~/Applications. No prompt either
+# way: a plain cp/mkdir just fails on a locked /Applications, it never triggers the GUI
+# admin dialog. Both show in Launchpad + Spotlight.
+if [ -w "/Applications" ]; then
+  APPS_DIR="/Applications"
+  rm -rf "$HOME/Applications/Start OCHA QuickVid.app"   # drop any stale per-user duplicate
+else
+  APPS_DIR="$HOME/Applications"; mkdir -p "$APPS_DIR"
+fi
+rm -f "$HOME/Desktop/Start OCHA QuickVid.command"        # sweep away the old plain-script launcher, if any
+build_launcher "$APPS_DIR/Start OCHA QuickVid.app"
 build_launcher "$HOME/Desktop/Start OCHA QuickVid.app"
-echo "Installed 'Start OCHA QuickVid' in your Applications folder (Launchpad + Spotlight) and on your Desktop."
+echo "Installed 'Start OCHA QuickVid' in $APPS_DIR (Launchpad + Spotlight) and on your Desktop."
 
 echo ""
 echo "Setting up and starting OCHA QuickVid…"
