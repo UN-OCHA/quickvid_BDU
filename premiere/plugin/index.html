@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="hd">
+      <span class="hd__title">OCHA Branding</span>
+      <span id="fmt" class="badge badge--muted">no sequence</span>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab is-active" data-el="lt">Lower third</button>
+      <button class="tab" data-el="loc">Location</button>
+      <button class="tab" data-el="bug">Bug</button>
+      <button class="tab" data-el="ending">Ending</button>
+    </nav>
+
+    <section class="form" data-form="lt">
+      <label class="fld">Name<input id="lt-name" type="text" placeholder="e.g. Vanessa May" /></label>
+      <label class="fld">Job title<input id="lt-title" type="text" placeholder="e.g. OCHA Venezuela" /></label>
+      <label class="fld">2nd line <span class="opt">optional</span><input id="lt-title2" type="text" placeholder="e.g. bilingual line" /></label>
+      <label class="chk"><input id="lt-centre" type="checkbox" /> Centre align</label>
+    </section>
+
+    <section class="form" data-form="loc" hidden>
+      <label class="fld">Place<input id="loc-place" type="text" placeholder="e.g. Ankara, Türkiye" /></label>
+      <label class="fld">Date<input id="loc-date" type="text" placeholder="e.g. June 2026" /></label>
+      <div class="row">
+        <span class="row__label">Pin colour</span>
+        <button class="pill is-active" data-col="red">Red</button>
+        <button class="pill" data-col="blue">Blue</button>
+      </div>
+      <label class="chk"><input id="loc-icon" type="checkbox" checked /> Show pin icon</label>
+    </section>
+
+    <section class="form" data-form="bug" hidden>
+      <p class="hint">The OCHA watermark (vertical logo, top-right). Typically for <strong>event</strong> videos. No text — just drop it on the clip.</p>
+    </section>
+
+    <section class="form" data-form="ending" hidden>
+      <label class="chk"><input id="end-black" type="checkbox" /> Over black <span class="opt">else over footage</span></label>
+      <p class="hint">The OCHA logo + click. <strong>Over footage</strong> snaps it over your last shot; <strong>over black</strong> adds a black end card.</p>
+    </section>
+
+    <button id="add" class="primary" disabled>Add to timeline</button>
+    <div id="status" class="status" hidden></div>
+
+    <p class="foot">Added at the playhead in the right format for your sequence.<br />
+      Resize/move for one video via <strong>Effect Controls → Motion</strong>; fine-tune text in <strong>Essential Graphics</strong>.</p>
+  </div>
+  <script src="index.js"></script>
+</body>
+</html>
