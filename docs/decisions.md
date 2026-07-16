@@ -148,7 +148,30 @@ that already carries its own bug).
   still just an on/off, no format gating.
 - Pin locator (the second element) is paused — needs Javier's reference asset.
 
-## 2026-07-15 — Mac installer/starter ship as .zip (fixes "lacks access privileges")
+## 2026-07-16 — Rename to "OCHA QuickVid" + Mac install becomes a Terminal one-liner (.app launcher)
+**Supersedes the 2026-07-15 `.zip` entry below** — the `.zip` fixed the missing +x bit but
+NOT the deeper problem: a *downloaded* unsigned `.command` is quarantined, and on macOS 15
+(Sequoia) that Gatekeeper dialog is a dead end (only "Move to Trash" / "Done" — no "Open
+Anyway"). Verified live on a colleague's Mac.
+**Fix (Mac):** stop shipping a file to double-click. The page now shows a copy-paste
+**Terminal one-liner** — `curl -fsSL …/install.sh | bash`. A script fetched by curl and run
+by the user is never quarantined, so Gatekeeper never fires (same pattern as Homebrew/rustup).
+`install.sh` sets everything up, then **writes a proper `.app` launcher** (`org.unocha.quickvid.starter`)
+carrying the OCHA "Film" humanitarian icon (white on solid `#009edb`; `assets/StartOCHAQuickVid.icns`,
+source SVG beside it) into **~/Applications** (Launchpad + Spotlight, no admin) **and the Desktop**.
+Because the `.app` is created locally it's never quarantined → double-clicks with no warning and
+no code-signing. It runs headless (no Terminal window) and shows a native `osascript` dialog on
+error. Recovery if the icon is deleted = re-run the one-liner (rebuilds it). The classic
+DMG "drag to Applications" was rejected: a downloaded DMG re-introduces quarantine → needs
+signing+notarization ($99/yr), which we're still avoiding.
+Dead Mac `.zip`s + `browser/get/make-zips.sh` removed. Windows keeps its `.bat` download
+(no quarantine concept); both platforms' install cards gained numbered steps, a "this is safe /
+not malware" note, and an `ochavisual@un.org` contact.
+**Rename:** every user-facing string is now "OCHA QuickVid" (launcher filenames, UI, banner,
+README, this file). Left as code identifiers: repo slug `quickvid_BDU`, the
+`ocha-quickvid-engine` health string, `.ochaquickvid.json` project extension. Engine VERSION → 0.6.0.
+
+## 2026-07-15 — Mac installer/starter ship as .zip (fixes "lacks access privileges") — SUPERSEDED 2026-07-16 (see above)
 A colleague on a non-UN Mac hit *"No se ha podido ejecutar… careces de los privilegios
 de acceso necesarios"* double-clicking the downloaded `Install OCHA QuickVid.command`.
 **Root cause:** HTTP carries no Unix permissions, so a `.command` downloaded straight
