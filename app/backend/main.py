@@ -477,7 +477,7 @@ class StSaveProjectReq(BaseModel):
     name: Optional[str] = None                         # project name → <name>.ochaquickvid.json
 
 
-# Every shape we recognise as a QuickVid project file, in preference order.
+# Every shape we recognise as a OCHA QuickVid project file, in preference order.
 # ".ochaquickvid.json" is current; ".quickvid.json" and the fixed
 # "quickvid-project.json" are older forms we still open (and clean up on save).
 PROJECT_GLOBS = ("*.ochaquickvid.json", "*.quickvid.json")
@@ -531,7 +531,7 @@ def st_open_project():
     the state back to keep editing. Returns the project + the folder it ACTUALLY
     lives in now (authoritative — a folder can be moved after it was saved)."""
     try:
-        path = _native_pick("file", "Open a QuickVid project (.ochaquickvid.json)")
+        path = _native_pick("file", "Open a OCHA QuickVid project (.ochaquickvid.json)")
     except Exception as exc:                              # noqa: BLE001
         raise HTTPException(400, f"File picker unavailable: {exc}")
     if not path:
@@ -540,9 +540,9 @@ def st_open_project():
     try:
         proj = json.loads(p.read_text(encoding="utf-8"))
     except Exception:
-        raise HTTPException(400, "That file isn't a readable QuickVid project.")
+        raise HTTPException(400, "That file isn't a readable OCHA QuickVid project.")
     if not isinstance(proj, dict) or "v" not in proj:
-        raise HTTPException(400, "That doesn't look like a QuickVid project file.")
+        raise HTTPException(400, "That doesn't look like a OCHA QuickVid project file.")
     return {"project": proj, "dir": str(p.parent)}
 
 

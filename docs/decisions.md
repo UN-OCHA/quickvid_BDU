@@ -150,14 +150,14 @@ that already carries its own bug).
 
 ## 2026-07-15 — Mac installer/starter ship as .zip (fixes "lacks access privileges")
 A colleague on a non-UN Mac hit *"No se ha podido ejecutar… careces de los privilegios
-de acceso necesarios"* double-clicking the downloaded `Install QuickVid.command`.
+de acceso necesarios"* double-clicking the downloaded `Install OCHA QuickVid.command`.
 **Root cause:** HTTP carries no Unix permissions, so a `.command` downloaded straight
 from a browser loses its executable bit (repo copy is `-rwxr-xr-x`; after download,
 `-rw-r--r--`). This is a *different* error from the already-documented Gatekeeper
 "unidentified developer" nag — right-click → Open does **not** fix it (that only
 clears the quarantine flag, not the missing +x). Reproduced and confirmed exactly:
 `chmod 644` on the repo file reproduces the message.
-**Fix:** the two Mac buttons (`get/Install QuickVid.*`, `get/Start QuickVid.*`) now
+**Fix:** the two Mac buttons (`get/Install OCHA QuickVid.*`, `get/Start OCHA QuickVid.*`) now
 download `.zip` wrappers instead of the bare `.command`. A zip's central directory
 stores the Unix mode, and Archive Utility (incl. Safari's automatic "open safe
 downloads" unzip) restores it on extraction — verified with a full round-trip
@@ -219,7 +219,7 @@ decisions live in the *words*, exactly what the transcript model drives. It also
 matches what's already built (ordered-concatenation cut engine, not multicam/
 B-roll; branding set = logo, name strip, captions, ending). The complex pieces'
 value is in visual/timeline choices the transcript can't express.
-**Boundary rule:** edit lives in the words -> QuickVid; edit lives in the visuals/
+**Boundary rule:** edit lives in the words -> OCHA QuickVid; edit lives in the visuals/
 timeline (B-roll, music, motion graphics, maps) -> Premiere. Confirmed with Javier.
 
 ## Brand assets — received 2026-06-25
@@ -233,7 +233,7 @@ installed at `/Library/Fonts/Raleway`); logo = **white vertical lockup**
 `cd-flow`, page/block titles) under `app/web/vendor/`; Roboto via Google Fonts
 (Arial fallback offline); WCAG-AA tokens (`--brand-primary--text` #0077B8 for text
 on white); no drop shadows. Status messages render as `cd-alert`. Header uses the
-blue horizontal lockup with "QuickVid" as a separate product name (One OCHA rule).
+blue horizontal lockup with "OCHA QuickVid" as a separate product name (One OCHA rule).
 `[hidden]{display:none!important}` is required — `cd-card` sets `display`, which
 otherwise overrides the HTML `hidden` attribute. Re-vendor if the DS repo updates.
 
@@ -284,10 +284,10 @@ Generalized, config-driven engine + playbook: **`~/.claude/skills/ocha-social-su
   verified by matching cairosvg glyph widths to the TTF metrics (no `@font-face` needed).
 - Punctuation: cues are running-speech fragments → **capital after a sentence-ending `.`/`?`/`!`**
   (Spanish `y…` → `Y…` is the common trap).
-**Why a script + skill, not (yet) a QuickVid mode:** the captioning UI/flow isn't in the app; this is the
-proven engine to fold into a future QuickVid "Subtitles" capability. Confirmed with Javier.
+**Why a script + skill, not (yet) a OCHA QuickVid mode:** the captioning UI/flow isn't in the app; this is the
+proven engine to fold into a future OCHA QuickVid "Subtitles" capability. Confirmed with Javier.
 
-## 2026-07-10 — Statement clips become a QuickVid Edit video type (self-service)
+## 2026-07-10 — Statement clips become a OCHA QuickVid Edit video type (self-service)
 **Decision:** The "statement clip" pipeline (SC / member-states briefings, PTC video
 messages) is now **in the tool**, not a Claude-only workflow. Edit tab → "Statement
 clip" wizard (full mode only): UN Web TV link or file → lip-sync check (offset chips
@@ -368,7 +368,7 @@ Venezuela look. Consolidation (was 3 divergent implementations):
 The Start scripts now UPDATE the engine before launching, so nobody re-downloads by hand.
 - **Single source of truth:** a root `VERSION` file. `settings.py` reads it → /api/health, the
   page's version gate, and the self-update check all compare the same number.
-- **On launch** (Start QuickVid.command/.bat, after the already-running check): fetch
+- **On launch** (Start OCHA QuickVid.command/.bat, after the already-running check): fetch
   `raw.githubusercontent.com/.../main/VERSION` (3s timeout). If newer than local, download the
   repo zip, then MIRROR it over the install — keeping `.venv` and the currently-running launcher
   (a file can't safely replace itself mid-run), `--delete`/`/MIR` clearing files dropped upstream.
@@ -392,7 +392,7 @@ accent was a faithful match of the DS repo's `components/cd-alert/cd-alert.css` 
 the time, but still read as a chunky left bar. Fixed at the true source this time,
 not just the app-kit copy: removed `box-shadow: -8px 0 0 var(--cd-alert-color)`
 from the canonical `components/cd-alert/cd-alert.css` itself, then mirrored into
-the app-kit's `.cd-alert` (dropped its `-6px` echo) and synced to QuickVid.
+the app-kit's `.cd-alert` (dropped its `-6px` echo) and synced to OCHA QuickVid.
 `.cd-alert` is now a plain 1px border on all four sides + the ramp-step-6 tint —
 verified via computed styles (`boxShadow: none`, `borderLeftWidth: 1px` matching
 every other edge) across all four variants (info/status/warning/error).
@@ -410,7 +410,7 @@ reaches its own children — the `<h3>` had NO spacing rule at all before the bu
 row right after it.
 **Fix:** added the `cd-flow` class to `.st-setup-block` itself (4 instances: Mac ×2,
 Windows ×2) — reusing the kit's existing vertical-rhythm utility rather than inventing
-a bespoke rule. QuickVid-local (HTML only, no kit change): `.st-setup-block` is an
+a bespoke rule. OCHA QuickVid-local (HTML only, no kit change): `.st-setup-block` is an
 app-specific container, not a reusable component. The already-tuned local overrides
 (`.st-setup-block .app-hint { margin-top: 0.5rem }`, `.st-setup__note { margin-top:
 0.5rem }`) still win by specificity, so those tighter, deliberate relationships are
@@ -420,7 +420,7 @@ child is a heading) — found nothing else; this was the only recurring instance
 Verified: h3→button gap is now 16px everywhere it was 0 (both OS panels, both blocks).
 
 ## 2026-07-14 — Alert component: kit update (v0.1.4), synced from the source
-**Not a QuickVid-local fix — fixed in the OCHA App Kit** (`…/OCHA_design_system/
+**Not a OCHA QuickVid-local fix — fixed in the OCHA App Kit** (`…/OCHA_design_system/
 ocha-common-design-system-BDU/app-kit/ocha-app-kit.css`) and synced here via `sync.py`,
 per the kit-first rule. Javier: "use the alerts from OCHA DS, not the ones with the left
 border — that's so AI made."
@@ -429,13 +429,13 @@ border — that's so AI made."
   DS's actual ramp-step-6 tints (`#E3EDF6`/`#CEE3A0`/`#FEDCBD`/`#F9C0C5`) — the kit had
   drifted to a thin border-left + near-white wash, a generic look common in AI-templated
   UI. Bakes in `margin: 1rem 0` (zeroed at `:first-child`/`:last-child`), matching the
-  real component; QuickVid's own `.status-slot .cd-alert { margin-block: 0.15rem; }`
+  real component; OCHA QuickVid's own `.status-slot .cd-alert { margin-block: 0.15rem; }`
   override (for the tight spot under the render button) still applies unchanged.
 - **Root-caused the reported spacing bug**, not just patched the one spot: `.cd-block-title
   { margin: 0 }` was silently cancelling `.cd-flow > * + *`'s top margin (equal
   specificity, defined later → wins by source order) whenever a block-title directly
   followed a flow sibling — e.g. the engine-update alert sitting flush against "Update
-  the QuickVid engine" below it. Fixed with `.cd-flow > * + .cd-block-title` (two
+  the OCHA QuickVid engine" below it. Fixed with `.cd-flow > * + .cd-block-title` (two
   classes always wins the tie), so this can't recur anywhere the pattern occurs.
 - Verified: 16px gap now between the gate alert and its heading (was 0); all 5 cd-alert
   instances across the app (gate, update banner, resume, saved, status) render with
@@ -449,7 +449,7 @@ reports `version` in /api/health. app.js compares:
 - `ENGINE_MIN` (0.3.0) = oldest engine whose /api CONTRACT matches this page. Below it the
   engine silently drops new fields (Paolo's v0.2 → dropped subtitles/tail/runs-cutting =
   wrong output, no error) → **HARD GATE**: block the app, show the install card reworded
-  ("Update the QuickVid engine", amber alert with the actual versions), tabs hidden. The
+  ("Update the OCHA QuickVid engine", amber alert with the actual versions), tabs hidden. The
   poll keeps running (engineUp=false) so a reinstall recovers it automatically.
 - `ENGINE_LATEST` (0.3.0, == MIN for now) = newest worth a NON-blocking nudge. When >MIN a
   dismissible "update available" banner shows (OS-detected installer link + "Later").
@@ -463,8 +463,8 @@ reports `version` in /api/health. app.js compares:
 **Subtitles on by default** in Titles & branding (`#t-subs-on` checked, options shown) —
 most social video is watched muted, so captions are the common case.
 
-## 2026-07-14 — Drop "Lite": QuickVid is engine-only (v0.4.0)
-**Decision (Javier):** remove the in-browser WebCodecs renderer entirely. QuickVid is a
+## 2026-07-14 — Drop "Lite": OCHA QuickVid is engine-only (v0.4.0)
+**Decision (Javier):** remove the in-browser WebCodecs renderer entirely. OCHA QuickVid is a
 full-capability tool for power users (BDU + trained focal points, Mac & the .bat-friendly
 Windows machines) rather than a limited tool for everyone — "a tool that only adds lower
 thirds and an ending" isn't worth a second mode. Paolo's field test proved the engine
@@ -607,12 +607,12 @@ UI never said so. Redesign, per his go:
 
 ## 2026-07-13 — Two-process onboarding: web-served installer + starter
 Javier's call: no buried folders — the page hands out tiny per-OS files instead.
-- **First time** → `browser/get/Install QuickVid.command|.bat` (served by Pages AND
+- **First time** → `browser/get/Install OCHA QuickVid.command|.bat` (served by Pages AND
   the engine): downloads the repo ZIP → installs to a FIXED hidden location
   (`~/Library/Application Support/OCHA QuickVid/app` · `%LocalAppData%\OCHA QuickVid\app`)
   → runs the full setup → **starts the engine detached** → page unlocks by itself.
   Re-running the installer = update (the `.venv` is carried across so it's quick).
-- **Next times** → `browser/get/Start QuickVid.command|.bat`: reads the install
+- **Next times** → `browser/get/Start OCHA QuickVid.command|.bat`: reads the install
   location from the registry file the launcher writes on every run
   (`<support>/home[.txt]` — so MANUAL/dev installs work with the starter too),
   starts detached, page unlocks in seconds. Engine stays on until shutdown/logout.
@@ -628,7 +628,7 @@ Javier's call: no buried folders — the page hands out tiny per-OS files instea
   don't edit every day; "stays on until shutdown" is the chosen model).
 
 ## 2026-07-12 — Windows: auto-install Python (no manual download)
-`Start QuickVid.bat` now installs Python itself when none is found: downloads the
+`Start OCHA QuickVid.bat` now installs Python itself when none is found: downloads the
 official python.org installer (pinned 3.12.8, PSF-signed, URL verified 200/27 MB)
 and runs it `/quiet InstallAllUsers=0 PrependPath=1` — **user scope, no admin, no
 Store**. The fresh install isn't on the current session PATH, so the script
@@ -640,12 +640,12 @@ manager" at the top → tick Add to PATH → run again). PY stays a bare command
 `.gitattributes` forcing `*.bat` CRLF (LF-only .bat can break labels/goto),
 `.command`/`.sh`/`.py`/`.js` LF. In-app card + README simplified to match.
 
-## 2026-07-12 — QuickVid Lite/Full naming + Windows-ready engine
-- **Chip renamed** (Javier's call): "QuickVid Lite — runs in your browser" vs
-  "QuickVid Full — engine connected, no limits". One page, two power levels; no
+## 2026-07-12 — OCHA QuickVid Lite/Full naming + Windows-ready engine
+- **Chip renamed** (Javier's call): "OCHA QuickVid Lite — runs in your browser" vs
+  "OCHA QuickVid Full — engine connected, no limits". One page, two power levels; no
   separate apps.
 - **Windows engine shipped** (untested on real hardware yet — needs one UN laptop):
-  - `Start QuickVid.bat` mirrors the Mac launcher: user-space Python check
+  - `Start OCHA QuickVid.bat` mirrors the Mac launcher: user-space Python check
     (3.9–3.13 via `py`/`python`), venv, pip, portable ffmpeg via static-ffmpeg,
     Whisper prefetch, launch on 127.0.0.1:17870. ASCII-only, quoted paths.
   - `settings._adopt_static_ffmpeg`: symlink→**copy** fallback (Windows symlinks
@@ -701,7 +701,7 @@ tab with no admin password, no Homebrew, and honest warnings about the scary bit
   every machine measures AND renders with the same TTF; the launcher also copies
   them to ~/Library/Fonts (user-space) for the cairosvg-present-but-no-Raleway
   case. Hardcoded /Library/Fonts paths removed from social_brand + lower_third.
-- **Launcher (`Start QuickVid.command`)**: port fixed 8000→17870 (the app pings
+- **Launcher (`Start OCHA QuickVid.command`)**: port fixed 8000→17870 (the app pings
   17870 — a colleague following instructions would have installed everything and
   still seen a locked tab); opens 127.0.0.1 not localhost (canonical origin);
   picks python3.9–3.13 (3.14 has no faster-whisper wheels); pre-fetches the

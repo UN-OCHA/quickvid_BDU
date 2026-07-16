@@ -133,6 +133,22 @@
 .st-setup__note { margin-top: 0.5rem; font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
 .st-setup__note .fa-solid { color: var(--ocha-cyan); margin-inline-end: 0.4rem; }
 
+/* copy-paste command box (Mac install one-liner) */
+.cmd-box { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;
+  background: var(--ink); border-radius: var(--radius-sm); padding: 0.5rem 0.5rem 0.5rem 0.85rem; }
+.cmd-box code { flex: 1 1 auto; min-width: 0; overflow-x: auto; white-space: nowrap;
+  font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-size: 0.82rem;
+  color: #fff; -webkit-overflow-scrolling: touch; }
+.cmd-box__copy { flex: 0 0 auto; }
+/* numbered install steps */
+.setup-steps { margin: 0.5rem 0 0; padding-inline-start: 1.4rem; display: flex; flex-direction: column; gap: 0.4rem;
+  font-size: 0.9rem; color: var(--ink); line-height: 1.5; }
+.setup-steps li { padding-inline-start: 0.2rem; }
+.setup-steps li::marker { color: var(--ocha-cyan); font-weight: 700; }
+kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-size: 0.8em;
+  background: var(--bg); border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: var(--radius-sm); padding: 0.05rem 0.35rem; }
+
 /* autosave indicator + resume banner */
 .st-autosave { font-size: 0.75rem; color: var(--muted); display: flex; align-items: center; gap: 0.35rem; margin: 0 0 0.6rem; }
 .st-autosave .fa-solid { color: var(--ocha-cyan); }

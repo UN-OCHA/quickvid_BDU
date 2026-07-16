@@ -5,7 +5,7 @@
 # First run: sets everything up by itself — Python environment, a portable
 # video engine (ffmpeg), the OCHA brand font, and the speech-recognition
 # model. No Homebrew, no admin password. One-time, ~10 minutes on office wifi.
-# Every run after that: starts in seconds and opens QuickVid in your browser.
+# Every run after that: starts in seconds and opens OCHA QuickVid in your browser.
 #
 # Your videos never leave this machine.
 #
@@ -19,7 +19,7 @@ cd "$(dirname "$0")"
 # or the page will say "engine not detected" even while this window is running.
 PORT="${QV_PORT:-17870}"
 
-# Self-register this install's location so the tiny "Start QuickVid" starter the
+# Self-register this install's location so the tiny "Start OCHA QuickVid" starter the
 # web page hands out can find the engine wherever it lives (no buried folders).
 QV_SUPPORT="$HOME/Library/Application Support/OCHA QuickVid"
 mkdir -p "$QV_SUPPORT"
@@ -27,7 +27,7 @@ pwd > "$QV_SUPPORT/home"
 
 # Already running? Then there's nothing to do — just open the page.
 if curl -s -m 2 "http://127.0.0.1:$PORT/api/health" 2>/dev/null | grep -q quickvid; then
-  echo "QuickVid is already running — opening it in your browser."
+  echo "OCHA QuickVid is already running — opening it in your browser."
   [ -z "$QV_NO_OPEN" ] && open "http://127.0.0.1:$PORT"
   exit 0
 fi
@@ -42,7 +42,7 @@ if [ -z "$QV_NO_UPDATE" ] && [ ! -d .git ]; then
     [0-9]*.[0-9]*)
       if [ "$REMOTE_V" != "$LOCAL_V" ] \
          && [ "$(printf '%s\n%s\n' "$LOCAL_V" "$REMOTE_V" | sort -V | tail -1)" = "$REMOTE_V" ]; then
-        echo "Updating QuickVid  $LOCAL_V → $REMOTE_V …"
+        echo "Updating OCHA QuickVid  $LOCAL_V → $REMOTE_V …"
         UTMP="$(mktemp -d)"
         if curl -fsL -m 180 -o "$UTMP/qv.zip" "https://github.com/UN-OCHA/quickvid_BDU/archive/refs/heads/main.zip" \
            && ditto -x -k "$UTMP/qv.zip" "$UTMP" && [ -f "$UTMP/quickvid_BDU-main/VERSION" ]; then
@@ -50,7 +50,7 @@ if [ -z "$QV_NO_UPDATE" ] && [ ! -d .git ]; then
           # running launcher (a file can't safely replace itself mid-run). --delete clears
           # anything dropped upstream; -c (checksum) avoids the same-size/same-mtime skip
           # that would strand VERSION and make it re-update every launch. rsync ships with macOS.
-          if rsync -ac --delete --exclude='.venv' --exclude='Start QuickVid.command' \
+          if rsync -ac --delete --exclude='.venv' --exclude='Start OCHA QuickVid.command' \
                    "$UTMP/quickvid_BDU-main/" "./"; then
             cp -f "$UTMP/quickvid_BDU-main/VERSION" ./VERSION   # guarantee the marker (belt + suspenders)
             echo "Updated to $REMOTE_V."
@@ -102,7 +102,7 @@ fi
 if [ ! -x /opt/homebrew/bin/ffmpeg ] && [ ! -x /usr/local/bin/ffmpeg ] \
    && ! command -v ffmpeg >/dev/null 2>&1 && [ ! -x .venv/bin/ffmpeg ]; then
   echo "One-time: downloading the portable video engine (~80 MB, no admin needed)…"
-  ./.venv/bin/python - <<'PY' || echo "(couldn't pre-download — QuickVid will fetch it on first use instead)"
+  ./.venv/bin/python - <<'PY' || echo "(couldn't pre-download — OCHA QuickVid will fetch it on first use instead)"
 from static_ffmpeg import run
 ffmpeg, ffprobe = run.get_or_fetch_platform_executables_else_raise()
 print("Video engine ready.")
@@ -144,7 +144,7 @@ if [ -n "$QV_DETACH" ]; then
   disown
   sleep 2
   [ -z "$QV_NO_OPEN" ] && open "http://127.0.0.1:$PORT"
-  echo "QuickVid is running in the background — you can CLOSE this window."
+  echo "OCHA QuickVid is running in the background — you can CLOSE this window."
   echo "It stays on until you shut down or log out. (Log: $QV_SUPPORT/engine.log)"
   exit 0
 fi

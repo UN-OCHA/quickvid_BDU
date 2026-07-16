@@ -12,7 +12,7 @@ BDU apps:
 - **Kit source (edit here, never in this app):**
   `…/Design/Visual_identity/OCHA_design_system/ocha-common-design-system-BDU/app-kit/ocha-app-kit.css`
 - **This app's copy** (synced, do not hand-edit): `app/web/vendor/ocha-app-kit.css`
-- `app/web/style.css` is **QuickVid layout only** — no colors, no component styling.
+- `app/web/style.css` is **OCHA QuickVid layout only** — no colors, no component styling.
 
 **When a component looks/works wrong, or you need a new one:**
 1. Edit the **kit** (`…/app-kit/ocha-app-kit.css`) — not this app. Reuse an existing
@@ -21,7 +21,7 @@ BDU apps:
    ```bash
    cd "…/app-kit" && python3 sync.py && $EDITOR CHANGELOG.md
    ```
-3. Reload — the change is now in QuickVid *and* every other OCHA app.
+3. Reload — the change is now in OCHA QuickVid *and* every other OCHA app.
 
 Use kit classes: `.cd-card`, `.cd-button` (+`--outline/--small/--export`),
 `.cd-block-title` + `.step-num`, `.cd-form__input`, `.field-row`, `.mode-tab`,

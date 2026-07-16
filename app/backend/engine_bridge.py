@@ -54,7 +54,7 @@ def _write_job_info(dirs, job, final_path):
     if not readme.exists():
         readme.write_text(
             f"# {dirs['root'].name}\n\n"
-            "OCHA statement clip, made with **QuickVid** (Edit -> Statement clip).\n\n"
+            "OCHA statement clip, made with **OCHA QuickVid** (Edit -> Statement clip).\n\n"
             "## Folders\n"
             "- `source/` - the original UN Web TV download (floor audio).\n"
             f"- `export/` - the finished clip (`{final_path.name}`) + `thumbnail.jpg`. **The deliverable.**\n"
@@ -64,7 +64,7 @@ def _write_job_info(dirs, job, final_path):
             "UN Web TV download -> optional lip-sync -> transcribe -> pick the sentences -> punch-in "
             "cut -> OCHA branding (captions + lower third + logo-click ending).\n\n"
             "## To re-edit\n"
-            "Re-open QuickVid, pick this same folder, and load `source/` - or hand this folder to "
+            "Re-open OCHA QuickVid, pick this same folder, and load `source/` - or hand this folder to "
             "Claude Code with the `ocha-statement-clip` skill.\n"
         )
 

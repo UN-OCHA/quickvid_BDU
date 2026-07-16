@@ -31,7 +31,7 @@ function setStatus(text, kind, percent) {
 //    == ENGINE_MIN unless a newer engine adds a real user benefit an older-but-still-
 //    compatible engine lacks; then the soft banner appears.
 const ENGINE_MIN = "0.5.0";
-const ENGINE_LATEST = "0.5.3";   // 0.5.1 silent-video fix · 0.5.2 progress bar · 0.5.3 pin polish + start time
+const ENGINE_LATEST = "0.6.0";   // 0.5.1 silent-video fix · 0.5.2 progress bar · 0.5.3 pin polish · 0.6.0 rename to "OCHA QuickVid" + Mac Terminal install (.app launcher)
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
 function cmpVer(a, b) {
@@ -42,10 +42,6 @@ function cmpVer(a, b) {
   }
   return 0;
 }
-const IS_WIN = /Windows/i.test(navigator.userAgent);
-// Mac gets the .zip (a bare .command loses its exec bit over HTTP download —
-// same reason as the install card); .bat needs no exec bit, so Windows stays direct.
-const INSTALLER_HREF = IS_WIN ? "get/Install%20QuickVid.bat" : "get/Install%20QuickVid.zip";
 
 // ---- engine gate: the app IS the engine's UI ----
 // Three states: UP (compatible) · OUTDATED (reachable but too old → hard gate) · DOWN (unreachable).
@@ -77,14 +73,14 @@ function gate() {
     (typeof stShowPanel === "function") ? stShowPanel("edit") : ($("#panel-edit").hidden = false);
   }
   // gate card copy: OUTDATED reuses the same install buttons (re-running the installer IS the updater)
-  $("#st-gate-title").textContent = outdated ? "Update the QuickVid engine" : "Set up QuickVid on this computer";
+  $("#st-gate-title").textContent = outdated ? "Update the OCHA QuickVid engine" : "Set up OCHA QuickVid on this computer";
   $("#st-gate-intro").hidden = outdated;
   const al = $("#st-gate-alert");
   if (outdated) {
     al.hidden = false;
     al.querySelector("p").innerHTML =
       `Your engine is <strong>v${esc(ver)}</strong>, but this page needs <strong>v${ENGINE_MIN}</strong> or newer — an old engine would quietly produce wrong output. ` +
-      `<strong>Re-run the installer below to update it</strong> (~2 min, your projects are safe). If it says the engine is already running, close it first (Mac: quit “QuickVid engine”; Windows: close the minimized engine window), then run the installer. <em>After this one update, QuickVid keeps itself current automatically — you won’t need to do this again.</em>`;
+      `<strong>Re-run the installer below to update it</strong> (~2 min, your projects are safe). If it says the engine is already running, close it first (Mac: quit “OCHA QuickVid engine”; Windows: close the minimized engine window), then run the installer. <em>After this one update, OCHA QuickVid keeps itself current automatically — you won’t need to do this again.</em>`;
   } else { al.hidden = true; }
   // chip
   const el = $("#mode-chip");
@@ -98,14 +94,30 @@ function gate() {
   const banner = $("#st-update-banner");
   if (up && !state._updDismissed && cmpVer(ver, ENGINE_LATEST) < 0) {
     $("#st-upd-cur").textContent = ver; $("#st-upd-new").textContent = ENGINE_LATEST;
-    $("#st-upd-link").href = INSTALLER_HREF;
-    banner.hidden = false;
+    banner.hidden = false;                       // engine self-updates on next Start — no download link
   } else { banner.hidden = true; }
   if (typeof stModeChanged === "function") stModeChanged(up);     // Edit wizard shows/hides
 }
 document.addEventListener("click", (e) => {
   if (e.target.closest("#st-upd-dismiss")) { state._updDismissed = true; $("#st-update-banner").hidden = true; }
+  // copy the Mac install one-liner
+  const copyBtn = e.target.closest("#mac-install-copy");
+  if (copyBtn) {
+    const cmd = $("#mac-install-cmd").textContent.trim();
+    const label = copyBtn.querySelector(".cd-button__text");
+    const done = () => { if (label) { label.textContent = "Copied!"; setTimeout(() => { label.textContent = "Copy"; }, 1600); } };
+    // navigator.clipboard needs a secure context; fall back to a hidden textarea (works on 127.0.0.1)
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(cmd).then(done).catch(() => fallbackCopy(cmd, done));
+    else fallbackCopy(cmd, done);
+  }
 });
+function fallbackCopy(text, done) {
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); done(); } catch (e) {}
+  document.body.removeChild(ta);
+}
 
 // native picker on the engine → a path it reads straight off disk (no upload, no size limit)
 async function enginePick() {

@@ -6,7 +6,7 @@ REM
 REM  First run: sets everything up by itself - Python itself (if you don't have
 REM  it), the Python environment, a portable video engine (ffmpeg) and the
 REM  speech-recognition model. No admin rights needed. One-time, ~10 minutes on
-REM  office wifi. After that: starts in seconds and opens QuickVid in your browser.
+REM  office wifi. After that: starts in seconds and opens OCHA QuickVid in your browser.
 REM
 REM  Your videos never leave this machine.
 REM
@@ -18,7 +18,7 @@ cd /d "%~dp0"
 set "PORT=17870"
 if defined QV_PORT set "PORT=%QV_PORT%"
 
-REM Self-register this install's location so the tiny "Start QuickVid" starter
+REM Self-register this install's location so the tiny "Start OCHA QuickVid" starter
 REM the web page hands out can find the engine wherever it lives.
 set "QV_SUPPORT=%LocalAppData%\OCHA QuickVid"
 if not exist "%QV_SUPPORT%" mkdir "%QV_SUPPORT%"
@@ -27,7 +27,7 @@ echo %CD%> "%QV_SUPPORT%\home.txt"
 REM Already running? Nothing to do - just open the page.
 curl -s -m 2 "http://127.0.0.1:%PORT%/api/health" 2>nul | findstr /c:"quickvid" >nul
 if not errorlevel 1 (
-  echo QuickVid is already running - opening it in your browser.
+  echo OCHA QuickVid is already running - opening it in your browser.
   if not defined QV_NO_OPEN start "" "http://127.0.0.1:%PORT%"
   exit /b 0
 )
@@ -46,7 +46,7 @@ if exist "%TEMP%\qv_remote_ver.txt" for /f "usebackq delims=" %%v in ("%TEMP%\qv
 del "%TEMP%\qv_remote_ver.txt" >nul 2>&1
 echo(%REMOTE_V%| findstr /r "^[0-9][0-9]*\.[0-9]" >nul 2>&1 || goto :afterupdate
 if "%REMOTE_V%"=="%LOCAL_V%" goto :afterupdate
-echo Updating QuickVid  %LOCAL_V% -^> %REMOTE_V% ...
+echo Updating OCHA QuickVid  %LOCAL_V% -^> %REMOTE_V% ...
 set "UTMP=%TEMP%\qv_update_%RANDOM%"
 mkdir "%UTMP%" 2>nul
 curl -fsL -m 180 -o "%UTMP%\qv.zip" "https://github.com/UN-OCHA/quickvid_BDU/archive/refs/heads/main.zip"
@@ -56,7 +56,7 @@ if not exist "%UTMP%\quickvid_BDU-main\VERSION" ( echo ^(couldn't unpack the upd
 REM Mirror the new code over this install; keep .venv and this running .bat (a file can't
 REM replace itself mid-run). /MIR clears anything dropped upstream; /IS re-copies even
 REM same-size/time files so VERSION can't be stranded (which would re-update every launch).
-robocopy "%UTMP%\quickvid_BDU-main" "%CD%" /MIR /IS /XD ".venv" ".git" /XF "Start QuickVid.bat" /NFL /NDL /NJH /NJS /NC /NS /NP >nul
+robocopy "%UTMP%\quickvid_BDU-main" "%CD%" /MIR /IS /XD ".venv" ".git" /XF "Start OCHA QuickVid.bat" /NFL /NDL /NJH /NJS /NC /NS /NP >nul
 copy /y "%UTMP%\quickvid_BDU-main\VERSION" "%CD%\VERSION" >nul 2>&1
 echo Updated to %REMOTE_V%.
 rd /s /q "%UTMP%" 2>nul
@@ -99,7 +99,7 @@ if not defined PY (
   echo     1. The download page is opening now.
   echo     2. Near the TOP of the page, click "Latest Python install manager".
   echo     3. Run it. If it asks, TICK "Add python.exe to PATH".
-  echo     4. Double-click "Start QuickVid.bat" again.
+  echo     4. Double-click "Start OCHA QuickVid.bat" again.
   start "" "https://www.python.org/downloads/windows/"
   pause
   exit /b 1
@@ -123,7 +123,7 @@ where ffmpeg >nul 2>&1
 if errorlevel 1 if not exist ".venv\Scripts\ffmpeg.exe" (
   echo One-time: downloading the portable video engine ^(~80 MB, no admin needed^)...
   "%VPY%" -c "from static_ffmpeg import run; run.get_or_fetch_platform_executables_else_raise(); print('Video engine ready.')"
-  if errorlevel 1 echo (couldn't pre-download - QuickVid will fetch it on first use instead)
+  if errorlevel 1 echo (couldn't pre-download - OCHA QuickVid will fetch it on first use instead)
 )
 
 REM 4) Speech-recognition model (one-time, ~500 MB) so the first transcription
@@ -145,7 +145,7 @@ if defined QV_DETACH (
   start "OCHA QuickVid engine" /min cmd /c ""%VPY%" -m uvicorn app.backend.main:app --host 127.0.0.1 --port %PORT% >> "%QV_SUPPORT%\engine.log" 2>&1"
   timeout /t 2 /nobreak >nul
   if not defined QV_NO_OPEN start "" "http://127.0.0.1:%PORT%"
-  echo QuickVid is running - you can CLOSE this window.
+  echo OCHA QuickVid is running - you can CLOSE this window.
   echo It stays on as a minimized "OCHA QuickVid engine" window in your taskbar
   echo until you shut down the PC.
   timeout /t 5 >nul

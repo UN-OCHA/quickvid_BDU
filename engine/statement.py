@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Statement clip engine — the QuickVid pipeline for clips of a UN/OCHA principal's
+Statement clip engine — the OCHA QuickVid pipeline for clips of a UN/OCHA principal's
 remarks (Security Council / member-states briefings, pieces to camera).
 
 The craft rules come from the ASG Ukraine reference build (July 2026):

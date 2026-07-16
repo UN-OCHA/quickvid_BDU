@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="vendor/ocha-app-kit.css" />
   <link rel="stylesheet" href="style.css" />
 
-  <script src="app.js?v=14" defer></script>
+  <script src="app.js?v=15" defer></script>
   <script src="statement.js?v=9" defer></script>
 </head>
 <body>
@@ -22,7 +22,7 @@
   <header class="app-header">
     <img class="app-header__logo" src="vendor/ocha-logo.svg" alt="OCHA" />
     <div class="app-header__titles">
-      <h1 class="app-header__title">QuickVid</h1>
+      <h1 class="app-header__title">OCHA QuickVid</h1>
       <p class="app-header__subtitle">OCHA-branded videos in a few clicks</p>
     </div>
   </header>
@@ -32,7 +32,7 @@
     <div id="mode-chip" class="mode-chip mode-chip--browser"><i class="fa-solid fa-plug" aria-hidden="true"></i> Looking for the engine…</div>
     <div id="st-update-banner" class="cd-alert cd-alert--status" hidden>
       <div class="cd-alert__message">
-        <p><i class="fa-solid fa-arrow-rotate-right" aria-hidden="true"></i> A newer QuickVid engine is available (you have <strong>v<span id="st-upd-cur"></span></strong>, latest is <strong>v<span id="st-upd-new"></span></strong>). <a id="st-upd-link" href="#" download>Download the installer</a> and run it when convenient (if it lands as a <code>.zip</code>, double-click that first) — it updates in place, your projects are safe. <button type="button" class="cd-button cd-button--outline cd-button--small" id="st-upd-dismiss"><span class="cd-button__text">Later</span></button></p>
+        <p><i class="fa-solid fa-arrow-rotate-right" aria-hidden="true"></i> A newer OCHA QuickVid engine is available (you have <strong>v<span id="st-upd-cur"></span></strong>, latest is <strong>v<span id="st-upd-new"></span></strong>). It <strong>updates itself</strong> the next time you start OCHA QuickVid — nothing to download, your projects are safe. <button type="button" class="cd-button cd-button--outline cd-button--small" id="st-upd-dismiss"><span class="cd-button__text">Later</span></button></p>
       </div>
     </div>
 
@@ -40,8 +40,8 @@
     <section class="cd-card" id="st-need-engine" hidden>
       <div class="cd-card__content cd-flow">
         <div id="st-gate-alert" class="cd-alert cd-alert--warning" hidden><div class="cd-alert__message"><p></p></div></div>
-        <h2 class="cd-block-title" id="st-gate-title">Set up QuickVid on this computer</h2>
-        <p class="app-hint" id="st-gate-intro">QuickVid works on real video — cutting, transcribing, rendering — so it runs a small <strong>engine on your computer</strong>: free, sets itself up, <strong>no admin rights needed</strong>. Install once; this page unlocks by itself and stays up to date. Your videos never leave your machine.</p>
+        <h2 class="cd-block-title" id="st-gate-title">Set up OCHA QuickVid on this computer</h2>
+        <p class="app-hint" id="st-gate-intro">OCHA QuickVid works on real video — cutting, transcribing, rendering — so it runs a small <strong>engine on your computer</strong>: free, sets itself up, <strong>no admin rights needed</strong>. Install once; this page unlocks by itself and stays up to date. Your videos never leave your machine.</p>
         <div class="st-btn-row" role="tablist" aria-label="Choose your system">
           <button class="cd-button cd-button--small" id="st-os-mac" type="button"><i class="fa-brands fa-apple" aria-hidden="true"></i><span class="cd-button__text">Mac</span></button>
           <button class="cd-button cd-button--small cd-button--outline" id="st-os-win" type="button"><i class="fa-brands fa-windows" aria-hidden="true"></i><span class="cd-button__text">Windows</span></button>
@@ -50,34 +50,43 @@
         <div id="st-setup-mac">
           <div class="st-setup-block cd-flow">
             <h3 class="cd-block-title">First time on this Mac?</h3>
-            <div class="st-btn-row"><a class="cd-button" href="get/Install%20QuickVid.zip" download="Install QuickVid.zip"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span class="cd-button__text">Download the installer</span></a></div>
-            <p class="app-hint">Double-click it in your Downloads (if it lands as a <code>.zip</code>, double-click that first to unzip it — one extra click). It sets <strong>everything</strong> up by itself (~10 minutes, no admin password) and <strong>starts QuickVid when it finishes</strong> — this page unlocks on its own.</p>
-            <div class="st-setup__note"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> macOS will say <em>“can’t be opened — unidentified developer.”</em> Normal for internet downloads: <strong>right-click → Open → Open</strong>. Once per downloaded file.</div>
+            <p class="app-hint">A one-time setup you run in <strong>Terminal</strong> — about a minute of your attention, then ~10 minutes on its own. No file to double-click, and <strong>no security warnings</strong>.</p>
+            <ol class="setup-steps">
+              <li><strong>Open Terminal.</strong> Press <kbd>⌘</kbd>+<kbd>Space</kbd>, type <em>Terminal</em>, press <kbd>Enter</kbd>. A small text window opens — that’s normal.</li>
+              <li><strong>Copy the command</strong> below (hit <em>Copy</em>), click the Terminal window, <strong>paste</strong> (<kbd>⌘</kbd>+<kbd>V</kbd>), and press <kbd>Enter</kbd>.</li>
+              <li><strong>Leave it to finish.</strong> It sets everything up (no admin password), then starts OCHA QuickVid and unlocks this page by itself.</li>
+            </ol>
+            <div class="cmd-box">
+              <code id="mac-install-cmd">curl -fsSL https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/install.sh | bash</code>
+              <button type="button" class="cd-button cd-button--small cd-button--outline cmd-box__copy" id="mac-install-copy"><i class="fa-solid fa-copy" aria-hidden="true"></i><span class="cd-button__text">Copy</span></button>
+            </div>
+            <div class="st-setup__note"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> <strong>This is safe — and it’s why there’s no “unverified developer / malware” warning.</strong> That scary macOS dialog only appears for files you <em>double-click after downloading</em>; running the command yourself in Terminal never triggers it. The command simply fetches OCHA’s own open-source code from GitHub (<code>github.com/UN-OCHA/quickvid_BDU</code>) and sets it up locally. Nothing is uploaded — your videos never leave your computer. Unsure, or it doesn’t work? Email <a href="mailto:ochavisual@un.org">ochavisual@un.org</a>.</div>
+            <p class="app-hint">When it’s done, <strong>Start OCHA QuickVid</strong> lives in your <strong>Applications</strong> folder (Launchpad + Spotlight) and on your <strong>Desktop</strong>.</p>
           </div>
           <div class="st-setup-block cd-flow">
             <h3 class="cd-block-title">Already installed?</h3>
-            <div class="st-btn-row"><a class="cd-button cd-button--outline" href="get/Start%20QuickVid.zip" download="Start QuickVid.zip"><i class="fa-solid fa-play" aria-hidden="true"></i><span class="cd-button__text">Download the starter</span></a></div>
-            <p class="app-hint">Double-click it — if it lands as a <code>.zip</code>, double-click that first to unzip it. The engine starts quietly in the background and this page <strong>unlocks in seconds</strong>. It stays on until you shut down or log out. <strong>Keep the file</strong> (Downloads or Desktop) — the same one works every time, no re-download.</p>
+            <p class="app-hint">Open <strong>Start OCHA QuickVid</strong> — from <strong>Launchpad</strong>, <strong>Spotlight</strong> (<kbd>⌘</kbd>+<kbd>Space</kbd>, type “OCHA QuickVid”), your <strong>Applications</strong> folder, or the icon on your <strong>Desktop</strong>. The engine starts quietly in the background and this page <strong>unlocks in seconds</strong>. No security prompt, ever — it was built on your Mac, not downloaded.</p>
+            <p class="app-hint">Can’t find it? Re-run the command above — it’s quick when you’re already set up, and it puts the app back in Applications and on your Desktop.</p>
           </div>
         </div>
 
         <div id="st-setup-win" hidden>
           <div class="st-setup-block cd-flow">
             <h3 class="cd-block-title">First time on this PC?</h3>
-            <div class="st-btn-row"><a class="cd-button" href="get/Install%20QuickVid.bat" download="Install QuickVid.bat"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span class="cd-button__text">Download the installer</span></a></div>
-            <p class="app-hint">Double-click it in your Downloads. It sets <strong>everything</strong> up by itself (~10 minutes, no admin) — <strong>including Python</strong> if you don’t have it — and <strong>starts QuickVid when it finishes</strong>; this page unlocks on its own.</p>
-            <div class="st-setup__note"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Windows may show <em>“Windows protected your PC”</em> (SmartScreen). Normal for internet downloads: <strong>More info → Run anyway</strong>. Once per downloaded file.</div>
+            <div class="st-btn-row"><a class="cd-button" href="get/Install%20OCHA%20QuickVid.bat" download="Install OCHA QuickVid.bat"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span class="cd-button__text">Download the installer</span></a></div>
+            <p class="app-hint">Double-click it in your Downloads. It sets <strong>everything</strong> up by itself (~10 minutes, no admin) — <strong>including Python</strong> if you don’t have it — and <strong>starts OCHA QuickVid when it finishes</strong>; this page unlocks on its own.</p>
+            <div class="st-setup__note"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> <strong>This is safe.</strong> Windows may show <em>“Windows protected your PC”</em> (SmartScreen) — that’s the standard notice for any installer from the internet, not a virus warning: click <strong>More info → Run anyway</strong> (once). It only sets up OCHA’s own open-source code and runs entirely on your PC — nothing is uploaded. Unsure, or it doesn’t work? Email <a href="mailto:ochavisual@un.org">ochavisual@un.org</a>.</div>
           </div>
           <div class="st-setup-block cd-flow">
             <h3 class="cd-block-title">Already installed?</h3>
-            <div class="st-btn-row"><a class="cd-button cd-button--outline" href="get/Start%20QuickVid.bat" download="Start QuickVid.bat"><i class="fa-solid fa-play" aria-hidden="true"></i><span class="cd-button__text">Download the starter</span></a></div>
+            <div class="st-btn-row"><a class="cd-button cd-button--outline" href="get/Start%20OCHA%20QuickVid.bat" download="Start OCHA QuickVid.bat"><i class="fa-solid fa-play" aria-hidden="true"></i><span class="cd-button__text">Download the starter</span></a></div>
             <p class="app-hint">Double-click it — the engine starts (a minimized window in your taskbar) and this page <strong>unlocks in seconds</strong>. It stays on until you shut down. <strong>Keep the file</strong> (Downloads or Desktop) — the same one works every time, no re-download.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <nav class="mode-tabs" role="tablist" aria-label="QuickVid modes">
+    <nav class="mode-tabs" role="tablist" aria-label="OCHA QuickVid modes">
       <button class="mode-tab is-active" id="tab-edit" role="tab" aria-selected="true" type="button"><i class="fa-solid fa-scissors" aria-hidden="true"></i> Edit a video</button>
       <button class="mode-tab" id="tab-titles" role="tab" aria-selected="false" type="button"><i class="fa-solid fa-heading" aria-hidden="true"></i> Titles &amp; branding</button>
     </nav>
@@ -91,7 +100,7 @@
           <p>Pick the <strong>finished video</strong> you want to brand — the editing is already done; this mode only adds name strips and the OCHA ending.</p>
           <ul>
             <li>Click the box — a normal file picker opens. Any size, any format, kept full quality.</li>
-            <li>Nothing is uploaded — QuickVid reads the file straight off your disk and it never leaves your computer.</li>
+            <li>Nothing is uploaded — OCHA QuickVid reads the file straight off your disk and it never leaves your computer.</li>
           </ul>
         </div>
         <div class="dropzone" id="drop" role="button" tabindex="0">
@@ -138,7 +147,7 @@
         <h2 class="cd-block-title" id="s3s"><span class="step-num" aria-hidden="true">3</span> Subtitles <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t3s" aria-label="Help: subtitles"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
         <div class="cd-help__panel" id="help-t3s" hidden>
           <ul>
-            <li>QuickVid <strong>listens to the video on your computer</strong> (nothing is uploaded), writes down the words, and burns them in as subtitles. Adds a few minutes to the render.</li>
+            <li>OCHA QuickVid <strong>listens to the video on your computer</strong> (nothing is uploaded), writes down the words, and burns them in as subtitles. Adds a few minutes to the render.</li>
             <li>Two looks: <strong>Social</strong> — white text on a grey box (feeds &amp; reels) — or <strong>Event</strong> — clean white text over a soft dark gradient (16:9 screens). The preview shows each.</li>
             <li>Transcription runs on this computer's engine — a long video adds a few minutes to the render.</li>
           </ul>
@@ -296,7 +305,7 @@
           <div class="cd-help__panel" id="help-e1" hidden>
             <ul>
               <li>A <strong>statement clip</strong> is a principal's remarks — a Security Council or member-states briefing, or a recorded video message — cut down to the key sentences (60–90 seconds), captioned and OCHA-branded.</li>
-              <li><strong>Project name</strong>: type a name (e.g. “ASG Ukraine Security council”), then <strong>Choose where to save</strong> — a folder with that name is created there. Everything lands inside — the original download in <code>source/</code>, the finished clip and thumbnail in <code>export/</code>, the script in <code>info/</code> — and your progress <strong>autosaves</strong> as a project file with the same name, so you can close QuickVid and pick the job up later.</li>
+              <li><strong>Project name</strong>: type a name (e.g. “ASG Ukraine Security council”), then <strong>Choose where to save</strong> — a folder with that name is created there. Everything lands inside — the original download in <code>source/</code>, the finished clip and thumbnail in <code>export/</code>, the script in <code>info/</code> — and your progress <strong>autosaves</strong> as a project file with the same name, so you can close OCHA QuickVid and pick the job up later.</li>
               <li>Skip it and files go to a temporary spot instead; progress then autosaves only in this browser.</li>
             </ul>
           </div>
@@ -335,7 +344,7 @@
           <div class="cd-help__panel" id="help-e2" hidden>
             <ul>
               <li>On <a href="https://webtv.un.org" target="_blank" rel="noopener">webtv.un.org</a>, open <strong>the meeting's own page</strong> — search its title (e.g. “Security Council … Ukraine”) — and paste that link.</li>
-              <li><strong>Works even while the meeting is still live</strong> — QuickVid downloads whatever has streamed so far, right up to that moment. No need to wait for it to finish or request the file separately.</li>
+              <li><strong>Works even while the meeting is still live</strong> — OCHA QuickVid downloads whatever has streamed so far, right up to that moment. No need to wait for it to finish or request the file separately.</li>
               <li>Just make sure it's that <strong>specific meeting's page</strong>, not the generic webtv.un.org homepage — the link should end in an ID, e.g. <code>webtv.un.org/en/asset/k1m/k1mx7fqwrz</code>.</li>
               <li>The download uses the <strong>floor</strong> sound — each speaker's real voice, not the interpreter.</li>
               <li>Already have the video? <strong>Pick a file</strong> and skip the download.</li>
@@ -409,7 +418,7 @@
           <div class="cd-help__panel" id="help-e5" hidden>
             <ul>
               <li>Every sentence found in your window is listed with its length. <strong>Tick</strong> the ones that carry the message — the counter above the list keeps the running total. Aim for <strong>60–90 seconds</strong>.</li>
-              <li>Sentences that follow each other play as <strong>one continuous take</strong> — natural pauses kept, no cuts. Only when you <strong>skip ahead</strong> does QuickVid cut, hiding the jump with a <strong>punch-in</strong> (a framing change, broadcast style) and marking the captions with <strong>[...]</strong> so viewers see words were skipped.</li>
+              <li>Sentences that follow each other play as <strong>one continuous take</strong> — natural pauses kept, no cuts. Only when you <strong>skip ahead</strong> does OCHA QuickVid cut, hiding the jump with a <strong>punch-in</strong> (a framing change, broadcast style) and marking the captions with <strong>[...]</strong> so viewers see words were skipped.</li>
               <li>The <strong>C / G</strong> buttons force a Close-up or General shot for that sentence; leave them alone and the tool alternates sensibly on its own.</li>
               <li>Spotted a transcription typo? Click the text and fix it — that changes the <strong>captions only</strong>, never the audio.</li>
               <li><strong>Use AI to pick the sentences</strong>: copies a ready-made prompt with the whole transcript. Paste it into <strong>Microsoft Copilot</strong> (or any AI chat), answer its questions (key messages, target length — attach the statement if you have it), then paste its answer back and the right sentences tick themselves. You still review and adjust.</li>
