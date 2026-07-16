@@ -87,7 +87,7 @@ PLIST
 DEST="$HOME/Library/Application Support/OCHA QuickVid"
 APP="$DEST/app"; [ -f "$DEST/home" ] && APP="$(cat "$DEST/home")"
 if [ ! -f "$APP/Start OCHA QuickVid.command" ]; then
-  osascript -e 'display dialog "OCHA QuickVid is not installed on this Mac yet. Re-run the install command from the OCHA QuickVid page (Titles & branding, then Set up). Questions? ochavisual@un.org" buttons {"OK"} default button "OK" with icon caution with title "OCHA QuickVid"'
+  osascript -e 'display dialog "OCHA QuickVid is not installed on this Mac yet. Open the OCHA QuickVid page and run the one-line install command it shows at the top. Questions? ochavisual@un.org" buttons {"OK"} default button "OK" with icon caution with title "OCHA QuickVid"'
   exit 1
 fi
 export QV_DETACH=1
