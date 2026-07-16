@@ -152,6 +152,26 @@ function addSlider(ctl, label, v) {
   return fx;
 }
 
+// A "Size" slider (on the comp's Controls) that scales the WHOLE element about a
+// pinned anchor — so a per-video "make it bigger/smaller" grows in place instead
+// of drifting off its safe corner the way native Motion→Scale does.
+//   Trick: a parent null whose position == anchorPoint == the anchor point is
+//   IDENTITY at 100% (children keep their comp-coord expressions untouched) and
+//   scales purely about that point otherwise: child_world = A + (Size/100)*(child - A).
+// `axExpr`/`ayExpr` are expression-string comp coords for the anchor.
+function sizeGroup(comp, layers, axExpr, ayExpr) {
+  var n = comp.layers.addNull(comp.duration);
+  n.name = "Size anchor";
+  n.enabled = false;
+  var pe = "[" + axExpr + ", " + ayExpr + "]";
+  n.transform.position.expression = pe;
+  n.transform.anchorPoint.expression = pe;
+  n.transform.scale.expression =
+    "var z = thisComp.layer('Controls').effect('Size')('Slider'); [z, z];";
+  for (var i = 0; i < layers.length; i++) if (layers[i]) layers[i].parent = n;
+  return n;
+}
+
 // ---------------------------------------------------------------- project
 // The .mogrt export writes files, which AE gates behind Preferences >
 // Scripting & Expressions > "Allow Scripts to Write Files…". Try to grant it
@@ -339,12 +359,19 @@ function buildLT(fmt) {
 
   var ctl = ctlNull(comp);
   addCheckbox(ctl, "Centre align", false);
+  addSlider(ctl, "Size", 100);
+  // scale the whole strip about its pinned corner (bottom-left, or bottom-centre
+  // when centred) via the Size slider — stays put while resizing.
+  sizeGroup(comp, [nameBand, nameMatte, nameText, mover],
+            "(thisComp.layer('Controls').effect('Centre align')('Checkbox') > 0 ? thisComp.width/2 : " + SAFEL + ")",
+            "" + BOT);
 
   protectRegions(comp, ENTER, EXIT);
   comp.motionGraphicsTemplateName = comp.name;
   // Add in REVERSE of the desired display order: AE prepends each control to the
   // Essential Graphics list, so the last added shows at the TOP. Desired top→bottom
-  // (matching the on-screen stack): Name, Title, Title line 2, then Centre align.
+  // (matching the on-screen stack): Name, Title, Title line 2, Centre align, Size.
+  addEGP(ctl.effect("Size").property(1), comp, "Size");
   addEGP(ctl.effect("Centre align").property(1), comp, "Centre align");
   addEGP(t2.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Title line 2 (optional)");
   addEGP(t1.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Title");
@@ -468,10 +495,15 @@ function buildPin(fmt) {
   dd.property(1).setPropertyParameters(["Red", "Blue"]);
   parade.property(parade.numProperties).name = "Pin colour";
   addCheckbox(ctl, "Show pin icon", true);
+  addSlider(ctl, "Size", 100);
+  // scale the whole strip (bands + text + pin) about the top-left safe corner
+  sizeGroup(comp, [b1.band, b1.matte, b2.band, b2.matte, place, date, icon],
+            "" + SAFEL, "" + SAFET);
 
   protectRegions(comp, ENTER, EXIT);
   comp.motionGraphicsTemplateName = comp.name;
-  // reverse order (AE prepends) → displays top→bottom: Place, Date, Pin colour, Show pin icon
+  // reverse order (AE prepends) → displays top→bottom: Place, Date, Pin colour, Show pin icon, Size
+  addEGP(ctl.effect("Size").property(1), comp, "Size");
   addEGP(ctl.effect("Show pin icon").property(1), comp, "Show pin icon");
   addEGP(ctl.effect("Pin colour").property(1), comp, "Pin colour");
   addEGP(date.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Date");
@@ -494,9 +526,12 @@ function buildBug(fmt) {
                                    Math.round(safe.top * H) + targetH / 2]);
   var ctl = ctlNull(comp);
   addSlider(ctl, "Opacity", 100);
+  addSlider(ctl, "Size", 100);
   lyr.transform.opacity.expression =
     "thisComp.layer('Controls').effect('Opacity')('Slider');";
+  sizeGroup(comp, [lyr], "" + (W - Math.round(safe.right * W)), "" + Math.round(safe.top * H));
   comp.motionGraphicsTemplateName = comp.name;
+  addEGP(ctl.effect("Size").property(1), comp, "Size");        // display: Opacity, Size
   addEGP(ctl.effect("Opacity").property(1), comp, "Opacity");
   return comp;
 }
@@ -530,9 +565,12 @@ function buildEnding(fmt) {
 
   var ctl = ctlNull(comp);
   addCheckbox(ctl, "Over black", false);
+  addSlider(ctl, "Size", 100);
+  sizeGroup(comp, [lyr], "" + (W / 2), "" + (H / 2));   // logo only, scales about frame centre
   var mv = new MarkerValue("ending"); mv.duration = DUR; mv.protectedRegion = true;
   comp.markerProperty.setValueAtTime(0, mv);      // fixed piece — protect it all
   comp.motionGraphicsTemplateName = comp.name;
+  addEGP(ctl.effect("Size").property(1), comp, "Size");        // display: Over black, Size
   addEGP(ctl.effect("Over black").property(1), comp, "Over black");
   return comp;
 }
