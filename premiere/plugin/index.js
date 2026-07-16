@@ -112,13 +112,40 @@ async function addElement() {
     if (!curFmt) return show("This sequence size isn’t one of the OCHA formats (9:16, 4:5, 1:1, 16:9).", "warn");
 
     const path = await mogrtPath(curEl, curFmt);
+
+    // confirm the bundled .mogrt is actually reachable before blaming Premiere
+    try {
+      await storage.localFileSystem.getEntryWithUrl(
+        "plugin:/mogrts/" + FMT[curFmt].folder + "/" + EL[curEl] + " - " + FMT[curFmt].label + ".mogrt");
+    } catch (eFs) {
+      return show("Bundled MOGRT not found: …/" + FMT[curFmt].folder + "/" + EL[curEl] + " - " + FMT[curFmt].label + ".mogrt", "err");
+    }
+
     const playhead = await seq.getPlayerPosition();
-    const vTrack = await seq.getVideoTrackCount();      // new track on top → branding stays separate
-    const aTrack = curEl === "ending" ? await seq.getAudioTrackCount() : 0;
-    const editor = ppro.SequenceEditor.getEditor(seq);
-    const items = await editor.insertMogrtFromPath(path, playhead, vTrack, aTrack);
-    const clip = Array.isArray(items) ? items[0] : items;
-    if (!clip) return show("Couldn’t insert the graphic — is the sequence targeted/unlocked?", "err");
+    const vCount = await seq.getVideoTrackCount();
+    const aCount = await seq.getAudioTrackCount();
+    const aTrack = curEl === "ending" ? Math.max(0, aCount - 1) : 0;
+    const editor = await ppro.SequenceEditor.getEditor(seq);
+
+    // insertMogrtFromPath rejects out-of-range track indexes on some builds
+    // ("Invalid parameter") — unlike createInsertProjectItemAction, it does NOT
+    // auto-create tracks. Try: new-top track, then topmost existing, then 0.
+    const tries = [...new Set([vCount, Math.max(0, vCount - 1), 0])];
+    let clip = null, errs = [];
+    for (const v of tries) {
+      try {
+        const items = await editor.insertMogrtFromPath(path, playhead, v, aTrack);
+        clip = Array.isArray(items) ? items[0] : items;
+        if (clip) break;
+        errs.push(`track ${v}: returned nothing`);
+      } catch (eIns) {
+        errs.push(`track ${v}: ${eIns && eIns.message ? eIns.message : eIns}`);
+      }
+    }
+    if (!clip) {
+      return show("Insert failed —<br>" + errs.join("<br>") +
+                   "<br><em>path:</em> …/" + FMT[curFmt].folder + "/" + EL[curEl] + " - " + FMT[curFmt].label + ".mogrt", "err");
+    }
 
     // gather the text the user typed
     const wanted = {};
