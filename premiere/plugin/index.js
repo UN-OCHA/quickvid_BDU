@@ -23,7 +23,7 @@ const TEXT = {
   bug: {}, ending: {},
 };
 
-const PANEL_VERSION = "0.4.0";   // shown in the header — bump with manifest.json
+const PANEL_VERSION = "0.5.0";   // shown in the header — bump with manifest.json
 const $ = (id) => document.getElementById(id);
 let curEl = "lt";
 let curFmt = null;
@@ -151,7 +151,17 @@ async function bakeMogrt(elKey, fmtKey, values) {
   const { tree, trailer } = rifx.parse(inner[aepName]);
   rifx.patchControls(tree, controls);
   rifx.patchTexts(tree, texts);
-  inner[aepName] = rifx.build(tree, trailer);
+  // Randomize the XMP GUIDs in the AEP trailer: Adobe dedupes "same document"
+  // by xmpMM DocumentID/InstanceID, so a baked capsule keeping the original XMP
+  // resolves to the FIRST-imported conversion (defaults) — even across projects.
+  // Same-length hex swap → no structural risk.
+  let tx = "";
+  for (const b of trailer) tx += String.fromCharCode(b);
+  tx = tx.replace(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|\b[0-9a-fA-F]{32}\b/g,
+    (m) => m.replace(/[0-9a-fA-F]/g, () => "0123456789abcdef"[(Math.random() * 16) | 0]));
+  const trailer2 = new Uint8Array(trailer.length);
+  for (let i = 0; i < tx.length; i++) trailer2[i] = tx.charCodeAt(i) & 0xff;
+  inner[aepName] = rifx.build(tree, trailer2);
   files["project.aegraphic"] = fflate.zipSync(inner);
   files["definition.json"] = fflate.strToU8(JSON.stringify(def));
 
@@ -247,11 +257,36 @@ async function addElement() {
     try { await storage.localFileSystem.getEntryWithUrl("plugin:/" + mogrtRel(curEl, curFmt)); }
     catch (e) { return show("Bundled MOGRT missing: " + mogrtRel(curEl, curFmt), "err"); }
 
-    // v0.4: insert the PRISTINE bundled template. Value-baking is parked —
-    // Premiere renders capsule values from a source the file doesn't control
-    // (patched AEP verified byte-perfect + AE-readable, yet defaults render,
-    // even in a brand-new project). See tools/rifx_patch.py + README notes.
-    const path = await mogrtPath(curEl, curFmt);
+    // v0.5: bake the panel's values into the capsule (all earlier "bake didn't
+    // render" verdicts happened during stale plugin loads — retesting cleanly;
+    // the prproj capsuleparams schema confirms values key off our control GUIDs).
+    const values = {};
+    if (curEl === "lt") {
+      const n = $("lt-name").value.trim(), t1 = $("lt-title").value.trim(), t2 = $("lt-title2").value.trim();
+      if (n) values["Name"] = n;
+      if (t1) values["Title"] = t1;
+      if (t2) values["Title line 2 (optional)"] = t2;
+      values["Centre align"] = $("lt-centre").checked;
+    } else if (curEl === "loc") {
+      const p = $("loc-place").value.trim(), d = $("loc-date").value.trim();
+      if (p) values["Place"] = p;
+      if (d) values["Date"] = d;
+      const blue = document.querySelector("#pin-colour .seg__opt.is-active");
+      values["Pin colour"] = (blue && blue.dataset.col === "blue") ? 2 : 1;
+      values["Show pin icon"] = $("loc-icon").checked;
+    } else if (curEl === "ending") {
+      values["Over black"] = $("end-black").checked;
+    }
+
+    let path, baked = [], bakeErr = "";
+    try {
+      const b = await bakeMogrt(curEl, curFmt, values);
+      path = b.path; baked = b.baked;
+    } catch (e) {
+      path = await mogrtPath(curEl, curFmt);
+      bakeErr = e && e.message ? e.message : String(e);
+      console.log("bake failed → pristine:", bakeErr);
+    }
     const playhead = await seq.getPlayerPosition();
     const vCount = await seq.getVideoTrackCount();
     const aCount = await seq.getAudioTrackCount();
@@ -298,9 +333,9 @@ async function addElement() {
       selected = true;
     } catch (e) { console.log("auto-select failed:", e.message || e); }
 
-    show(`Added <strong>${EL[curEl]}</strong> · ${FMT[curFmt].label} at the playhead.` +
-         (selected ? " Clip selected — type your text in <strong>Essential Graphics</strong>."
-                   : " Select it and edit in <strong>Essential Graphics</strong>."), "ok");
+    let note = baked.length ? ` Applied: ${baked.join(", ")}.` : "";
+    if (bakeErr) note = ` <em>Inserted plain — baking failed: ${bakeErr}</em>`;
+    show(`Added <strong>${EL[curEl]}</strong> · ${FMT[curFmt].label} at the playhead.${note}`, bakeErr ? "warn" : "ok");
   } catch (e) {
     show("Error: " + (e && e.message ? e.message : e), "err");
   }
@@ -347,3 +382,14 @@ setInterval(refresh, 2500);
       if (e.isFile && /^ocha_[0-9a-f]{8}\.mogrt$/.test(e.name)) await e.delete();
   } catch (e) { /* cosmetic */ }
 })();
+
+/* TEMP-TEST (remove after verification): prefill sentinel values so the
+   insert test needs only an Add click — synthetic keystrokes don't reach
+   UXP floating panels. */
+setTimeout(() => {
+  try {
+    $("lt-name").value = "ZZTEST PANEL";
+    $("lt-title").value = "OCHA Verification";
+    $("lt-centre").checked = true;
+  } catch (e) {}
+}, 500);

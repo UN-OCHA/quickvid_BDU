@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "org.unocha.quickvid.branding",
   "name": "OCHA Branding",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "main": "index.html",
   "host": [
     {
