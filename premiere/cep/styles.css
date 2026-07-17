@@ -102,10 +102,22 @@ body {
 .sec-hint { color: var(--text-tertiary); font-size: 10px; line-height: 1.5; margin: var(--sp-100) 0 0; }
 .sec-hint strong { color: var(--text-secondary); }
 
-/* ---------- toolbox ---------- */
-.tool-btn { width: 100%; justify-content: flex-start; margin-top: var(--sp-100); }
-.tool-hint { color: var(--text-tertiary); font-size: 10px; line-height: 1.5; margin: var(--sp-75) 0 var(--sp-150); }
-.tool-sep { height: 1px; background: var(--border-default); margin: var(--sp-150) 0 var(--sp-100); }
+/* ---------- toolbox (DataViz-style tiles) ---------- */
+.tool-cards {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: var(--sp-150); margin: var(--sp-150) 0;
+}
+.tool-tile {
+  min-height: 108px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--sp-150); padding: var(--sp-200) var(--sp-150);
+  background: var(--bg-layer-1); border: 1px solid var(--border-default); border-radius: var(--r-md);
+  color: var(--text-primary); cursor: pointer; text-align: center; font: inherit;
+  transition: background var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease), transform var(--dur-1) var(--ease);
+}
+.tool-tile:hover { background: var(--bg-hover); border-color: var(--accent); }
+.tool-tile:active { transform: scale(0.98); }
+.tool-tile-icon { width: 42px; height: 42px; color: var(--accent); flex: 0 0 auto; }
+.tool-tile-name { font-size: var(--fs-sm); font-weight: var(--fw-medium); line-height: 1.25; }
 
 /* ---------- status bar (shared, below body) ---------- */
 .statusbar { padding: 0 var(--sp-200) var(--sp-200); background: var(--bg-header); }

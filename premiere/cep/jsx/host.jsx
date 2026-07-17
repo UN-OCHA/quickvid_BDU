@@ -336,6 +336,18 @@ function ochaSquareToReel() {
     // BG on V1: nested source, scaled to fill, blurred
     var fillPct = Math.round((reelH / h) * 100);
     try { reel.insertClip(srcPI, 0, 0, 0); L.push("bg-inserted"); } catch (e) { return "ERR|" + L.join(" / ") + " || bg insertClip: " + e.toString(); }
+    // drop the blurred fill's audio - the front copy carries the real audio.
+    // unlink first so removing the audio doesn't take the linked video with it.
+    try {
+      var atrk = reel.audioTracks[0], removed = 0;
+      for (var ac = atrk.clips.numItems - 1; ac >= 0; ac--) {
+        var aclip = atrk.clips[ac];
+        try { aclip.setSelected(true, true); } catch (e) {}
+        try { reel.unlinkSelection(); } catch (e) {}
+        try { aclip.remove(false, false); removed++; } catch (e) {}
+      }
+      L.push("bg-audio-removed=" + removed + "(V1=" + reel.videoTracks[0].clips.numItems + ")");
+    } catch (e) { L.push("bg-audio ERR " + e.toString()); }
     var bg = null; try { bg = reel.videoTracks[0].clips[0]; } catch (e) {}
     if (bg) { L.push("bg-" + ochaSetMotionScale(bg, fillPct)); L.push("bg-blur[" + ochaBlurClip(bg, 40) + "]"); }
     else L.push("bg-clip missing");
