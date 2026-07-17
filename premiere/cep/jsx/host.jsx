@@ -364,3 +364,56 @@ function ochaCleanReport() {
     return "OK|Found " + ocha.length + " OCHA template item(s) in the project bin. (Used/unused check + removal wire next.)";
   } catch (e) { return "ERR|" + e.toString(); }
 }
+
+/* ---------------- selection-aware Size & Position ----------------
+   When an OCHA branding clip is selected, the panel binds its sliders to that
+   clip's Motion so edits apply live (offsets are from the frame centre; +Y up). */
+function ochaSelectedOchaClip() {
+  var seq = app.project.activeSequence;
+  if (!seq) return null;
+  var sel = null;
+  try { sel = seq.getSelection(); } catch (e) { return null; }
+  if (!sel) return null;
+  var n = 0; try { n = sel.length; } catch (e) { n = 0; }
+  for (var i = 0; i < n; i++) {
+    var it = sel[i], nm = ""; try { nm = it.name; } catch (e) {}
+    if (/^OCHA (Lower Third|Location|Bug|Ending)/.test(nm)) return it;
+  }
+  return null;
+}
+
+function ochaReadMotion() {
+  try {
+    var clip = ochaSelectedOchaClip();
+    if (!clip) return "none";
+    var seq = app.project.activeSequence;
+    var w = seq.frameSizeHorizontal, h = seq.frameSizeVertical;
+    var scale = 100, offX = 0, offY = 0;
+    var mo = ochaFindComp(clip, "AE.ADBE Motion");
+    if (mo) {
+      var sp = ochaFindParam(mo.properties, "Scale");
+      if (sp) { try { var s = sp.getValue(); if (typeof s === "number") scale = s; } catch (e) {} }
+      var pp = ochaFindParam(mo.properties, "Position");
+      if (pp) { try { var p = pp.getValue(); if (p && p.length >= 2) { offX = Math.round(p[0] - w / 2); offY = Math.round(-(p[1] - h / 2)); } } catch (e) {} }
+    }
+    var nm = ""; try { nm = clip.name; } catch (e) {}
+    return nm + "|" + Math.round(scale) + "|" + offX + "|" + offY;
+  } catch (e) { return "none"; }
+}
+
+function ochaWriteMotion(scale, offX, offY) {
+  try {
+    var clip = ochaSelectedOchaClip();
+    if (!clip) return "ERR|no OCHA clip selected";
+    var seq = app.project.activeSequence;
+    var w = seq.frameSizeHorizontal, h = seq.frameSizeVertical;
+    var mo = ochaFindComp(clip, "AE.ADBE Motion");
+    if (!mo) return "ERR|no Motion";
+    var out = [];
+    var sp = ochaFindParam(mo.properties, "Scale");
+    if (sp) { try { sp.setValue(parseFloat(scale), true); out.push("scale"); } catch (e) { out.push("scaleERR"); } }
+    var pp = ochaFindParam(mo.properties, "Position");
+    if (pp) { try { pp.setValue([w / 2 + parseFloat(offX), h / 2 - parseFloat(offY)], true); out.push("pos"); } catch (e) { out.push("posERR"); } }
+    return "OK|" + out.join(",");
+  } catch (e) { return "ERR|" + e.toString(); }
+}

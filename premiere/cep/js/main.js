@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.14.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.15.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -192,6 +192,53 @@ $("adj-toggle").addEventListener("click", () => {
   setAdjustOpen($("adj-toggle").getAttribute("aria-expanded") !== "true");
 });
 
+/* selection-aware editing: bind the sliders to a selected OCHA clip.
+   In edit mode, slider changes apply live to that clip; with nothing selected
+   the sliders are placement defaults for the next Add. */
+let adjEditClip = null;   // bound clip's name, or null (placement mode)
+let adjDragging = false, adjTimer = null;
+["adj-size", "adj-x", "adj-y", "adj-size-n", "adj-x-n", "adj-y-n"].forEach((id) => {
+  const el = $(id);
+  el.addEventListener("pointerdown", () => { adjDragging = true; });
+  el.addEventListener("pointerup", () => { adjDragging = false; });
+  el.addEventListener("input", adjLiveWrite);
+});
+function adjLiveWrite() {
+  if (!adjEditClip) return;                     // placement mode → nothing to write
+  clearTimeout(adjTimer);
+  adjTimer = setTimeout(() => {
+    jsx(`ochaWriteMotion(${clampNum($("adj-size-n").value, 100)},${clampNum($("adj-x-n").value, 0)},${clampNum($("adj-y-n").value, 0)})`);
+  }, 100);
+}
+function setAdjustEditing(name) {
+  const warn = document.querySelector(".adj-warn"), tag = document.querySelector(".adj-tag");
+  if (name) {
+    if (warn) warn.textContent = "Editing the selected clip — changes apply live.";
+    if (tag) { tag.textContent = "editing"; tag.style.color = "var(--accent)"; tag.style.borderColor = "var(--accent)"; tag.style.background = "var(--accent-bg)"; }
+  } else {
+    if (warn) warn.textContent = "Each template is already sized and placed for its format — change these only if a particular shot needs it.";
+    if (tag) { tag.textContent = "advanced"; tag.style.color = ""; tag.style.borderColor = ""; tag.style.background = ""; }
+  }
+}
+async function syncAdjust() {
+  if (!hostReady || adjDragging) return;
+  if (!document.querySelector('.sec[data-sec="brand"]').classList.contains("is-open")) return;
+  const res = await jsx("ochaReadMotion()") || "none";
+  if (res === "none" || res.indexOf("|") < 0) {
+    if (adjEditClip !== null) { adjEditClip = null; setAdjustEditing(null); }
+    return;
+  }
+  const p = res.split("|");
+  if (p[0] !== adjEditClip) {                    // newly selected clip → bind + populate
+    adjEditClip = p[0];
+    setAdjustEditing(p[0]);
+    setAdjustOpen(true);
+    $("adj-size").value = $("adj-size-n").value = Math.round(+p[1]) || 100;
+    $("adj-x").value = $("adj-x-n").value = Math.round(+p[2]) || 0;
+    $("adj-y").value = $("adj-y-n").value = Math.round(+p[3]) || 0;
+  }
+}
+
 /* ---------- UI wiring ---------- */
 function selectEl(el) {
   curEl = el;
@@ -261,3 +308,4 @@ $("theme").addEventListener("click", () => {
 
 loadHost().then(refresh);
 setInterval(refresh, 2500);
+setInterval(syncAdjust, 900);   // bind Adjust sliders to a selected OCHA clip
