@@ -94,8 +94,9 @@ async function mogrtPath(elKey, fmtKey) {
    definition.json carries every control's default in clientControls[].value
    (type 6 text → value.strDB[].str · 1 checkbox → bool · 2 slider → number ·
    13 dropdown → 1-based index). Patched copy goes to the plugin-data folder. */
-const fflate = require("./lib/fflate.js");
-const rifx = require("./rifx.js");
+let fflate = null, rifx = null, libErr = "";
+try { fflate = require("./lib/fflate.js"); } catch (e) { libErr += "fflate: " + (e.message || e) + " "; }
+try { rifx = require("./rifx.js"); } catch (e) { libErr += "rifx: " + (e.message || e); }
 
 function uuid4() {
   const b = new Uint8Array(16);
@@ -109,6 +110,7 @@ function uuid4() {
 }
 
 async function bakeMogrt(elKey, fmtKey, values) {
+  if (!fflate || !rifx) throw new Error("modules failed to load — " + (libErr || "unknown"));
   const src = await storage.localFileSystem.getEntryWithUrl("plugin:/" + mogrtRel(elKey, fmtKey));
   const buf = await src.read({ format: storage.formats.binary });
   const files = fflate.unzipSync(new Uint8Array(buf));
@@ -260,13 +262,14 @@ async function addElement() {
       values["Over black"] = $("end-black").checked;
     }
 
-    let path, baked = [];
+    let path, baked = [], bakeErr = "";
     try {
       const b = await bakeMogrt(curEl, curFmt, values);
       path = b.path; baked = b.baked;
     } catch (e) {
       path = await mogrtPath(curEl, curFmt);                // fall back to the pristine capsule
-      console.log("bake failed, inserting pristine capsule:", e.message || e);
+      bakeErr = e && e.message ? e.message : String(e);
+      console.log("bake failed, inserting pristine capsule:", bakeErr);
     }
     const playhead = await seq.getPlayerPosition();
     const vCount = await seq.getVideoTrackCount();
@@ -289,7 +292,7 @@ async function addElement() {
         errs.push(`track ${v}: returned nothing`);
       } catch (e) { errs.push(`track ${v}: ${e && e.message ? e.message : e}`); }
     }
-    if (!clip) return show("Insert failed —<br>" + errs.join("<br>"), "err");
+    if (!clip) return show(`Insert failed (${bakeErr ? "bundled template" : "baked copy"}: ${path.split("/").pop()}) —<br>` + errs.join("<br>"), "err");
 
     // Adobe's sample never probes the handles insertMogrtFromPath returns — it
     // re-fetches the clip FROM THE TRACK and works on that. Do the same: prefer
@@ -306,8 +309,9 @@ async function addElement() {
     // we build the Motion-based Adjust section (size/position on selection)
     try { const r = await fillText(project, clip, {}); console.log("components:", r.dbg); } catch (e) {}
 
-    const note = baked.length ? ` Set: ${baked.join(", ")}.` : "";
-    show(`Added <strong>${EL[curEl]}</strong> · ${FMT[curFmt].label} at the playhead.${note}`, "ok");
+    let note = baked.length ? ` Baked: ${baked.join(", ")}.` : "";
+    if (bakeErr) note = ` <em>Inserted the plain template — baking failed: ${bakeErr}</em>`;
+    show(`Added <strong>${EL[curEl]}</strong> · ${FMT[curFmt].label} at the playhead.${note}`, bakeErr ? "warn" : "ok");
   } catch (e) {
     show("Error: " + (e && e.message ? e.message : e), "err");
   }
