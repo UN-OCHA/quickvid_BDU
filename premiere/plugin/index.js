@@ -23,6 +23,7 @@ const TEXT = {
   bug: {}, ending: {},
 };
 
+const PANEL_VERSION = "0.4.0";   // shown in the header — bump with manifest.json
 const $ = (id) => document.getElementById(id);
 let curEl = "lt";
 let curFmt = null;
@@ -330,6 +331,8 @@ document.querySelectorAll("#pin-colour .seg__opt").forEach((b) => {
 });
 
 $("add").addEventListener("click", addElement);
+
+if ($("ver")) $("ver").textContent = "v" + PANEL_VERSION;
 
 entrypoints.setup({ panels: { ochaBrandingPanel: { show() { refresh(); } } } });
 refresh();

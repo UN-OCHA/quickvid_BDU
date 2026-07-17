@@ -41,7 +41,7 @@ body {
 .hd__title { font-size: 13px; font-weight: 700; letter-spacing: 0.2px; }
 .chip {
   font-size: 10px; font-weight: 700; letter-spacing: 0.2px;
-  padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+  padding: 3px 9px; border-radius: 5px; white-space: nowrap;
   background: var(--panel); color: var(--faint); border: 1px solid var(--line);
 }
 .chip.is-ok { background: rgba(0, 158, 219, 0.16); color: #6fc9ef; border-color: var(--ocha-press); }
@@ -57,7 +57,7 @@ body {
   cursor: pointer;
 }
 .card:hover { background: var(--panel-2); color: var(--ink); }
-.card__icon { width: 40px; height: 28px; color: #d8d8d8; margin-bottom: 6px; }
+.card__icon { width: 40px; height: 28px; margin-bottom: 6px; }
 .card__label { font-size: 11px; font-weight: 600; letter-spacing: 0.1px; }
 .card.is-active {
   background: rgba(0, 158, 219, 0.13);
@@ -126,9 +126,9 @@ body {
 .note strong { color: var(--ink); }
 
 /* ---------- footer / CTA / status ---------- */
-.ft { padding-top: 10px; border-top: 1px solid var(--line); }
+.ft { display: block; padding-top: 10px; border-top: 1px solid var(--line); }
 .cta {
-  width: 100%; padding: 11px;
+  display: block; width: 100%; padding: 11px;
   background: var(--ocha); color: #fff;
   border: 0; border-radius: 8px;
   font-size: 13px; font-weight: 700; letter-spacing: 0.2px;
@@ -147,5 +147,7 @@ body {
 .status--warn { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-line); }
 .status--err  { background: var(--err-bg);  color: var(--err);  border: 1px solid var(--err-line); }
 
-.ft__hint { margin-top: 9px; font-size: 10px; line-height: 1.5; color: var(--faint); }
+.ft__hint { display: block; margin-top: 9px; font-size: 10px; line-height: 1.5; color: var(--faint); }
 .ft__hint strong { color: var(--muted); }
+
+.ver { font-size: 9px; font-weight: 700; color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: 2px; }
