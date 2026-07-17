@@ -1,21 +1,86 @@
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"><style>
-body{font-family:-apple-system,system-ui;background:#1f1f1f;color:#ddd;font-size:12px;padding:12px;margin:0}
-h3{margin:0 0 8px;color:#009edb;font-size:13px}
-button{background:#009edb;border:0;color:#fff;padding:8px 12px;border-radius:5px;font-weight:600;cursor:pointer}
-pre{white-space:pre-wrap;background:#141414;border:1px solid #333;border-radius:5px;padding:8px;margin-top:10px;line-height:1.45}
-</style></head><body>
-<h3>OCHA CEP spike — can ExtendScript set MOGRT text?</h3>
-<button id="run">Probe + set text</button>
-<pre id="out">running…</pre>
-<script>
-function run() {
-  window.__adobe_cep__.evalScript("ochaProbe()", function (res) {
-    document.getElementById("out").textContent = res;
-    try { window.cep.fs.writeFile("/tmp/ocha_cep.txt", res); } catch (e) {}
-  });
-}
-document.getElementById("run").addEventListener("click", run);
-setTimeout(run, 1200);   // auto-run so no clicking is needed
-</script>
-</body></html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+
+    <header class="hd">
+      <div class="hd__brand" title="OCHA Branding">
+        <svg class="hd__mark" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <rect x="1" y="1" width="22" height="22" rx="5" fill="#009edb"/>
+          <path d="M12 5.4c-2 0-3.6 1.7-3.6 3.8 0 1.8 2.6 5.7 3.3 6.7a.4.4 0 0 0 .7 0c.7-1 3.3-4.9 3.3-6.7 0-2.1-1.7-3.8-3.7-3.8zm0 5.4a1.8 1.8 0 1 1 0-3.6 1.8 1.8 0 0 1 0 3.6z" fill="#fff"/>
+        </svg>
+        <span class="hd__title">OCHA Branding</span>
+        <span id="ver" class="ver"></span>
+      </div>
+      <span id="fmt" class="chip">no sequence</span>
+    </header>
+
+    <!-- element picker: 2×2 cards -->
+    <nav class="cards" id="cards">
+      <button class="card is-active" data-el="lt">
+        <img class="card__icon" src="icons/el-lt.png" alt="" />
+        <span class="card__label">Lower third</span>
+      </button>
+      <button class="card" data-el="loc">
+        <img class="card__icon" src="icons/el-loc.png" alt="" />
+        <span class="card__label">Location</span>
+      </button>
+      <button class="card" data-el="bug">
+        <img class="card__icon" src="icons/el-bug.png" alt="" />
+        <span class="card__label">Bug</span>
+      </button>
+      <button class="card" data-el="ending">
+        <img class="card__icon" src="icons/el-ending.png" alt="" />
+        <span class="card__label">Ending</span>
+      </button>
+    </nav>
+
+    <!-- per-element panes -->
+    <main class="panes">
+      <section class="pane is-open" data-pane="lt">
+        <label class="fld"><span class="fld__label">Name</span>
+          <input id="lt-name" type="text" placeholder="Vanessa May" /></label>
+        <label class="fld"><span class="fld__label">Job title</span>
+          <input id="lt-title" type="text" placeholder="OCHA Venezuela" /></label>
+        <label class="fld"><span class="fld__label">2nd line <em>optional</em></span>
+          <input id="lt-title2" type="text" placeholder="bilingual line" /></label>
+        <label class="opt-check"><input id="lt-centre" type="checkbox" /><span>Centre align</span></label>
+      </section>
+
+      <section class="pane" data-pane="loc">
+        <label class="fld"><span class="fld__label">Place</span>
+          <input id="loc-place" type="text" placeholder="Ankara, Türkiye" /></label>
+        <label class="fld"><span class="fld__label">Date</span>
+          <input id="loc-date" type="text" placeholder="June 2026" /></label>
+        <div class="seg" id="pin-colour">
+          <span class="seg__label">Pin</span>
+          <button class="seg__opt is-active" data-col="red"><span class="dot dot--red"></span>Red</button>
+          <button class="seg__opt" data-col="blue"><span class="dot dot--blue"></span>Blue</button>
+        </div>
+        <label class="opt-check"><input id="loc-icon" type="checkbox" checked /><span>Show pin icon</span></label>
+      </section>
+
+      <section class="pane" data-pane="bug">
+        <p class="note">The OCHA watermark — vertical white lockup, top-right, full clip. Typically for <strong>event</strong> videos. Nothing to type: just add it.</p>
+      </section>
+
+      <section class="pane" data-pane="ending">
+        <label class="opt-check"><input id="end-black" type="checkbox" /><span>Over black <em>(else over footage)</em></span></label>
+        <p class="note">OCHA logo + click sound, snapping over your final shot — place it so it ends with your video.</p>
+      </section>
+    </main>
+
+    <footer class="ft">
+      <button id="add" class="cta" disabled>Add to timeline</button>
+      <div id="status" class="status is-off"></div>
+      <p class="ft__hint">Inserted at the playhead, sized for your sequence — every setting applied from this panel.</p>
+    </footer>
+
+  </div>
+  <script src="js/main.js"></script>
+</body>
+</html>
