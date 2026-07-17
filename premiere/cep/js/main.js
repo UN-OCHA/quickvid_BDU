@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.9.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.9.1";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
