@@ -138,18 +138,33 @@ body {
 .note { color: var(--text-secondary); margin: 0 0 var(--sp-100); line-height: 1.5; }
 .note strong { color: var(--text-primary); }
 
-/* ---------- size & position ---------- */
-.adjust { border-top: 1px solid var(--border-default); padding-top: var(--sp-150); margin-top: var(--sp-100); }
-.adjust.is-off { display: none; }
-.adj-head {
-  display: flex; align-items: center; justify-content: space-between;
-  font-size: 10px; font-weight: var(--fw-semibold); color: var(--text-secondary);
-  text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: var(--sp-100);
+/* ---------- size & position (collapsed accordion) ---------- */
+.adjust { border-top: 1px solid var(--border-default); margin-top: var(--sp-150); padding-top: var(--sp-100); }
+.adj-toggle {
+  display: flex; align-items: center; gap: var(--sp-100); width: 100%;
+  background: none; border: 0; cursor: pointer; padding: var(--sp-75) 0;
+  color: var(--text-secondary); font: var(--fw-semibold) var(--fs-sm) var(--font-sans);
+}
+.adj-toggle:hover { color: var(--text-primary); }
+.adj-toggle__label { flex: 1 1 auto; text-align: left; }
+.adj-chev { width: 12px; height: 12px; flex: 0 0 auto; transition: transform var(--dur-2) var(--ease); }
+.adj-toggle[aria-expanded="true"] .adj-chev { transform: rotate(90deg); }
+.adj-tag {
+  font-size: 9px; font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--notice); background: var(--notice-bg); border: 1px solid var(--notice-border);
+  border-radius: var(--r-full); padding: 1px 7px;
+}
+.adj-body { padding-top: var(--sp-100); }
+.adj-body[hidden] { display: none; }
+.adj-warn {
+  font-size: 10px; line-height: 1.5; color: var(--notice);
+  background: var(--notice-bg); border: 1px solid var(--notice-border); border-radius: var(--r-md);
+  padding: var(--sp-75) var(--sp-100); margin: 0 0 var(--sp-150);
 }
 .adj-reset {
-  display: inline-flex; align-items: center; gap: 4px;
+  display: inline-flex; align-items: center; gap: 4px; margin-top: var(--sp-50);
   background: none; border: 0; color: var(--accent);
-  font: var(--fw-medium) 10px var(--font-sans); text-transform: none; letter-spacing: 0; cursor: pointer; padding: 0;
+  font: var(--fw-medium) 10px var(--font-sans); cursor: pointer; padding: 0;
 }
 .adj-reset svg { width: 11px; height: 11px; }
 .adj-reset:hover { color: var(--accent-hover); }

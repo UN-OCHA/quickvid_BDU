@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.8.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.9.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -46,9 +46,23 @@ function jsx(call) {
 // text (quotes, backslashes, unicode) into the evalScript source.
 const lit = (s) => JSON.stringify(String(s));
 
+// Explicitly source the host script on every panel load. CEP does NOT reliably
+// re-evaluate the manifest ScriptPath when a panel is reopened (the JSX engine
+// persists per session), so edits to host.jsx can appear "not loaded". Sourcing
+// it ourselves makes the host functions deterministic every open.
+let hostReady = false;
+async function loadHost() {
+  if (!EXT_ROOT) return false;
+  await jsx("$.evalFile(" + lit(EXT_ROOT + "/jsx/host.jsx") + ")");
+  const t = await jsx("typeof ochaGetFormat");
+  hostReady = (t === "function");
+  return hostReady;
+}
+
 /* ---------- format chip ---------- */
 async function refresh() {
   const chip = $("fmt");
+  if (!hostReady) { await loadHost(); }          // self-heal if the host went away
   const res = await jsx("ochaGetFormat()");
   const parts = (res || "none").split("|");
   if (parts.length < 4 || !parts[2]) {
@@ -56,10 +70,8 @@ async function refresh() {
     $("add").disabled = true;
     if (parts.length === 4) {
       chip.textContent = `${parts[0]}×${parts[1]} — unsupported`;
-    } else if (res && res.indexOf("EvalScript") !== -1) {
-      // host script didn't load/parse — say so instead of a misleading "no sequence"
-      const t = await jsx("typeof ochaGetFormat");
-      chip.textContent = t === "function" ? "host error" : "host script not loaded";
+    } else if (!hostReady) {
+      chip.textContent = "host not loaded";
     } else {
       chip.textContent = "no sequence";
     }
@@ -102,15 +114,13 @@ function collectValues() {
   } else if (curEl === "ending") {
     push("Over black", $("end-black").checked);
   }
-  // shared Size + Position → Motion (skip Bug; skip values left at default)
-  if (curEl !== "bug") {
-    const size = clampNum($("adj-size-n").value, 100);
-    const px = clampNum($("adj-x-n").value, 0);
-    const py = clampNum($("adj-y-n").value, 0);
-    if (size !== 100) push("@scale", size);
-    if (px !== 0) push("@posX", px);
-    if (py !== 0) push("@posY", py);
-  }
+  // shared Size + Position → Motion (all four elements; skip values at default)
+  const size = clampNum($("adj-size-n").value, 100);
+  const px = clampNum($("adj-x-n").value, 0);
+  const py = clampNum($("adj-y-n").value, 0);
+  if (size !== 100) push("@scale", size);
+  if (px !== 0) push("@posX", px);
+  if (py !== 0) push("@posY", py);
   return kv.join(RS);
 }
 
@@ -166,13 +176,23 @@ function resetAdjust() {
 ADJ_PAIRS.forEach(([sId, nId]) => linkPair(sId, nId));
 $("adj-reset").addEventListener("click", resetAdjust);
 
+// advanced accordion — collapsed by default; caution note inside
+function setAdjustOpen(open) {
+  $("adj-toggle").setAttribute("aria-expanded", open ? "true" : "false");
+  $("adj-body").hidden = !open;
+}
+function collapseAdjust() { setAdjustOpen(false); }
+$("adj-toggle").addEventListener("click", () => {
+  setAdjustOpen($("adj-toggle").getAttribute("aria-expanded") !== "true");
+});
+
 /* ---------- UI wiring ---------- */
 function selectEl(el) {
   curEl = el;
   document.querySelectorAll(".card").forEach((c) => c.classList.toggle("is-active", c.dataset.el === el));
   document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("is-open", p.dataset.pane === el));
-  $("adjust").classList.toggle("is-off", el === "bug");   // no size/pos for the full-frame bug
-  resetAdjust();                                          // each element starts at default size/pos
+  resetAdjust();       // each element starts at default size/pos …
+  collapseAdjust();    // … with the advanced panel closed
   hideStatus();
 }
 document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => selectEl(c.dataset.el)));
@@ -192,5 +212,5 @@ $("theme").addEventListener("click", () => {
   try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
 });
 
-refresh();
+loadHost().then(refresh);
 setInterval(refresh, 2500);

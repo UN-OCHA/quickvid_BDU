@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtensionManifest Version="7.0" ExtensionBundleId="org.unocha.branding"
-                   ExtensionBundleVersion="0.8.0" ExtensionBundleName="OCHA Branding"
+                   ExtensionBundleVersion="0.9.0" ExtensionBundleName="OCHA Branding"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ExtensionList>
-    <Extension Id="org.unocha.branding.panel" Version="0.8.0"/>
+    <Extension Id="org.unocha.branding.panel" Version="0.9.0"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>

@@ -1,16 +1,16 @@
 /* ============================================================================
-   OCHA Branding — Premiere host script (ExtendScript, ES3: var only, no
+   OCHA Branding - Premiere host script (ExtendScript, ES3: var only, no
    arrows / template literals / JSON built-ins).
 
    Why this runs on CEP: UXP cannot write MOGRT text controls; ExtendScript
-   can — clip.getMGTComponent().properties[i].setValue(str, true). Verified
+   can - clip.getMGTComponent().properties[i].setValue(str, true). Verified
    live 2026-07-17 (docs/decisions.md + premiere/uxp-archive/README.md).
 
-   Panel ⇄ host protocol (primitive strings only):
+   Panel <-> host protocol (primitive strings only):
    - ochaGetFormat() -> "w|h|fmtKey|label"  or  "none"
    - ochaAdd(el, fmtKey, extRoot, kvBlob)
        -> "OK|track=V2|set=Name,Title|warn=..."  or  "ERR|<message>"
-     kvBlob entries are joined by \u001E, key/value split by \u001F —
+     kvBlob entries are joined by \u001E, key/value split by \u001F -
      control characters a user can't type, so any text is delimiter-safe.
    ============================================================================ */
 
@@ -71,7 +71,7 @@ function ochaMogrtPath(extRoot, el, fmtKey) {
 var OCHA_ASSET_DIR = "OCHA Branding Elements - do not delete";
 
 // Copy the source .mogrt into a folder beside the .prproj so the graphic's
-// template travels with the project — surviving an extension uninstall or a
+// template travels with the project - surviving an extension uninstall or a
 // moved repo. Falls back to the bundled source when the project is unsaved.
 // Returns { path: <path to insert from>, note: <warn text or ""> }.
 function ochaLocalMogrt(extRoot, el, fmtKey) {
@@ -79,7 +79,7 @@ function ochaLocalMogrt(extRoot, el, fmtKey) {
   if (!src) return { path: null, note: "" };
   var projPath = "";
   try { projPath = app.project.path; } catch (e0) { projPath = ""; }
-  if (!projPath) return { path: src, note: "project unsaved — save it, then re-add so the graphic is stored with the project" };
+  if (!projPath) return { path: src, note: "project unsaved - save it, then re-add so the graphic is stored with the project" };
   try {
     var projFolder = new File(projPath).parent;
     var dir = new Folder(projFolder.fsName + "/" + OCHA_ASSET_DIR);
@@ -87,11 +87,11 @@ function ochaLocalMogrt(extRoot, el, fmtKey) {
     var dest = new File(dir.fsName + "/" + ochaMogrtName(el, fmtKey));
     if (!dest.exists) {
       var ok = new File(src).copy(dest.fsName);
-      if (!ok || !dest.exists) return { path: src, note: "couldn't copy template into the project folder — used the bundled copy" };
+      if (!ok || !dest.exists) return { path: src, note: "couldn't copy template into the project folder - used the bundled copy" };
     }
     return { path: dest.fsName, note: "" };
   } catch (e) {
-    return { path: src, note: "local-copy error (" + e.toString() + ") — used the bundled copy" };
+    return { path: src, note: "local-copy error (" + e.toString() + ") - used the bundled copy" };
   }
 }
 
@@ -135,7 +135,7 @@ function ochaApplyMotion(seq, clip, m) {
       try { cur = pp.getValue(); } catch (e2) { cur = null; }
       if (cur && cur.length >= 2) { cx = cur[0]; cy = cur[1]; }
       else { cx = seq.frameSizeHorizontal / 2; cy = seq.frameSizeVertical / 2; }
-      // UI: +X right, +Y up. Premiere screen space: +Y down → subtract.
+      // UI: +X right, +Y up. Premiere screen space: +Y down -> subtract.
       var nx = cx + (m.posX || 0);
       var ny = cy - (m.posY || 0);
       try { pp.setValue([nx, ny], true);
@@ -143,7 +143,7 @@ function ochaApplyMotion(seq, clip, m) {
       catch (e3) { parts.push("pos ERR " + e3.toString()); }
     }
   }
-  return "motion=" + parts.join(" · ");
+  return "motion=" + parts.join(" / ");
 }
 
 function ochaAdd(el, fmtKey, extRoot, kvBlob) {
@@ -171,9 +171,9 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob) {
         errs.push("V" + (v + 1) + ": nothing returned");
       } catch (e1) { errs.push("V" + (v + 1) + ": " + e1.toString()); }
     }
-    if (!clip) return "ERR|Insert failed — " + errs.join(" · ");
+    if (!clip) return "ERR|Insert failed - " + errs.join(" / ");
 
-    // Graphic Parameters can attach a beat after insert — poll briefly
+    // Graphic Parameters can attach a beat after insert - poll briefly
     var mgt = null, waited = 0;
     for (var k = 0; k < 12 && !mgt; k++) {
       try { mgt = clip.getMGTComponent(); } catch (e2) { mgt = null; }
