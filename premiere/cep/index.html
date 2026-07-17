@@ -9,10 +9,11 @@
 
     <header class="hd">
       <div class="hd__brand" title="OCHA Branding">
-        <!-- OCHA Humanitarian Icon "Video" (blue circle + play), white-backed so the play reads on any surface -->
-        <svg class="hd__mark" viewBox="0 0 42 42" width="20" height="20" aria-hidden="true">
-          <circle cx="21" cy="21" r="20" fill="#fff"/>
-          <path fill="#009edb" d="M21,0A21,21,0,1,0,42,21,20.9974,20.9974,0,0,0,21,0Zm9.47,21.91992L24.25,25.76l-6.65991,4.1A1.06488,1.06488,0,0,1,16,28.93994V13.06006a1.06488,1.06488,0,0,1,1.59009-.92L24.25,16.24l6.22,3.84A1.061,1.061,0,0,1,30.47,21.91992Z"/>
+        <!-- OCHA Humanitarian Icon "Film" -->
+        <svg class="hd__mark" viewBox="0 0 48 41" width="21" height="18" fill="#009edb" aria-hidden="true">
+          <path d="M11.5,18A5.5,5.5,0,1,0,6,12.5,5.49687,5.49687,0,0,0,11.5,18Zm0-7A1.5,1.5,0,1,1,10,12.5,1.498,1.498,0,0,1,11.5,11Z"/>
+          <path d="M28.5,17A8.5,8.5,0,1,0,20,8.5,8.5057,8.5057,0,0,0,28.5,17Zm0-11A2.5,2.5,0,1,1,26,8.5,2.50091,2.50091,0,0,1,28.5,6Z"/>
+          <path d="M46.80389,24.01941,38,26V23a2.00583,2.00583,0,0,0-2-2H6a2.00583,2.00583,0,0,0-2,2v1H2a2,2,0,0,0-2,2v.6a2,2,0,0,0,2,2H4V39a2.00591,2.00591,0,0,0,2,2H36a2.00591,2.00591,0,0,0,2-2V35l8.80389,1.98059A1,1,0,0,0,48,36V25A1,1,0,0,0,46.80389,24.01941ZM18,34a2.00591,2.00591,0,0,1-2,2H10a2.00591,2.00591,0,0,1-2-2V32a2.00583,2.00583,0,0,1,2-2h6a2.00583,2.00583,0,0,1,2,2Z"/>
         </svg>
         <span class="hd__title">OCHA Branding</span>
         <span id="ver" class="ver"></span>
@@ -93,16 +94,6 @@
       <section class="pane" data-pane="ending">
         <label class="opt-check"><input id="end-black" type="checkbox" /><span>Over black <em>(else over footage)</em></span></label>
         <p class="note">OCHA logo + click sound, snapping over your final shot — place it so it ends with your video.</p>
-      </section>
-
-      <!-- captions: SRT → native Premiere caption track -->
-      <section class="captions">
-        <div class="cap-head">Subtitles</div>
-        <button id="cap-pick" class="btn btn-secondary">
-          <svg width="13" height="13" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M144 480C117.5 480 96 458.5 96 432L96 208C96 181.5 117.5 160 144 160L496 160C522.5 160 544 181.5 544 208L544 432C544 458.5 522.5 480 496 480L144 480zM144 208L144 432L496 432L496 208L144 208zM176 280C176 266.7 186.7 256 200 256L280 256C293.3 256 304 266.7 304 280C304 293.3 293.3 304 280 304L200 304C186.7 304 176 293.3 176 280zM336 280C336 266.7 346.7 256 360 256L440 256C453.3 256 464 266.7 464 280C464 293.3 453.3 304 440 304L360 304C346.7 304 336 293.3 336 280zM176 360C176 346.7 186.7 336 200 336L360 336C373.3 336 384 346.7 384 360C384 373.3 373.3 384 360 384L200 384C186.7 384 176 373.3 176 360zM416 360C416 346.7 426.7 336 440 336C453.3 336 464 346.7 464 360C464 373.3 453.3 384 440 384C426.7 384 416 373.3 416 360z"/></svg>
-          Add subtitles (.srt)…
-        </button>
-        <p class="cap-hint">Imports the file and attaches it to this sequence as a native caption track.</p>
       </section>
 
       <!-- shared Size + Position — collapsed accordion (advanced) -->
