@@ -95,6 +95,7 @@ async function mogrtPath(elKey, fmtKey) {
    (type 6 text → value.strDB[].str · 1 checkbox → bool · 2 slider → number ·
    13 dropdown → 1-based index). Patched copy goes to the plugin-data folder. */
 const fflate = require("./lib/fflate.js");
+const rifx = require("./rifx.js");
 
 function uuid4() {
   const b = new Uint8Array(16);
@@ -112,26 +113,43 @@ async function bakeMogrt(elKey, fmtKey, values) {
   const buf = await src.read({ format: storage.formats.binary });
   const files = fflate.unzipSync(new Uint8Array(buf));
   if (!files["definition.json"]) throw new Error("definition.json missing in capsule");
+  if (!files["project.aegraphic"]) throw new Error("project.aegraphic missing in capsule");
 
   const def = JSON.parse(fflate.strFromU8(files["definition.json"]));
-  // Premiere dedupes templates by capsuleID: once a project has imported this
-  // capsule, later inserts of the SAME id reuse the cached master and ignore
-  // the new file's values. Fresh id per bake → our patched values actually load.
+  // Premiere dedupes templates by capsuleID — fresh id per bake so the patched
+  // capsule is treated as new, never resolved to a cached master.
   def.capsuleID = uuid4();
-  const baked = [];
+
+  // map the panel's values onto this capsule's control GUIDs + collect the old
+  // default strings (they locate the rendered text in the AE text engine)
+  const controls = {}, texts = {}, baked = [];
   for (const c of def.clientControls || []) {
     let ui = c.uiName;
     if (ui && ui.strDB) ui = (ui.strDB[0] || {}).str;
     const key = Object.keys(values).find((k) => k.toLowerCase() === String(ui || "").trim().toLowerCase());
     if (key === undefined) continue;
     const v = values[key];
-    if (c.type === 6 && c.value && c.value.strDB) {          // text
-      for (const loc of c.value.strDB) loc.str = String(v);
-    } else {                                                  // bool / number / dropdown index
+    controls[c.id] = v;
+    if (c.type === 6 && c.value && c.value.strDB) {
+      const oldStr = (c.value.strDB[0] || {}).str || "";
+      if (oldStr && String(v) !== oldStr) texts[oldStr] = String(v);
+      for (const loc of c.value.strDB) loc.str = String(v);   // keep EGP display in sync
+    } else {
       c.value = v;
     }
     baked.push(ui);
   }
+
+  // patch the EMBEDDED AE PROJECT — the thing Premiere actually renders.
+  // (definition.json values are cosmetic for AE-authored capsules; verified.)
+  const inner = fflate.unzipSync(files["project.aegraphic"]);
+  const aepName = Object.keys(inner).find((n) => n.endsWith(".aep"));
+  if (!aepName) throw new Error("no .aep inside project.aegraphic");
+  const { tree, trailer } = rifx.parse(inner[aepName]);
+  rifx.patchControls(tree, controls);
+  rifx.patchTexts(tree, texts);
+  inner[aepName] = rifx.build(tree, trailer);
+  files["project.aegraphic"] = fflate.zipSync(inner);
   files["definition.json"] = fflate.strToU8(JSON.stringify(def));
 
   const out = fflate.zipSync(files);
