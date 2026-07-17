@@ -53,9 +53,11 @@ function ochaGetFormat() {
 /* The panel passes its extension root (it knows getSystemPath). MOGRTs:
    bundled copy first (future ZXP layout), else the repo-level canonical set
    one directory up (dev symlink layout). */
+function ochaMogrtName(el, fmtKey) {
+  return OCHA_EL_NAME[el] + " - " + OCHA_FMT[fmtKey].label + ".mogrt";
+}
 function ochaMogrtPath(extRoot, el, fmtKey) {
-  var f = OCHA_FMT[fmtKey];
-  var name = OCHA_EL_NAME[el] + " - " + f.label + ".mogrt";
+  var f = OCHA_FMT[fmtKey], name = ochaMogrtName(el, fmtKey);
   var candidates = [
     extRoot + "/mogrts/" + f.folder + "/" + name,
     extRoot + "/../mogrts/" + f.folder + "/" + name
@@ -64,6 +66,33 @@ function ochaMogrtPath(extRoot, el, fmtKey) {
     if (File(candidates[i]).exists) return candidates[i];
   }
   return null;
+}
+
+var OCHA_ASSET_DIR = "OCHA Branding Elements - do not delete";
+
+// Copy the source .mogrt into a folder beside the .prproj so the graphic's
+// template travels with the project — surviving an extension uninstall or a
+// moved repo. Falls back to the bundled source when the project is unsaved.
+// Returns { path: <path to insert from>, note: <warn text or ""> }.
+function ochaLocalMogrt(extRoot, el, fmtKey) {
+  var src = ochaMogrtPath(extRoot, el, fmtKey);
+  if (!src) return { path: null, note: "" };
+  var projPath = "";
+  try { projPath = app.project.path; } catch (e0) { projPath = ""; }
+  if (!projPath) return { path: src, note: "project unsaved — save it, then re-add so the graphic is stored with the project" };
+  try {
+    var projFolder = new File(projPath).parent;
+    var dir = new Folder(projFolder.fsName + "/" + OCHA_ASSET_DIR);
+    if (!dir.exists) dir.create();
+    var dest = new File(dir.fsName + "/" + ochaMogrtName(el, fmtKey));
+    if (!dest.exists) {
+      var ok = new File(src).copy(dest.fsName);
+      if (!ok || !dest.exists) return { path: src, note: "couldn't copy template into the project folder — used the bundled copy" };
+    }
+    return { path: dest.fsName, note: "" };
+  } catch (e) {
+    return { path: src, note: "local-copy error (" + e.toString() + ") — used the bundled copy" };
+  }
 }
 
 function ochaFindParam(props, wantName) {
@@ -121,8 +150,9 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob) {
   try {
     var seq = app.project.activeSequence;
     if (!seq) return "ERR|Open a sequence first.";
-    var path = ochaMogrtPath(extRoot, el, fmtKey);
-    if (!path) return "ERR|MOGRT not found for " + OCHA_EL_NAME[el] + " / " + fmtKey;
+    var loc = ochaLocalMogrt(extRoot, el, fmtKey);
+    if (!loc.path) return "ERR|MOGRT not found for " + OCHA_EL_NAME[el] + " / " + fmtKey;
+    var path = loc.path;
 
     var timeTicks = seq.getPlayerPosition().ticks;
     var vCount = seq.videoTracks.numTracks;
@@ -177,6 +207,7 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob) {
 
     var out = "OK|track=V" + (usedV + 1) + "|set=" + setNames.join(",");
     var warns = [];
+    if (loc.note) warns.push(loc.note);
     if (!mgt) warns.push("controls not reachable after " + waited + "ms");
     if (failNames.length) warns.push("could not set: " + failNames.join("; "));
     if (warns.length) out += "|warn=" + warns.join(" * ");

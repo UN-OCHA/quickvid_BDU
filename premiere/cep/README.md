@@ -1,10 +1,16 @@
 # OCHA Branding — Premiere Pro panel
 
-Docked panel that drops the OCHA branding MOGRTs (lower third, location, bug,
-ending) into a sequence — **auto-picking the variant matching the sequence
-format** (9:16 / 4:5 / 1:1 / 16:9) and **applying every setting from the panel**:
-name, titles, centre align, place, date, pin colour, pin icon, over black.
-Users never open Essential Graphics.
+Docked panel that drops the OCHA branding MOGRTs (lower third, location, OCHA
+logo, ending) into a sequence — **auto-picking the variant matching the
+sequence format** (9:16 / 4:5 / 1:1 / 16:9) and **applying every setting from
+the panel**: name, titles, centre align, place, date, pin colour, pin icon,
+over black, plus **Size & Position** (via the clip's Motion). Users never open
+Essential Graphics.
+
+Look & feel matches the OCHA DataViz plugin (shared tokens, Roboto, light/dark
+toggle). On insert, each `.mogrt` is copied into a folder next to the .prproj —
+**"OCHA Branding Elements - do not delete"** — so the graphic's template travels
+with the project and survives an extension uninstall or a moved repo.
 
 Built on CEP because its ExtendScript API can write MOGRT text controls
 (`clip.getMGTComponent().properties[i].setValue(str, true)`), which UXP cannot —

@@ -1,9 +1,15 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.7.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.8.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
+
+// theme — default dark, persisted; parity with the DataViz plugin's toggle.
+// Set before first paint to avoid a flash.
+const THEME_KEY = "ocha-branding-theme";
+function applyTheme(t) { document.documentElement.setAttribute("data-theme", t); }
+try { applyTheme(localStorage.getItem(THEME_KEY) || "dark"); } catch (e) { applyTheme("dark"); }
 
 // badge FIRST — it doubles as the "panel JS loaded" indicator
 $("ver").textContent = "v" + PANEL_VERSION;
@@ -113,7 +119,7 @@ function clampNum(v, dflt) {
   return isNaN(n) ? dflt : n;
 }
 
-const EL_LABEL = { lt: "Lower third", loc: "Location", bug: "Bug", ending: "Ending" };
+const EL_LABEL = { lt: "Lower third", loc: "Location", bug: "OCHA logo", ending: "Ending" };
 
 async function addElement() {
   hideStatus();
@@ -178,6 +184,13 @@ document.querySelectorAll("#pin-colour .seg__opt").forEach((b) => {
 });
 
 $("add").addEventListener("click", addElement);
+
+// theme toggle
+$("theme").addEventListener("click", () => {
+  const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+});
 
 refresh();
 setInterval(refresh, 2500);
