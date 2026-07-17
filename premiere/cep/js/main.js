@@ -4,21 +4,37 @@
 const PANEL_VERSION = "0.6.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
+
+// badge FIRST — it doubles as the "panel JS loaded" indicator
+$("ver").textContent = "v" + PANEL_VERSION;
+
+// any uncaught error surfaces in the status line (self-diagnosing panel)
+window.onerror = (msg, src, line) => {
+  const s = $("status");
+  if (s) { s.className = "status status--err"; s.textContent = `Panel error: ${msg} (${(src || "").split("/").pop()}:${line})`; }
+};
+
 // graceful outside Premiere (plain-browser preview): stub the CEP bridge
-const cep = window.__adobe_cep__ || {
+const bridge = window.__adobe_cep__ || {
   evalScript: (src, cb) => cb && cb("none"),
   getSystemPath: () => "",
 };
 
-// extension root on disk — host.jsx resolves MOGRTs relative to this
-const EXT_ROOT = cep.getSystemPath("extension");
+// extension root on disk — host.jsx resolves MOGRTs relative to this.
+// The raw bridge returns a URI-encoded path (CSInterface normally decodes it):
+// strip any file:// scheme + percent-decode, or MOGRT paths won't resolve.
+let EXT_ROOT = "";
+try {
+  EXT_ROOT = decodeURIComponent(String(bridge.getSystemPath("extension") || ""))
+    .replace(/^file:\/\//, "");
+} catch (e) { /* leave empty; host reports MOGRT-not-found with detail */ }
 
 let curEl = "lt";
 let curFmt = null;
 
 /* ---------- host bridge ---------- */
 function jsx(call) {
-  return new Promise((resolve) => cep.evalScript(call, resolve));
+  return new Promise((resolve) => bridge.evalScript(call, resolve));
 }
 // JSON.stringify produces a valid JS string literal — safe to embed any user
 // text (quotes, backslashes, unicode) into the evalScript source.
@@ -31,9 +47,17 @@ async function refresh() {
   const parts = (res || "none").split("|");
   if (parts.length < 4 || !parts[2]) {
     curFmt = null;
-    chip.textContent = parts.length === 4 ? `${parts[0]}×${parts[1]} — unsupported` : "no sequence";
-    chip.className = "chip";
     $("add").disabled = true;
+    if (parts.length === 4) {
+      chip.textContent = `${parts[0]}×${parts[1]} — unsupported`;
+    } else if (res && res.indexOf("EvalScript") !== -1) {
+      // host script didn't load/parse — say so instead of a misleading "no sequence"
+      const t = await jsx("typeof ochaGetFormat");
+      chip.textContent = t === "function" ? "host error" : "host script not loaded";
+    } else {
+      chip.textContent = "no sequence";
+    }
+    chip.className = "chip";
     return;
   }
   curFmt = parts[2];
@@ -120,7 +144,6 @@ document.querySelectorAll("#pin-colour .seg__opt").forEach((b) => {
 });
 
 $("add").addEventListener("click", addElement);
-$("ver").textContent = "v" + PANEL_VERSION;
 
 refresh();
 setInterval(refresh, 2500);

@@ -23,6 +23,7 @@
           <CEFCommandLine>
             <Parameter>--allow-file-access</Parameter>
             <Parameter>--allow-file-access-from-files</Parameter>
+            <Parameter>--disable-application-cache</Parameter>
           </CEFCommandLine>
         </Resources>
         <Lifecycle><AutoVisible>true</AutoVisible></Lifecycle>
