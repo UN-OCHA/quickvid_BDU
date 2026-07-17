@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.10.1";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.10.2";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -115,7 +115,7 @@ function collectValues() {
     if (p) push("Place", p);
     if (d) push("Date", d);
     const blue = document.querySelector("#pin-colour .seg__opt.is-active");
-    push("Pin colour", (blue && blue.dataset.col === "blue") ? 2 : 1);
+    push("Pin colour", (blue && blue.dataset.col === "blue") ? 1 : 0);   // 0-based: Red=0, Blue=1
     push("Show pin icon", $("loc-icon").checked);
   } else if (curEl === "ending") {
     push("Over black", $("end-black").checked);
@@ -218,10 +218,5 @@ $("theme").addEventListener("click", () => {
   try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
 });
 
-loadHost().then(async (ok) => {
-  await refresh();
-  // TEMP: one-shot dump of this build's real caption/transcription API surface
-  // to /tmp/ocha_caption_api.txt (removed once the captions feature is decided)
-  if (ok) { try { await jsx("ochaProbeCaptionAPI()"); } catch (e) {} }
-});
+loadHost().then(refresh);
 setInterval(refresh, 2500);
