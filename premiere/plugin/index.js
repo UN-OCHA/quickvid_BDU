@@ -156,7 +156,10 @@ async function bakeMogrt(elKey, fmtKey, values) {
 
   const out = fflate.zipSync(files);
   const data = await storage.localFileSystem.getDataFolder();
-  const tmp = await data.createFile("ocha_insert.mogrt", { overwrite: true });
+  // UNIQUE filename per insert: Premiere caches imported capsules by path —
+  // rewriting the same temp file made every insert resolve to the first-ever
+  // cached content (defaults), exactly like the capsuleID dedupe one layer up.
+  const tmp = await data.createFile("ocha_" + def.capsuleID.slice(0, 8) + ".mogrt", { overwrite: true });
   // write the exact byte range (a typed array's backing buffer can be larger)
   await tmp.write(out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength),
                   { format: storage.formats.binary });
@@ -346,3 +349,13 @@ $("add").addEventListener("click", addElement);
 entrypoints.setup({ panels: { ochaBrandingPanel: { show() { refresh(); } } } });
 refresh();
 setInterval(refresh, 2500);
+
+// best-effort sweep of previous sessions' baked temp capsules (unique names now)
+(async () => {
+  try {
+    const data = await storage.localFileSystem.getDataFolder();
+    const entries = await data.getEntries();
+    for (const e of entries)
+      if (e.isFile && /^ocha_[0-9a-f]{8}\.mogrt$/.test(e.name)) await e.delete();
+  } catch (e) { /* cosmetic */ }
+})();
