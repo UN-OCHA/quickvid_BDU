@@ -262,16 +262,81 @@ function ochaWrite(path, text) {
   try { var f = new File(path); f.encoding = "UTF-8"; f.open("w"); f.write(text); f.close(); } catch (e) {}
 }
 
-function ochaReelReady() {
+function ochaKeys(o) {
+  var k = []; for (var p in o) { try { k.push(p); } catch (e) {} } return k.join(",");
+}
+function ochaFindSequenceObj(nm) {
+  // clone() may not return the Sequence; the clone usually becomes active.
+  var a = app.project.activeSequence;
+  if (a && a.name === nm) return a;
+  return null;
+}
+function ochaResizeSeq(seq, newH) {
+  var st; try { st = seq.getSettings(); } catch (e) { return "getSettings ERR " + e; }
+  var field = null, cand = ["videoFrameHeight", "frameHeight", "height"];
+  for (var i = 0; i < cand.length; i++) { if (cand[i] in st) { field = cand[i]; break; } }
+  if (!field) return "no height field (has: " + ochaKeys(st) + ")";
+  try { st[field] = newH; seq.setSettings(st); return "resized via " + field; }
+  catch (e) { return "setSettings ERR " + e; }
+}
+function ochaAddBlur(clip, amount) {
+  // QE: add Gaussian Blur to a clip, then set its Blurriness
   try {
-    var seq = app.project.activeSequence;
-    if (!seq) return "ERR|Open the square sequence first.";
-    var w = seq.frameSizeHorizontal, h = seq.frameSizeVertical;
-    if (!h || Math.abs(w / h - 1) > 0.12) return "WARN|'" + seq.name + "' is " + w + "x" + h + " - the reel tool needs a square sequence.";
+    app.enableQE();
+    if (typeof qe === "undefined") return "qe unavailable";
+    var qs = qe.project.getActiveSequence();
+    if (!qs) return "no qe sequence";
+    // locate the matching qe clip on track 0 item 0 (the bg we just inserted)
+    var vt = qs.getVideoTrackAt(0);
+    if (!vt) return "no qe video track 0";
+    var qc = vt.getItemAt(0);
+    if (!qc) return "no qe clip";
+    var fx = qe.project.getVideoEffectByName("Gaussian Blur");
+    if (!fx) return "Gaussian Blur effect not found by name";
+    qc.addVideoEffect(fx);
+    return "blur added (amount set via Effect Controls / next pass)";
+  } catch (e) { return "blur ERR " + e.toString(); }
+}
+function ochaSquareToReel() {
+  var L = [];
+  try {
+    var src = app.project.activeSequence;
+    if (!src) return "ERR|Open the square sequence first.";
+    var w = src.frameSizeHorizontal, h = src.frameSizeVertical;
+    if (!h || Math.abs(w / h - 1) > 0.12) return "ERR|Active sequence isn't square (" + w + "x" + h + ").";
     var reelH = Math.round(w * 16 / 9);
-    var qeOk = false; try { app.enableQE(); qeOk = (typeof qe !== "undefined"); } catch (e) {}
-    return "OK|Ready: '" + seq.name + "' " + w + "x" + h + " -> reel " + w + "x" + reelH + ", centred + blurred fill. (Action wires next; qe=" + qeOk + ")";
-  } catch (e) { return "ERR|" + e.toString(); }
+    var srcName = src.name;
+
+    // find the source's project item so we can nest it
+    var srcPI = null;
+    ochaEachItem(app.project.rootItem, function (it) { if (!srcPI) { var n = ""; try { n = it.name; } catch (e) {} if (n === srcName) srcPI = it; } });
+    L.push("srcItem=" + (srcPI ? "ok" : "MISSING"));
+
+    // clone the square sequence -> becomes the reel base (content preserved)
+    var reel = null;
+    try { src.clone(); } catch (e) { return "ERR|clone: " + e.toString(); }
+    reel = ochaFindSequenceObj(srcName + " Copy") || app.project.activeSequence;
+    if (!reel || reel.name === srcName) return "ERR|clone made no new sequence (active still '" + (reel ? reel.name : "?") + "').";
+    try { reel.name = srcName + " - Reel"; } catch (e) {}
+    L.push("clone->'" + reel.name + "'");
+
+    // resize the clone to 9:16 (original content stays centred = foreground)
+    L.push(ochaResizeSeq(reel, reelH));
+
+    // nest the source below as the blurred fill (best-effort)
+    if (srcPI) {
+      try {
+        var tz = (typeof src.getPlayerPosition === "function") ? src.getPlayerPosition() : null;
+        // insert nested source on top track then treat as bg via scale+blur
+        var vIdx = reel.videoTracks ? reel.videoTracks.numTracks : 1;
+        reel.insertClip(srcPI, reel.getPlayerPosition ? reel.getPlayerPosition().ticks : 0, vIdx, 0);
+        L.push("nested bg inserted");
+      } catch (e) { L.push("nest ERR " + e.toString()); }
+    }
+    L.push(ochaAddBlur(null, 0));
+
+    return "OK|Reel '" + reel.name + "' " + w + "x" + reelH + ". " + L.join(" / ");
+  } catch (e) { return "ERR|" + L.join(" / ") + " || " + e.toString(); }
 }
 
 function ochaCollectReport() {

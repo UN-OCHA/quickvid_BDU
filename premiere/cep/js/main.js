@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.13.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.14.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -248,7 +248,7 @@ async function runTool(label, call) {
   const kind = res.indexOf("OK|") === 0 ? "ok" : (res.indexOf("WARN|") === 0 ? "warn" : "err");
   show(res.replace(/^(OK|WARN|ERR)\|/, "") || "No response from Premiere.", kind);
 }
-$("tool-reel").addEventListener("click", () => runTool("Checking sequence", "ochaReelReady()"));
+$("tool-reel").addEventListener("click", () => runTool("Building reel (on a clone)", "ochaSquareToReel()"));
 $("tool-collect").addEventListener("click", () => runTool("Scanning media", "ochaCollectReport()"));
 $("tool-clean").addEventListener("click", () => runTool("Scanning templates", "ochaCleanReport()"));
 
