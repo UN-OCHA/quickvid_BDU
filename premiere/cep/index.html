@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+body{font-family:-apple-system,system-ui;background:#1f1f1f;color:#ddd;font-size:12px;padding:12px;margin:0}
+h3{margin:0 0 8px;color:#009edb;font-size:13px}
+button{background:#009edb;border:0;color:#fff;padding:8px 12px;border-radius:5px;font-weight:600;cursor:pointer}
+pre{white-space:pre-wrap;background:#141414;border:1px solid #333;border-radius:5px;padding:8px;margin-top:10px;line-height:1.45}
+</style></head><body>
+<h3>OCHA CEP spike — can ExtendScript set MOGRT text?</h3>
+<button id="run">Probe + set text</button>
+<pre id="out">running…</pre>
+<script>
+function run() {
+  window.__adobe_cep__.evalScript("ochaProbe()", function (res) {
+    document.getElementById("out").textContent = res;
+    try { window.cep.fs.writeFile("/tmp/ocha_cep.txt", res); } catch (e) {}
+  });
+}
+document.getElementById("run").addEventListener("click", run);
+setTimeout(run, 1200);   // auto-run so no clicking is needed
+</script>
+</body></html>
