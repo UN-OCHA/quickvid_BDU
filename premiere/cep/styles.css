@@ -138,6 +138,23 @@ body {
 .note { color: var(--text-secondary); margin: 0 0 var(--sp-100); line-height: 1.5; }
 .note strong { color: var(--text-primary); }
 
+/* ---------- captions ---------- */
+.captions { border-top: 1px solid var(--border-default); margin-top: var(--sp-150); padding-top: var(--sp-150); }
+.cap-head {
+  font-size: 10px; font-weight: var(--fw-semibold); color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: var(--sp-100);
+}
+.cap-steps { margin: 0 0 var(--sp-100); padding-left: 16px; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
+.cap-steps li { margin-bottom: 2px; }
+.cap-steps strong { color: var(--text-primary); }
+.btn-secondary {
+  background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border-field);
+  padding: var(--sp-100) var(--sp-200); font-size: var(--fs-sm);
+}
+.btn-secondary:hover { background: var(--bg-active); }
+.btn-secondary:active { transform: scale(0.97); }
+.cap-hint { color: var(--text-tertiary); font-size: 10px; line-height: 1.5; margin: var(--sp-100) 0 0; }
+
 /* ---------- size & position (collapsed accordion) ---------- */
 .adjust { border-top: 1px solid var(--border-default); margin-top: var(--sp-150); padding-top: var(--sp-100); }
 .adj-toggle {

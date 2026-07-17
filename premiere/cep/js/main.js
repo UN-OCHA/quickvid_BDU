@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.10.2";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.11.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -210,6 +210,16 @@ document.querySelectorAll("#pin-colour .seg__opt").forEach((b) => {
 });
 
 $("add").addEventListener("click", addElement);
+
+// captions: inspect the selected caption (v1 — learns the styling API)
+$("cap-style").addEventListener("click", async () => {
+  hideStatus();
+  if (!hostReady) return show("Premiere host not ready.", "warn");
+  show("Inspecting the selected caption…", "ok");
+  const res = await jsx("ochaProbeCaption()") || "";
+  if (res.indexOf("OK|") === 0) show(res.replace(/^OK\|/, ""), "ok");
+  else show(res.replace(/^ERR\|/, "") || "No response from Premiere.", "warn");
+});
 
 // theme toggle
 $("theme").addEventListener("click", () => {

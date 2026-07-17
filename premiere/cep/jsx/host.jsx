@@ -217,3 +217,59 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob) {
     return "ERR|" + e.toString();
   }
 }
+
+/* ---------------- captions: inspect what is stylable (probe v1) ----------------
+   Goal is OCHA-brand caption styling, but first we must learn whether Premiere
+   exposes caption / track-style to ExtendScript. This inspects the SELECTED
+   caption clip and dumps its API + component/property tree to
+   /tmp/ocha_caption_probe.txt so the real styling is built on facts. */
+function ochaReflect(o) {
+  var out = { props: [], methods: [] }, i;
+  try {
+    var r = o.reflect;
+    for (i = 0; i < r.properties.length; i++) out.props.push(r.properties[i].name);
+    for (i = 0; i < r.methods.length; i++) out.methods.push(r.methods[i].name);
+  } catch (e) {}
+  return out;
+}
+function ochaWrite(path, text) {
+  try { var f = new File(path); f.encoding = "UTF-8"; f.open("w"); f.write(text); f.close(); return true; }
+  catch (e) { return false; }
+}
+function ochaProbeCaption() {
+  var L = [], P = function (s) { L.push(String(s)); };
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return "ERR|Open a sequence first.";
+    var sel = [];
+    try { var s = seq.getSelection(); if (s) { for (var i = 0; i < s.length; i++) sel.push(s[i]); } }
+    catch (e) { P("getSelection ERR " + e); }
+    P("selected items: " + sel.length);
+    if (!sel.length) { ochaWrite("/tmp/ocha_caption_probe.txt", L.join("\n")); return "ERR|Select a caption clip on the timeline, then click again."; }
+
+    var it = sel[0];
+    P("item.name = " + it.name);
+    try { P("item.mediaType = " + it.mediaType); } catch (e) {}
+    try { P("item.type = " + it.type); } catch (e) {}
+    var refl = ochaReflect(it);
+    P("ITEM props: " + refl.props.join(", "));
+    P("ITEM methods: " + refl.methods.join(", "));
+    var all = refl.props.concat(refl.methods), hit = [];
+    for (var q = 0; q < all.length; q++) if (/caption|style|font|track|text|colou?r|fill|background/i.test(all[q])) hit.push(all[q]);
+    P("STYLE-ISH members: " + (hit.length ? hit.join(", ") : "none"));
+
+    // component/property tree (where MOGRT params lived - same technique)
+    try {
+      var comps = it.components;
+      P("components: " + (comps ? comps.numItems : "none"));
+      for (var c = 0; c < (comps ? comps.numItems : 0); c++) {
+        var comp = comps[c], pn = [];
+        try { for (var p = 0; p < comp.properties.numItems; p++) pn.push(comp.properties[p].displayName); } catch (ee) {}
+        P("  [" + c + "] " + comp.displayName + " (" + comp.matchName + "): " + pn.join(", "));
+      }
+    } catch (e) { P("components ERR " + e); }
+
+    ochaWrite("/tmp/ocha_caption_probe.txt", L.join("\n"));
+    return "OK|Inspected '" + it.name + "' - " + L.length + " lines written. Send me /tmp/ocha_caption_probe.txt";
+  } catch (e) { return "ERR|" + e.toString(); }
+}
