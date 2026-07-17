@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=0.13" />
 </head>
 <body>
   <div class="app">
@@ -17,127 +17,159 @@
       </button>
     </header>
 
+    <!-- section tabs -->
+    <nav class="tabs" id="tabs">
+      <button class="tab is-active" data-sec="brand">
+        <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M323.4 112.7L494.8 192L323.4 271.2C321.3 272.2 318.8 272.2 316.7 271.2L145.2 192L316.6 112.7C318.7 111.7 321.2 111.7 323.4 112.7zM357 64.3C333.6 53.5 306.5 53.5 283.1 64.3L108.5 145C88.5 154.3 88.5 182.7 108.5 192L283.1 272.7C306.5 283.5 333.6 283.5 357 272.7L531.6 192C551.6 182.7 551.6 154.3 531.6 145L357 64.3zM137.9 279.9L108.5 293.5C88.5 302.8 88.5 331.2 108.5 340.5L283.1 421.2C306.5 432 333.6 432 357 421.2L531.6 340.5C551.6 331.2 551.6 302.8 531.6 293.5L502.2 279.9L363 344.3C335.6 356.9 304.5 356.9 277 344.3L137.9 279.9zM137.9 431.9L108.5 445.5C88.5 454.8 88.5 483.2 108.5 492.5L283.1 573.2C306.5 584 333.6 584 357 573.2L531.6 492.5C551.6 483.2 551.6 454.8 531.6 445.5L502.2 431.9L363 496.3C335.6 508.9 304.5 508.9 277 496.3L137.9 431.9z"/></svg>
+        <span>Branding</span>
+      </button>
+      <button class="tab" data-sec="captions">
+        <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M128 128C92.7 128 64 156.7 64 192L64 448C64 483.3 92.7 512 128 512L512 512C547.3 512 576 483.3 576 448L576 192C576 156.7 547.3 128 512 128L128 128zM112 288C112 261.5 133.5 240 160 240L216 240C238.1 240 258.3 252.5 268.2 272.2C275.1 286.1 269.5 302.9 255.6 309.9C241.7 316.9 224.9 311.2 217.9 297.3C217.5 296.5 216.9 296 216 296L160 296C164.4 296 168 299.6 168 304L168 336C168 340.4 164.4 344 160 344L216 344C216.9 344 217.5 343.5 217.9 342.7C224.9 328.8 241.7 323.1 255.6 330.1C269.5 337.1 275.1 353.9 268.2 367.8C258.3 387.5 238.1 400 216 400L160 400C133.5 400 112 378.5 112 352L112 288zM368 240L424 240C446.1 240 466.3 252.5 476.2 272.2C483.1 286.1 477.5 302.9 463.6 309.9C449.7 316.9 432.9 311.2 425.9 297.3C425.5 296.5 424.9 296 424 296L368 296C372.4 296 376 299.6 376 304L376 336C376 340.4 372.4 344 368 344L424 344C424.9 344 425.5 343.5 425.9 342.7C432.9 328.8 449.7 323.1 463.6 330.1C477.5 337.1 483.1 353.9 476.2 367.8C466.3 387.5 446.1 400 424 400L368 400C341.5 400 320 378.5 320 352L320 288C320 261.5 341.5 240 368 240z"/></svg>
+        <span>Captions</span>
+      </button>
+      <button class="tab" data-sec="toolbox">
+        <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M248 112L392 112C396.4 112 400 115.6 400 120L400 160L240 160L240 120C240 115.6 243.6 112 248 112zM192 120L192 160L128 160C92.7 160 64 188.7 64 224L64 288L576 288L576 224C576 188.7 547.3 160 512 160L448 160L448 120C448 89.1 422.9 64 392 64L248 64C217.1 64 192 89.1 192 120zM576 336L416 336L416 368C416 385.7 401.7 400 384 400L256 400C238.3 400 224 385.7 224 368L224 336L64 336L64 480C64 515.3 92.7 544 128 544L512 544C547.3 544 576 515.3 576 480L576 336z"/></svg>
+        <span>Toolbox</span>
+      </button>
+    </nav>
+
     <div class="body">
-      <!-- element picker -->
-      <nav class="cards" id="cards">
-        <button class="card is-active" data-el="lt">
-          <svg class="card__icon" viewBox="0 0 44 30" aria-hidden="true">
-            <rect width="44" height="30" rx="3" fill="#17171b"/>
-            <rect x="9" y="10" width="22" height="5" rx="1" fill="#e6e6e6"/>
-            <rect x="9" y="18" width="15" height="4" rx="1" fill="#009edb"/>
-          </svg>
-          <span class="card__label">Lower third</span>
-        </button>
-        <button class="card" data-el="loc">
-          <svg class="card__icon" viewBox="0 0 44 30" aria-hidden="true">
-            <rect width="44" height="30" rx="3" fill="#17171b"/>
-            <path d="M12 6c-2.4 0-4.3 2-4.3 4.4 0 2.1 3.1 6.7 3.9 7.9a.5.5 0 0 0 .8 0c.8-1.2 3.9-5.8 3.9-7.9C16.3 8 14.4 6 12 6zm0 6.3a1.9 1.9 0 1 1 0-3.9 1.9 1.9 0 0 1 0 3.9z" fill="#ed1847"/>
-            <rect x="19" y="9"  width="16" height="4.5" rx="1" fill="#e6e6e6"/>
-            <rect x="19" y="16" width="11" height="4"   rx="1" fill="#009edb"/>
-          </svg>
-          <span class="card__label">Location</span>
-        </button>
-        <button class="card" data-el="bug">
-          <svg class="card__icon" viewBox="0 0 44 30" aria-hidden="true">
-            <rect width="44" height="30" rx="3" fill="#17171b"/>
-            <circle cx="35" cy="8" r="3" fill="#ffffff"/>
-          </svg>
-          <span class="card__label">OCHA logo</span>
-        </button>
-        <button class="card" data-el="ending">
-          <svg class="card__icon" viewBox="0 0 44 30" aria-hidden="true">
-            <rect width="44" height="30" rx="3" fill="#17171b"/>
-            <circle cx="16.5" cy="15" r="3.4" fill="#ffffff"/>
-            <rect x="22" y="13.2" width="10" height="3.6" rx="1" fill="#d8d8d8"/>
-          </svg>
-          <span class="card__label">Ending</span>
-        </button>
-      </nav>
 
-      <!-- per-element panes -->
-      <section class="pane is-open" data-pane="lt">
-        <label class="fld"><span class="fld__label">Name</span>
-          <input id="lt-name" type="text" placeholder="Vanessa May" /></label>
-        <label class="fld"><span class="fld__label">Job title</span>
-          <input id="lt-title" type="text" placeholder="OCHA Venezuela" /></label>
-        <label class="fld"><span class="fld__label">2nd line <em>optional</em></span>
-          <input id="lt-title2" type="text" placeholder="bilingual line" /></label>
-        <label class="opt-check"><input id="lt-centre" type="checkbox" /><span>Centre align</span></label>
-      </section>
-
-      <section class="pane" data-pane="loc">
-        <label class="fld"><span class="fld__label">Place</span>
-          <input id="loc-place" type="text" placeholder="Ankara, Türkiye" /></label>
-        <label class="fld"><span class="fld__label">Date</span>
-          <input id="loc-date" type="text" placeholder="June 2026" /></label>
-        <div class="seg" id="pin-colour">
-          <span class="seg__label">Pin</span>
-          <button class="seg__opt is-active" data-col="red"><span class="dot dot--red"></span>Red</button>
-          <button class="seg__opt" data-col="blue"><span class="dot dot--blue"></span>Blue</button>
-        </div>
-        <label class="opt-check"><input id="loc-icon" type="checkbox" checked /><span>Show pin icon</span></label>
-      </section>
-
-      <section class="pane" data-pane="bug">
-        <p class="note">The OCHA watermark — vertical white lockup, top-right, full clip. Typically for <strong>event</strong> videos. Nothing to type: just add it.</p>
-      </section>
-
-      <section class="pane" data-pane="ending">
-        <label class="opt-check"><input id="end-black" type="checkbox" /><span>Over black <em>(else over footage)</em></span></label>
-        <p class="note">OCHA logo + click sound, snapping over your final shot — place it so it ends with your video.</p>
-      </section>
-
-      <!-- shared Size + Position — collapsed accordion (advanced) -->
-      <section class="adjust" id="adjust">
-        <button class="adj-toggle" id="adj-toggle" aria-expanded="false">
-          <svg class="adj-chev" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span class="adj-toggle__label">Size &amp; position</span>
-          <span class="adj-tag">advanced</span>
-        </button>
-        <div class="adj-body" id="adj-body" hidden>
-          <p class="adj-warn">Each template is already sized and placed for its format — change these only if a particular shot needs it.</p>
-          <div class="adj-row">
-            <span class="adj-lab">Size</span>
-            <input id="adj-size"  class="adj-slider" type="range"  min="20" max="200" step="1" value="100" />
-            <input id="adj-size-n" class="adj-num"   type="number" min="20" max="400" step="1" value="100" />
-            <span class="adj-u">%</span>
-          </div>
-          <div class="adj-row">
-            <span class="adj-lab">X</span>
-            <input id="adj-x"   class="adj-slider" type="range"  min="-400" max="400" step="1" value="0" />
-            <input id="adj-x-n" class="adj-num"   type="number" step="1" value="0" />
-            <span class="adj-u">px</span>
-          </div>
-          <div class="adj-row">
-            <span class="adj-lab">Y</span>
-            <input id="adj-y"   class="adj-slider" type="range"  min="-400" max="400" step="1" value="0" />
-            <input id="adj-y-n" class="adj-num"   type="number" step="1" value="0" />
-            <span class="adj-u">px</span>
-          </div>
-          <button id="adj-reset" class="adj-reset" title="Reset to default">
-            <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M88 64C101.3 64 112 74.7 112 88L112 166.1L139.1 139C239.1 39 401.2 39 501.1 139C601 239 601.1 401.1 501.1 501C401.1 600.9 239 601 139.1 501C124.2 486.1 111.5 469.8 101 452.5C94.1 441.2 97.8 426.4 109.1 419.5C120.4 412.6 135.2 416.3 142.1 427.6C150.6 441.6 160.9 454.9 173.1 467C254.3 548.2 386 548.2 467.3 467C548.6 385.8 548.5 254.1 467.3 172.8C386.1 91.5 254.4 91.6 173.1 172.8L146 199.9L224.2 199.9C237.5 199.9 248.2 210.6 248.2 223.9C248.2 237.2 237.5 247.9 224.2 247.9L88 248C74.7 248 64 237.3 64 224L64 88C64 74.7 74.7 64 88 64z"/></svg>
-            Reset
+      <!-- ===================== BRANDING ===================== -->
+      <div class="sec is-open" data-sec="brand">
+        <nav class="cards" id="cards">
+          <button class="card is-active" data-el="lt">
+            <svg class="card__icon" viewBox="0 0 44 30" aria-hidden="true">
+              <rect width="44" height="30" rx="3" fill="#17171b"/>
+              <rect x="9" y="10" width="22" height="5" rx="1" fill="#e6e6e6"/>
+              <rect x="9" y="18" width="15" height="4" rx="1" fill="#009edb"/>
+            </svg>
+            <span class="card__label">Lower third</span>
           </button>
-        </div>
-      </section>
+          <button class="card" data-el="loc">
+            <svg class="card__icon" viewBox="0 0 44 30" aria-hidden="true">
+              <rect width="44" height="30" rx="3" fill="#17171b"/>
+              <path d="M12 6c-2.4 0-4.3 2-4.3 4.4 0 2.1 3.1 6.7 3.9 7.9a.5.5 0 0 0 .8 0c.8-1.2 3.9-5.8 3.9-7.9C16.3 8 14.4 6 12 6zm0 6.3a1.9 1.9 0 1 1 0-3.9 1.9 1.9 0 0 1 0 3.9z" fill="#ed1847"/>
+              <rect x="19" y="9"  width="16" height="4.5" rx="1" fill="#e6e6e6"/>
+              <rect x="19" y="16" width="11" height="4"   rx="1" fill="#009edb"/>
+            </svg>
+            <span class="card__label">Location</span>
+          </button>
+          <button class="card" data-el="bug">
+            <svg class="card__icon" viewBox="0 0 44 30" aria-hidden="true">
+              <rect width="44" height="30" rx="3" fill="#17171b"/>
+              <circle cx="35" cy="8" r="3" fill="#ffffff"/>
+            </svg>
+            <span class="card__label">OCHA logo</span>
+          </button>
+          <button class="card" data-el="ending">
+            <svg class="card__icon" viewBox="0 0 44 30" aria-hidden="true">
+              <rect width="44" height="30" rx="3" fill="#17171b"/>
+              <circle cx="16.5" cy="15" r="3.4" fill="#ffffff"/>
+              <rect x="22" y="13.2" width="10" height="3.6" rx="1" fill="#d8d8d8"/>
+            </svg>
+            <span class="card__label">Ending</span>
+          </button>
+        </nav>
 
-      <!-- captions -->
-      <section class="captions">
-        <div class="cap-head">Subtitles</div>
+        <section class="pane is-open" data-pane="lt">
+          <label class="fld"><span class="fld__label">Name</span>
+            <input id="lt-name" type="text" placeholder="Vanessa May" /></label>
+          <label class="fld"><span class="fld__label">Job title</span>
+            <input id="lt-title" type="text" placeholder="OCHA Venezuela" /></label>
+          <label class="fld"><span class="fld__label">2nd line <em>optional</em></span>
+            <input id="lt-title2" type="text" placeholder="bilingual line" /></label>
+          <label class="opt-check"><input id="lt-centre" type="checkbox" /><span>Centre align</span></label>
+        </section>
+
+        <section class="pane" data-pane="loc">
+          <label class="fld"><span class="fld__label">Place</span>
+            <input id="loc-place" type="text" placeholder="Ankara, Türkiye" /></label>
+          <label class="fld"><span class="fld__label">Date</span>
+            <input id="loc-date" type="text" placeholder="June 2026" /></label>
+          <div class="seg" id="pin-colour">
+            <span class="seg__label">Pin</span>
+            <button class="seg__opt is-active" data-col="red"><span class="dot dot--red"></span>Red</button>
+            <button class="seg__opt" data-col="blue"><span class="dot dot--blue"></span>Blue</button>
+          </div>
+          <label class="opt-check"><input id="loc-icon" type="checkbox" checked /><span>Show pin icon</span></label>
+        </section>
+
+        <section class="pane" data-pane="bug">
+          <p class="note">The OCHA watermark — vertical white lockup, top-right, full clip. Typically for <strong>event</strong> videos. Nothing to type: just add it.</p>
+        </section>
+
+        <section class="pane" data-pane="ending">
+          <label class="opt-check"><input id="end-black" type="checkbox" /><span>Over black <em>(else over footage)</em></span></label>
+          <p class="note">OCHA logo + click sound, snapping over your final shot — place it so it ends with your video.</p>
+        </section>
+
+        <!-- shared Size + Position — collapsed accordion (advanced) -->
+        <section class="adjust" id="adjust">
+          <button class="adj-toggle" id="adj-toggle" aria-expanded="false">
+            <svg class="adj-chev" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="adj-toggle__label">Size &amp; position</span>
+            <span class="adj-tag">advanced</span>
+          </button>
+          <div class="adj-body" id="adj-body" hidden>
+            <p class="adj-warn">Each template is already sized and placed for its format — change these only if a particular shot needs it.</p>
+            <div class="adj-row">
+              <span class="adj-lab">Size</span>
+              <input id="adj-size"  class="adj-slider" type="range"  min="20" max="200" step="1" value="100" />
+              <input id="adj-size-n" class="adj-num"   type="number" min="20" max="400" step="1" value="100" />
+              <span class="adj-u">%</span>
+            </div>
+            <div class="adj-row">
+              <span class="adj-lab">X</span>
+              <input id="adj-x"   class="adj-slider" type="range"  min="-400" max="400" step="1" value="0" />
+              <input id="adj-x-n" class="adj-num"   type="number" step="1" value="0" />
+              <span class="adj-u">px</span>
+            </div>
+            <div class="adj-row">
+              <span class="adj-lab">Y</span>
+              <input id="adj-y"   class="adj-slider" type="range"  min="-400" max="400" step="1" value="0" />
+              <input id="adj-y-n" class="adj-num"   type="number" step="1" value="0" />
+              <span class="adj-u">px</span>
+            </div>
+            <button id="adj-reset" class="adj-reset" title="Reset to default">
+              <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M88 64C101.3 64 112 74.7 112 88L112 166.1L139.1 139C239.1 39 401.2 39 501.1 139C601 239 601.1 401.1 501.1 501C401.1 600.9 239 601 139.1 501C124.2 486.1 111.5 469.8 101 452.5C94.1 441.2 97.8 426.4 109.1 419.5C120.4 412.6 135.2 416.3 142.1 427.6C150.6 441.6 160.9 454.9 173.1 467C254.3 548.2 386 548.2 467.3 467C548.6 385.8 548.5 254.1 467.3 172.8C386.1 91.5 254.4 91.6 173.1 172.8L146 199.9L224.2 199.9C237.5 199.9 248.2 210.6 248.2 223.9C248.2 237.2 237.5 247.9 224.2 247.9L88 248C74.7 248 64 237.3 64 224L64 88C64 74.7 74.7 64 88 64z"/></svg>
+              Reset
+            </button>
+          </div>
+        </section>
+
+        <button id="add" class="btn btn-primary" disabled>Add to timeline</button>
+        <p class="sec-hint">Inserted at the playhead, sized for your sequence. Templates are saved with your project.</p>
+      </div>
+
+      <!-- ===================== CAPTIONS ===================== -->
+      <div class="sec" data-sec="captions">
         <button id="cap-install" class="btn btn-secondary">Install OCHA caption styles</button>
-        <ol class="cap-steps" style="margin-top:8px">
+        <ol class="cap-steps" style="margin-top:10px">
           <li><strong>Window &gt; Text &gt; Captions</strong> → <strong>Create captions from transcript</strong>.</li>
           <li>In the create dialog (or Track Style), pick <strong>OCHA Boxed</strong> (social) or <strong>OCHA Clean</strong> (events).</li>
         </ol>
-        <p class="cap-hint">Installing once is enough — the styles then live in Premiere's own Style dropdown. Boxed = grey box (social feeds) · Clean = plain white (events, pairs with the bottom gradient).</p>
-      </section>
+        <p class="sec-hint">Install once — the styles then live in Premiere's own Style dropdown. Boxed = grey box (social feeds) · Clean = plain white (events, pairs with the bottom gradient).</p>
+      </div>
+
+      <!-- ===================== TOOLBOX ===================== -->
+      <div class="sec" data-sec="toolbox">
+        <p class="sec-hint" style="margin-top:0">Utilities for OCHA video projects.</p>
+
+        <button id="tool-reel" class="btn btn-secondary tool-btn">Square → Reel (9:16 blurred fill)</button>
+        <p class="tool-hint">Turns the active square sequence into a 9:16 reel: original centred, with a scaled + blurred copy filling the background.</p>
+
+        <button id="tool-collect" class="btn btn-secondary tool-btn">Collect media into a bin</button>
+        <p class="tool-hint">Gathers all footage used across the project's sequences into one tidy bin.</p>
+
+        <div class="tool-sep"></div>
+        <button id="tool-clean" class="btn btn-secondary tool-btn">Clean up unused MOGRTs</button>
+        <p class="tool-hint">Removes OCHA branding templates that aren't used in any sequence from the project bin.</p>
+      </div>
+
     </div>
 
-    <footer class="ft">
-      <button id="add" class="btn btn-primary" disabled>Add to timeline</button>
-      <div id="status" class="status is-off"></div>
-      <p class="ft__hint">Inserted at the playhead, sized for your sequence. Templates are saved with your project.</p>
-    </footer>
+    <div class="statusbar"><div id="status" class="status is-off"></div></div>
 
   </div>
   <script src="js/main.js"></script>

@@ -245,3 +245,57 @@ function ochaInstallCaptionStyles(extRoot) {
     return out;
   } catch (e) { return "ERR|" + e.toString(); }
 }
+
+/* ---------------- Toolbox (v1: safe detection / readiness) ----------------
+   Non-destructive. Each reports what it sees + writes detail to
+   /tmp/ocha_toolbox.txt, so the real (constructive/destructive) actions are
+   built on the actual project structure + API, not guesses. */
+function ochaEachItem(item, cb) {
+  try { cb(item); } catch (e) {}
+  var kids = null;
+  try { kids = item.children; } catch (e) {}
+  if (kids && kids.numItems !== undefined) {
+    for (var i = 0; i < kids.numItems; i++) { try { ochaEachItem(kids[i], cb); } catch (e) {} }
+  }
+}
+function ochaWrite(path, text) {
+  try { var f = new File(path); f.encoding = "UTF-8"; f.open("w"); f.write(text); f.close(); } catch (e) {}
+}
+
+function ochaReelReady() {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return "ERR|Open the square sequence first.";
+    var w = seq.frameSizeHorizontal, h = seq.frameSizeVertical;
+    if (!h || Math.abs(w / h - 1) > 0.12) return "WARN|'" + seq.name + "' is " + w + "x" + h + " - the reel tool needs a square sequence.";
+    var reelH = Math.round(w * 16 / 9);
+    var qeOk = false; try { app.enableQE(); qeOk = (typeof qe !== "undefined"); } catch (e) {}
+    return "OK|Ready: '" + seq.name + "' " + w + "x" + h + " -> reel " + w + "x" + reelH + ", centred + blurred fill. (Action wires next; qe=" + qeOk + ")";
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
+function ochaCollectReport() {
+  var names = [], clips = 0, bins = 0;
+  try {
+    ochaEachItem(app.project.rootItem, function (it) {
+      var nm = ""; try { nm = it.name; } catch (e) {}
+      var kids = null; try { kids = it.children; } catch (e) {}
+      if (kids && kids.numItems !== undefined) bins++;
+      else { clips++; names.push(nm); }
+    });
+    ochaWrite("/tmp/ocha_toolbox.txt", "COLLECT\nbins=" + bins + " clips=" + clips + "\n" + names.join("\n"));
+    return "OK|Project has " + clips + " media item(s) across " + bins + " bin(s). (Collect-into-bin action wires next.)";
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
+function ochaCleanReport() {
+  var ocha = [];
+  try {
+    ochaEachItem(app.project.rootItem, function (it) {
+      var nm = ""; try { nm = it.name; } catch (e) {}
+      if (/^OCHA (Lower Third|Location|Bug|Ending)/.test(nm)) ocha.push(nm);
+    });
+    ochaWrite("/tmp/ocha_toolbox.txt", "CLEAN\nOCHA template items=" + ocha.length + "\n" + ocha.join("\n"));
+    return "OK|Found " + ocha.length + " OCHA template item(s) in the project bin. (Used/unused check + removal wire next.)";
+  } catch (e) { return "ERR|" + e.toString(); }
+}

@@ -83,8 +83,33 @@ body {
 [data-theme="dark"] .icon-sun { display: block; } [data-theme="dark"] .icon-moon { display: none; }
 [data-theme="light"] .icon-sun { display: none; } [data-theme="light"] .icon-moon { display: block; }
 
+/* ---------- section tabs ---------- */
+.tabs { display: flex; background: var(--bg-header); border-bottom: 1px solid var(--border-default); }
+.tab {
+  flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 4px 6px; background: none; border: 0; border-bottom: 2px solid transparent;
+  color: var(--text-secondary); font: var(--fw-medium) 11px var(--font-sans); cursor: pointer;
+  transition: color var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease);
+}
+.tab svg { width: 17px; height: 17px; }
+.tab:hover { color: var(--text-primary); }
+.tab.is-active { color: var(--accent); border-bottom-color: var(--accent); }
+
 /* ---------- body scroll region ---------- */
 .body { flex: 1 1 auto; overflow-y: auto; padding: var(--sp-200); }
+.sec { display: none; }
+.sec.is-open { display: block; }
+.sec-hint { color: var(--text-tertiary); font-size: 10px; line-height: 1.5; margin: var(--sp-100) 0 0; }
+.sec-hint strong { color: var(--text-secondary); }
+
+/* ---------- toolbox ---------- */
+.tool-btn { width: 100%; justify-content: flex-start; margin-top: var(--sp-100); }
+.tool-hint { color: var(--text-tertiary); font-size: 10px; line-height: 1.5; margin: var(--sp-75) 0 var(--sp-150); }
+.tool-sep { height: 1px; background: var(--border-default); margin: var(--sp-150) 0 var(--sp-100); }
+
+/* ---------- status bar (shared, below body) ---------- */
+.statusbar { padding: 0 var(--sp-200) var(--sp-200); background: var(--bg-header); }
+.statusbar:empty { display: none; }
 
 /* ---------- element cards ---------- */
 .cards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-100); margin-bottom: var(--sp-200); }

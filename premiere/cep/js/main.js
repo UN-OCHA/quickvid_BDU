@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.12.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.13.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -228,6 +228,29 @@ $("cap-install").addEventListener("click", async () => {
     show(res.replace(/^ERR\|/, "") || "No response from Premiere.", "err");
   }
 });
+
+// section tabs
+document.querySelectorAll(".tab").forEach((t) => {
+  t.addEventListener("click", () => {
+    const sec = t.dataset.sec;
+    document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("is-active", x === t));
+    document.querySelectorAll(".sec").forEach((s) => s.classList.toggle("is-open", s.dataset.sec === sec));
+    hideStatus();
+  });
+});
+
+/* ---------- Toolbox (v1: safe readiness / detection — the actions wire in next) ---------- */
+async function runTool(label, call) {
+  hideStatus();
+  if (!hostReady) return show("Premiere host not ready.", "warn");
+  show(label + "…", "ok");
+  const res = await jsx(call) || "";
+  const kind = res.indexOf("OK|") === 0 ? "ok" : (res.indexOf("WARN|") === 0 ? "warn" : "err");
+  show(res.replace(/^(OK|WARN|ERR)\|/, "") || "No response from Premiere.", kind);
+}
+$("tool-reel").addEventListener("click", () => runTool("Checking sequence", "ochaReelReady()"));
+$("tool-collect").addEventListener("click", () => runTool("Scanning media", "ochaCollectReport()"));
+$("tool-clean").addEventListener("click", () => runTool("Scanning templates", "ochaCleanReport()"));
 
 // theme toggle
 $("theme").addEventListener("click", () => {
