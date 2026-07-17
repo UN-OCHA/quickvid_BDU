@@ -181,7 +181,7 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob) {
     }
 
     var setNames = [], failNames = [];
-    var motion = { scale: null, posX: null, posY: null };   // @-keys route here
+    var motion = { scale: null, posX: null, posY: null };   // at-keys route to Motion
     var entries = kvBlob ? kvBlob.split("\u001E") : [];
     for (var n = 0; n < entries.length; n++) {
       if (!entries[n]) continue;
@@ -216,4 +216,55 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob) {
   } catch (e) {
     return "ERR|" + e.toString();
   }
+}
+
+/* TEMP DIAGNOSTIC (remove after captions decision): dump the REAL caption and
+   transcription API surface of this Premiere build to /tmp/ocha_caption_api.txt
+   so the captions feature is built on facts, not guesses. */
+function ochaProbeCaptionAPI() {
+  var L = [];
+  function names(refl) {
+    var out = [], i;
+    try {
+      for (i = 0; i < refl.properties.length; i++) out.push(refl.properties[i].name);
+      for (i = 0; i < refl.methods.length; i++) out.push(refl.methods[i].name + "()");
+    } catch (e) { out.push("reflect ERR " + e); }
+    return out;
+  }
+  function grepList(label, list) {
+    var hits = [], i;
+    for (i = 0; i < list.length; i++) {
+      if (/caption|transcri|speech|subtitle|text/i.test(list[i])) hits.push(list[i]);
+    }
+    L.push(label + " (" + list.length + " members) relevant: " + (hits.length ? hits.join(", ") : "none"));
+  }
+  try {
+    grepList("app", names(app.reflect));
+    var seq = app.project.activeSequence;
+    if (seq) grepList("sequence", names(seq.reflect));
+    else L.push("sequence: none open");
+    if (seq) {
+      var cand = ["createCaptionTrack", "getCaptionTrackCount", "captionTracks", "exportCaptions", "attachCustomProperty"];
+      for (var c = 0; c < cand.length; c++) {
+        var t = "?";
+        try { t = typeof seq[cand[c]]; } catch (e1) { t = "ERR"; }
+        L.push("sequence." + cand[c] + " : " + t);
+      }
+    }
+    var acand = ["transcribeSequence", "executeCommand", "getProjectViewIDs", "sourceMonitor"];
+    for (var a = 0; a < acand.length; a++) {
+      var ta = "?";
+      try { ta = typeof app[acand[a]]; } catch (e2) { ta = "ERR"; }
+      L.push("app." + acand[a] + " : " + ta);
+    }
+    if (typeof qe === "undefined") { try { app.enableQE(); } catch (e3) {} }
+    L.push("qe available: " + (typeof qe !== "undefined"));
+  } catch (e) {
+    L.push("FATAL " + e.toString());
+  }
+  try {
+    var f = new File("/tmp/ocha_caption_api.txt");
+    f.encoding = "UTF-8"; f.open("w"); f.write(L.join("\n")); f.close();
+    return "OK|" + L.length + " lines";
+  } catch (e4) { return "ERR|" + e4.toString(); }
 }

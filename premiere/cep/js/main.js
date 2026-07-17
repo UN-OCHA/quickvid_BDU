@@ -218,5 +218,10 @@ $("theme").addEventListener("click", () => {
   try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
 });
 
-loadHost().then(refresh);
+loadHost().then(async (ok) => {
+  await refresh();
+  // TEMP: one-shot dump of this build's real caption/transcription API surface
+  // to /tmp/ocha_caption_api.txt (removed once the captions feature is decided)
+  if (ok) { try { await jsx("ochaProbeCaptionAPI()"); } catch (e) {} }
+});
 setInterval(refresh, 2500);
