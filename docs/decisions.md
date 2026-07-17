@@ -725,8 +725,8 @@ in our code — a platform gap (CEP had `getMGTComponent`; UXP has no equivalent
 
 **Baking values into the .mogrt does not work either.** A `.mogrt` is a zip →
 `project.aegraphic` (zip) → `<name>.aep` (RIFX, big-endian, XMP trailer after
-the root). We can patch it perfectly — `premiere/plugin/rifx.js` +
-`premiere/plugin/tools/rifx_patch.py` produce a byte-correct capsule
+the root). We can patch it perfectly — `premiere/uxp-archive/rifx.js` +
+`premiere/uxp-archive/tools/rifx_patch.py` produce a byte-correct capsule
 (definition.json `clientControls[].value` AND the AEP text-engine
 `"(\xfe\xff" + UTF-16BE` strings), verified three ways: byte-identical
 rebuild, JS output identical to the Python patcher, and **After Effects opens

@@ -2,9 +2,25 @@
 
 The OCHA branding elements (lower third, location strip, bug, ending) as
 **native Premiere Pro assets**: MOGRTs generated from the same brand JSONs the
-QuickVid engine renders from, plus (next phase) a UXP panel that drops them on
-the timeline. For editors who work in Premiere; QuickVid stays the tool for
-everyone else.
+QuickVid engine renders from, plus a panel that drops them on the timeline and
+manages every setting. For editors who work in Premiere; QuickVid stays the tool
+for everyone else.
+
+## The panel: CEP, not UXP
+
+The live panel is **CEP** → [`cep/`](cep). We built a UXP panel first and hit a
+wall: **UXP cannot write MOGRT text controls** (Name/Title/Place/Date), so the
+"never touch Essential Graphics" requirement is impossible there. CEP's
+ExtendScript can (`clip.getMGTComponent().properties[i].setValue(str, true)` —
+no UXP equivalent). The whole investigation is in
+[`../docs/decisions.md`](../docs/decisions.md).
+
+- `cep/` — the **live** panel. Symlink into `~/Library/Application Support/Adobe/CEP/extensions/`;
+  unsigned loads with PlayerDebugMode on; distribute as a self-signed ZXP (free,
+  no Marketplace — same path as the Illustrator DataViz tool).
+- `uxp-archive/` — the parked UXP panel, kept for reference and for the day Adobe
+  exposes text params in UXP. Its README records everything UXP *can* do
+  (bool/number params, the capsule component map) and the value-baking dead end.
 
 ## Folders
 
