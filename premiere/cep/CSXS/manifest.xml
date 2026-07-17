@@ -28,7 +28,7 @@
         <Lifecycle><AutoVisible>true</AutoVisible></Lifecycle>
         <UI>
           <Type>Panel</Type>
-          <Menu>OCHA Branding (CEP)</Menu>
+          <Menu>OCHA Branding</Menu>
           <Geometry><Size><Height>580</Height><Width>320</Width></Size></Geometry>
         </UI>
       </DispatchInfo>
