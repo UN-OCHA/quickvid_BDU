@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.9.1";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.10.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -46,17 +46,30 @@ function jsx(call) {
 // text (quotes, backslashes, unicode) into the evalScript source.
 const lit = (s) => JSON.stringify(String(s));
 
-// Explicitly source the host script on every panel load. CEP does NOT reliably
-// re-evaluate the manifest ScriptPath when a panel is reopened (the JSX engine
-// persists per session), so edits to host.jsx can appear "not loaded". Sourcing
-// it ourselves makes the host functions deterministic every open.
+// Load the host by reading host.jsx OURSELVES (cep.fs — proven on this machine)
+// and evaluating the source through the same evalScript bridge every ochaAdd
+// call uses. No ScriptPath, no $.evalFile, no engine file-eval quirks. If any
+// step fails, hostErr carries the exact step for the chip.
 let hostReady = false;
+let hostErr = "";
 async function loadHost() {
-  if (!EXT_ROOT) return false;
-  await jsx("$.evalFile(" + lit(EXT_ROOT + "/jsx/host.jsx") + ")");
-  const t = await jsx("typeof ochaGetFormat");
-  hostReady = (t === "function");
-  return hostReady;
+  hostErr = "";
+  try {
+    if (!EXT_ROOT) { hostErr = "no extension path"; return false; }
+    const fs = window.cep && window.cep.fs;
+    if (!fs) { hostErr = "cep.fs unavailable"; return false; }
+    const r = fs.readFile(EXT_ROOT + "/jsx/host.jsx");
+    if (r.err !== 0 || !r.data) { hostErr = "read host.jsx failed (err " + r.err + ")"; return false; }
+    const res = await jsx(r.data);
+    if (res && String(res).indexOf("EvalScript") !== -1) { hostErr = "engine rejected host source"; return false; }
+    const t = await jsx("typeof ochaGetFormat");
+    hostReady = (t === "function");
+    if (!hostReady) hostErr = "typeof=" + t;
+    return hostReady;
+  } catch (e) {
+    hostErr = "exception: " + (e && e.message ? e.message : e);
+    return false;
+  }
 }
 
 /* ---------- format chip ---------- */
@@ -71,7 +84,7 @@ async function refresh() {
     if (parts.length === 4) {
       chip.textContent = `${parts[0]}×${parts[1]} — unsupported`;
     } else if (!hostReady) {
-      chip.textContent = "host not loaded";
+      chip.textContent = "host: " + (hostErr || "not loaded");
     } else {
       chip.textContent = "no sequence";
     }
@@ -204,6 +217,28 @@ document.querySelectorAll("#pin-colour .seg__opt").forEach((b) => {
 });
 
 $("add").addEventListener("click", addElement);
+
+// captions: pick an .srt → host imports it + attaches a caption track
+$("cap-pick").addEventListener("click", async () => {
+  hideStatus();
+  try {
+    const fs = window.cep && window.cep.fs;
+    if (!fs || !fs.showOpenDialogEx) return show("File dialog unavailable.", "err");
+    const r = fs.showOpenDialogEx(false, false, "Choose subtitles (.srt)", null, ["srt"]);
+    const path = r && r.data && r.data[0];
+    if (!path) return;                       // user cancelled
+    show("Adding captions…", "ok");
+    const res = await jsx(`ochaAddCaptions(${lit(path)})`) || "";
+    if (res.indexOf("OK|") === 0) {
+      const which = (res.match(/captions=(.*)$/) || [])[1] || "";
+      show(`Caption track added — <strong>${which}</strong>.`, "ok");
+    } else {
+      show(res.replace(/^ERR\|/, "") || "No response from Premiere.", "err");
+    }
+  } catch (e) {
+    show("Error: " + (e && e.message ? e.message : e), "err");
+  }
+});
 
 // theme toggle
 $("theme").addEventListener("click", () => {

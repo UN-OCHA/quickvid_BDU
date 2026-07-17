@@ -217,3 +217,54 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob) {
     return "ERR|" + e.toString();
   }
 }
+
+/* ---------------- captions: SRT -> native caption track ----------------
+   Import the .srt into the project (own bin), then attach it to the active
+   sequence as a caption track. createCaptionTrack's format argument differs
+   across Premiere builds, so try the documented constant, the common numeric
+   for SUBTITLE, then no-format - and report which worked so the first live
+   test tells us the truth. */
+function ochaFindNewestByName(bin, name) {
+  var found = null;
+  for (var i = 0; i < bin.children.numItems; i++) {
+    var it = bin.children[i];
+    if (it.children && it.children.numItems !== undefined && it.type === 2) {   // BIN
+      var deep = ochaFindNewestByName(it, name);
+      if (deep) found = deep;
+    } else if (it.name === name) {
+      found = it;
+    }
+  }
+  return found;
+}
+
+function ochaAddCaptions(srtPath) {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return "ERR|Open a sequence first.";
+    var f = File(srtPath);
+    if (!f.exists) return "ERR|File not found: " + srtPath;
+
+    var ok = app.project.importFiles([f.fsName], true, app.project.rootItem, false);
+    var item = ochaFindNewestByName(app.project.rootItem, f.displayName);
+    if (!item) return "ERR|Imported (" + ok + ") but item '" + f.displayName + "' not found in the project.";
+
+    var attempts = [], done = "";
+    // documented constant (PPro 22+), common numeric fallback, then default
+    var tries = [];
+    try { if (typeof Sequence !== "undefined" && Sequence.CAPTION_FORMAT_SUBTITLE !== undefined) tries.push(["CAPTION_FORMAT_SUBTITLE", Sequence.CAPTION_FORMAT_SUBTITLE]); } catch (e0) {}
+    tries.push(["subtitle=5", 5]);
+    tries.push(["no-format", null]);
+    for (var t = 0; t < tries.length && !done; t++) {
+      try {
+        if (tries[t][1] === null) seq.createCaptionTrack(item, 0);
+        else seq.createCaptionTrack(item, 0, tries[t][1]);
+        done = tries[t][0];
+      } catch (e1) { attempts.push(tries[t][0] + ": " + e1.toString()); }
+    }
+    if (!done) return "ERR|createCaptionTrack failed - " + attempts.join(" / ");
+    return "OK|captions=" + f.displayName + " (" + done + ")";
+  } catch (e) {
+    return "ERR|" + e.toString();
+  }
+}
