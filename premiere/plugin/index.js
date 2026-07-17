@@ -246,34 +246,11 @@ async function addElement() {
     try { await storage.localFileSystem.getEntryWithUrl("plugin:/" + mogrtRel(curEl, curFmt)); }
     catch (e) { return show("Bundled MOGRT missing: " + mogrtRel(curEl, curFmt), "err"); }
 
-    // collect the panel's values for this element → bake them into the capsule
-    const values = {};
-    if (curEl === "lt") {
-      const n = $("lt-name").value.trim(), t1 = $("lt-title").value.trim(), t2 = $("lt-title2").value.trim();
-      if (n) values["Name"] = n;
-      if (t1) values["Title"] = t1;
-      values["Title line 2 (optional)"] = t2;               // empty collapses the line
-      values["Centre align"] = $("lt-centre").checked;
-    } else if (curEl === "loc") {
-      const p = $("loc-place").value.trim(), d = $("loc-date").value.trim();
-      if (p) values["Place"] = p;
-      if (d) values["Date"] = d;
-      const blue = document.querySelector("#pin-colour .seg__opt.is-active");
-      values["Pin colour"] = (blue && blue.dataset.col === "blue") ? 2 : 1;   // 1-based dropdown
-      values["Show pin icon"] = $("loc-icon").checked;
-    } else if (curEl === "ending") {
-      values["Over black"] = $("end-black").checked;
-    }
-
-    let path, baked = [], bakeErr = "";
-    try {
-      const b = await bakeMogrt(curEl, curFmt, values);
-      path = b.path; baked = b.baked;
-    } catch (e) {
-      path = await mogrtPath(curEl, curFmt);                // fall back to the pristine capsule
-      bakeErr = e && e.message ? e.message : String(e);
-      console.log("bake failed, inserting pristine capsule:", bakeErr);
-    }
+    // v0.4: insert the PRISTINE bundled template. Value-baking is parked —
+    // Premiere renders capsule values from a source the file doesn't control
+    // (patched AEP verified byte-perfect + AE-readable, yet defaults render,
+    // even in a brand-new project). See tools/rifx_patch.py + README notes.
+    const path = await mogrtPath(curEl, curFmt);
     const playhead = await seq.getPlayerPosition();
     const vCount = await seq.getVideoTrackCount();
     const aCount = await seq.getAudioTrackCount();
@@ -295,7 +272,7 @@ async function addElement() {
         errs.push(`track ${v}: returned nothing`);
       } catch (e) { errs.push(`track ${v}: ${e && e.message ? e.message : e}`); }
     }
-    if (!clip) return show(`Insert failed (${bakeErr ? "bundled template" : "baked copy"}: ${path.split("/").pop()}) —<br>` + errs.join("<br>"), "err");
+    if (!clip) return show("Insert failed —<br>" + errs.join("<br>"), "err");
 
     // Adobe's sample never probes the handles insertMogrtFromPath returns — it
     // re-fetches the clip FROM THE TRACK and works on that. Do the same: prefer
@@ -308,13 +285,21 @@ async function addElement() {
       }
     } catch (e) { /* keep the insert-returned handle */ }
 
-    // dev diagnostics only — the console keeps the component map handy while
-    // we build the Motion-based Adjust section (size/position on selection)
-    try { const r = await fillText(project, clip, {}); console.log("components:", r.dbg); } catch (e) {}
+    // hand the user straight to Essential Graphics: select the inserted clip
+    let selected = false;
+    try {
+      const sel = await seq.getSelection();
+      project.lockedAccess(() => {
+        sel.clear && sel.clear();
+        (sel.addItem || sel.add).call(sel, clip);
+        seq.setSelection(sel);
+      });
+      selected = true;
+    } catch (e) { console.log("auto-select failed:", e.message || e); }
 
-    let note = baked.length ? ` Baked: ${baked.join(", ")}.` : "";
-    if (bakeErr) note = ` <em>Inserted the plain template — baking failed: ${bakeErr}</em>`;
-    show(`Added <strong>${EL[curEl]}</strong> · ${FMT[curFmt].label} at the playhead.${note}`, bakeErr ? "warn" : "ok");
+    show(`Added <strong>${EL[curEl]}</strong> · ${FMT[curFmt].label} at the playhead.` +
+         (selected ? " Clip selected — type your text in <strong>Essential Graphics</strong>."
+                   : " Select it and edit in <strong>Essential Graphics</strong>."), "ok");
   } catch (e) {
     show("Error: " + (e && e.message ? e.message : e), "err");
   }

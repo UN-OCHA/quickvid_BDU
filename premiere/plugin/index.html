@@ -55,26 +55,13 @@
     <!-- per-element panes (class-toggled — UXP doesn't style [hidden]) -->
     <main class="panes">
       <section class="pane is-open" data-pane="lt">
-        <label class="fld"><span class="fld__label">Name</span>
-          <input id="lt-name" type="text" placeholder="Vanessa May" /></label>
-        <label class="fld"><span class="fld__label">Job title</span>
-          <input id="lt-title" type="text" placeholder="OCHA Venezuela" /></label>
-        <label class="fld"><span class="fld__label">2nd line <em>optional</em></span>
-          <input id="lt-title2" type="text" placeholder="bilingual line" /></label>
-        <label class="switch"><input id="lt-centre" type="checkbox" /><span class="switch__ui"></span>Centre align</label>
+        <p class="note">Animated name strip — <strong>name</strong> (black on white, uppercase) over the <strong>title bar</strong> (white on OCHA blue), with an optional bilingual 2nd line.</p>
+        <p class="note">After adding: type the name and title in <strong>Essential Graphics</strong> — the clip is selected for you. Centre-align and Size live there too.</p>
       </section>
 
       <section class="pane" data-pane="loc">
-        <label class="fld"><span class="fld__label">Place</span>
-          <input id="loc-place" type="text" placeholder="Ankara, Türkiye" /></label>
-        <label class="fld"><span class="fld__label">Date</span>
-          <input id="loc-date" type="text" placeholder="June 2026" /></label>
-        <div class="seg" id="pin-colour">
-          <span class="seg__label">Pin</span>
-          <button class="seg__opt is-active" data-col="red"><span class="dot dot--red"></span>Red</button>
-          <button class="seg__opt" data-col="blue"><span class="dot dot--blue"></span>Blue</button>
-        </div>
-        <label class="switch"><input id="loc-icon" type="checkbox" checked /><span class="switch__ui"></span>Show pin icon</label>
+        <p class="note">The pin locator — a map pin beside <strong>place</strong> (top) and <strong>date</strong>, top-left, animated in and out.</p>
+        <p class="note">After adding: set the place and date in <strong>Essential Graphics</strong>; pin colour (red / blue), icon toggle and Size are there too.</p>
       </section>
 
       <section class="pane" data-pane="bug">
@@ -82,8 +69,7 @@
       </section>
 
       <section class="pane" data-pane="ending">
-        <label class="switch"><input id="end-black" type="checkbox" /><span class="switch__ui"></span>Over black <em>(else over footage)</em></label>
-        <p class="note">OCHA logo + click sound. <strong>Over footage</strong> snaps it over your final shot; <strong>over black</strong> adds an end card. Place it so it ends with your video.</p>
+        <p class="note">OCHA logo + click sound. Default snaps the logo <strong>over your footage</strong>; tick <strong>Over black</strong> in Essential Graphics for an end card. Place it so it ends with your video.</p>
       </section>
     </main>
 
