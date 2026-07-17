@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.11.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.11.1";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -228,5 +228,10 @@ $("theme").addEventListener("click", () => {
   try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
 });
 
-loadHost().then(refresh);
+loadHost().then(async (ok) => {
+  await refresh();
+  // TEMP: dump the full app/qe API to /tmp/ocha_menu_probe.txt to settle whether
+  // "Create captions from transcript" is scriptable. Remove after the decision.
+  if (ok) { try { await jsx("ochaProbeMenus()"); } catch (e) {} }
+});
 setInterval(refresh, 2500);

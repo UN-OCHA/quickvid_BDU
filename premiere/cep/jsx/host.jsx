@@ -273,3 +273,43 @@ function ochaProbeCaption() {
     return "OK|Inspected '" + it.name + "' - " + L.length + " lines written. Send me /tmp/ocha_caption_probe.txt";
   } catch (e) { return "ERR|" + e.toString(); }
 }
+
+/* TEMP: full-surface dump to answer "can the plugin trigger Create captions
+   from transcript?". Lists EVERY app + qe method (not a filtered guess) so we
+   can see if any transcription / caption-creation / menu-command hook exists.
+   Writes /tmp/ocha_menu_probe.txt. Remove after the decision. */
+function ochaProbeMenus() {
+  var L = [], P = function (s) { L.push(String(s)); };
+  try {
+    var ar = ochaReflect(app);
+    P("=== app METHODS (" + ar.methods.length + ") ===");
+    P(ar.methods.join(", "));
+    P("=== app PROPS (" + ar.props.length + ") ===");
+    P(ar.props.join(", "));
+    try {
+      var proj = app.project, pr = ochaReflect(proj);
+      P("=== project METHODS (" + pr.methods.length + ") ===");
+      P(pr.methods.join(", "));
+    } catch (e) { P("project reflect ERR " + e); }
+    try {
+      var seq = app.project.activeSequence;
+      if (seq) { var sr = ochaReflect(seq);
+        P("=== sequence METHODS (" + sr.methods.length + ") ===");
+        P(sr.methods.join(", ")); }
+      else P("no active sequence");
+    } catch (e) { P("sequence reflect ERR " + e); }
+    try { app.enableQE(); } catch (e) { P("enableQE ERR " + e); }
+    if (typeof qe !== "undefined" && qe) {
+      var qr = ochaReflect(qe);
+      P("=== qe METHODS (" + qr.methods.length + ") ===");
+      P(qr.methods.join(", "));
+      P("=== qe PROPS (" + qr.props.length + ") ===");
+      P(qr.props.join(", "));
+    } else { P("qe undefined after enableQE"); }
+    var blob = L.join(" "), kws = ["transcri", "caption", "menu", "command", "execute", "speech", "subtitle", "sensei", "text"], found = [];
+    for (var i = 0; i < kws.length; i++) { if (new RegExp(kws[i], "i").test(blob)) found.push(kws[i]); }
+    P("=== KEYWORD HITS: " + (found.length ? found.join(", ") : "NONE") + " ===");
+    ochaWrite("/tmp/ocha_menu_probe.txt", L.join("\n"));
+    return "OK|full API dumped -> /tmp/ocha_menu_probe.txt (hits: " + (found.join(",") || "none") + ")";
+  } catch (e) { return "ERR|" + e.toString(); }
+}
