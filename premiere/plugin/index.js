@@ -245,6 +245,81 @@ async function fillText(project, item, wanted) {
   return { set, seen, dbg: dbg.join(" · ") };
 }
 
+/* ---------------- capsule param access (THE working path) ----------------
+   The inserted clip's component chain carries an "AE.ADBE Capsule" component
+   ("Graphic Parameters") whose params ARE the MOGRT's Essential-Graphics
+   controls, in EGP display order. Verified live via the probe:
+     LT   0:Name 1:Title 2:Title line 2 3:Centre align 4:Size
+     Loc  0:Place 1:Date 2:Pin colour 3:Show pin icon 4:Size
+     End  0:Over black 1:Size
+   The capsule attaches a beat AFTER insertMogrtFromPath returns, so poll for
+   it. Set each param the way Adobe's keyframe.ts does: setTimeVarying(false)
+   then createSetValueAction(createKeyframe(value)). All component/param handles
+   grabbed SYNC inside lockedAccess. */
+async function writeData(name, text) {
+  try {
+    const data = await storage.localFileSystem.getDataFolder();
+    const f = await data.createFile(name, { overwrite: true });
+    await f.write(text);
+  } catch (e) { console.log("writeData err", e); }
+}
+
+async function findCapsule(project, clip, tries) {
+  for (let t = 0; t < (tries || 24); t++) {
+    try {
+      const chain = await clip.getComponentChain();
+      let n = 0;
+      try { n = await chain.getComponentCount(); } catch (e) { n = chain.getComponentCount(); }
+      for (let i = 0; i < n; i++) {
+        let comp;
+        project.lockedAccess(() => { comp = chain.getComponentAtIndex(i); });
+        let mn = comp.getMatchName ? comp.getMatchName() : comp.matchName;
+        if (mn && mn.then) mn = await mn;
+        if (mn === "AE.ADBE Capsule") return comp;
+      }
+    } catch (e) { /* chain not ready yet */ }
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  return null;
+}
+
+function setCapParam(project, param, value, L) {
+  // best-effort: make sure it's a constant (not keyframed) so the value spans the clip
+  try {
+    project.lockedAccess(() => {
+      const tv = param.createSetTimeVaryingAction(false);
+      project.executeTransaction((ca) => { ca.addAction(tv); }, "OCHA: constant");
+    });
+  } catch (e) { L && L("  tv-off skipped: " + (e && e.message ? e.message : e)); }
+  project.lockedAccess(() => {
+    const kf = param.createKeyframe(value);
+    const act = param.createSetValueAction(kf, true);
+    project.executeTransaction((ca) => { ca.addAction(act); }, "OCHA: set value");
+  });
+}
+
+async function applyCapsuleValues(project, clip, entries) {
+  const log = ["=== apply v" + PANEL_VERSION + " ==="];
+  const L = (s) => log.push(String(s));
+  const cap = await findCapsule(project, clip, 24);
+  if (!cap) { L("NO CAPSULE after polling"); await writeData("ocha_apply.txt", log.join("\n")); return { applied: [], failed: entries.map((e) => e.label), noCapsule: true }; }
+  L("capsule found; setting " + entries.length + " params");
+  const applied = [], failed = [];
+  for (const e of entries) {
+    let param;
+    try { project.lockedAccess(() => { param = cap.getParam(e.idx); }); }
+    catch (err) { L("getParam " + e.idx + " (" + e.label + ") ERR " + err); failed.push(e.label); continue; }
+    if (!param) { L("param " + e.idx + " null"); failed.push(e.label); continue; }
+    try {
+      setCapParam(project, param, e.value, L);
+      L("SET [" + e.idx + "] " + e.label + " = " + JSON.stringify(e.value));
+      applied.push(e.label);
+    } catch (err) { L("SET [" + e.idx + "] " + e.label + " ERR " + (err && err.message ? err.message : err)); failed.push(e.label); }
+  }
+  await writeData("ocha_apply.txt", log.join("\n"));
+  return { applied, failed };
+}
+
 /* ---------------- insert ---------------- */
 async function addElement() {
   hideStatus();
@@ -253,40 +328,35 @@ async function addElement() {
     if (!seq) return show("Open a sequence first.", "warn");
     if (!curFmt) return show("This sequence isn’t one of the OCHA formats (9:16, 4:5, 1:1, 16:9).", "warn");
 
-    // bundled file reachable?
     try { await storage.localFileSystem.getEntryWithUrl("plugin:/" + mogrtRel(curEl, curFmt)); }
     catch (e) { return show("Bundled MOGRT missing: " + mogrtRel(curEl, curFmt), "err"); }
 
-    // v0.5: bake the panel's values into the capsule (all earlier "bake didn't
-    // render" verdicts happened during stale plugin loads — retesting cleanly;
-    // the prproj capsuleparams schema confirms values key off our control GUIDs).
-    const values = {};
+    // panel values → capsule param INDICES (see the map above)
+    const entries = [];
+    // Only NON-TEXT params are pushed: live-probing proved the capsule's text
+    // params report areKeyframesSupported=false and reject every value shape
+    // (createKeyframe(str) → "Illegal Parameter type"), so Premiere's UXP DOM
+    // cannot write them. Booleans/numbers set cleanly. Text path is pending a
+    // decision (see docs/decisions.md → "Premiere plugin: text controls").
+    const textPending = [];
     if (curEl === "lt") {
       const n = $("lt-name").value.trim(), t1 = $("lt-title").value.trim(), t2 = $("lt-title2").value.trim();
-      if (n) values["Name"] = n;
-      if (t1) values["Title"] = t1;
-      if (t2) values["Title line 2 (optional)"] = t2;
-      values["Centre align"] = $("lt-centre").checked;
+      if (n)  textPending.push("Name");
+      if (t1) textPending.push("Job title");
+      if (t2) textPending.push("2nd line");
+      entries.push({ idx: 3, label: "Centre align", value: !!$("lt-centre").checked });
     } else if (curEl === "loc") {
       const p = $("loc-place").value.trim(), d = $("loc-date").value.trim();
-      if (p) values["Place"] = p;
-      if (d) values["Date"] = d;
+      if (p) textPending.push("Place");
+      if (d) textPending.push("Date");
       const blue = document.querySelector("#pin-colour .seg__opt.is-active");
-      values["Pin colour"] = (blue && blue.dataset.col === "blue") ? 2 : 1;
-      values["Show pin icon"] = $("loc-icon").checked;
+      entries.push({ idx: 2, label: "Pin colour", value: (blue && blue.dataset.col === "blue") ? 2 : 1 });
+      entries.push({ idx: 3, label: "Show pin icon", value: !!$("loc-icon").checked });
     } else if (curEl === "ending") {
-      values["Over black"] = $("end-black").checked;
+      entries.push({ idx: 0, label: "Over black", value: !!$("end-black").checked });
     }
 
-    let path, baked = [], bakeErr = "";
-    try {
-      const b = await bakeMogrt(curEl, curFmt, values);
-      path = b.path; baked = b.baked;
-    } catch (e) {
-      path = await mogrtPath(curEl, curFmt);
-      bakeErr = e && e.message ? e.message : String(e);
-      console.log("bake failed → pristine:", bakeErr);
-    }
+    const path = await mogrtPath(curEl, curFmt);   // pristine bundled capsule
     const playhead = await seq.getPlayerPosition();
     const vCount = await seq.getVideoTrackCount();
     const aCount = await seq.getAudioTrackCount();
@@ -294,15 +364,12 @@ async function addElement() {
     const editor = await ppro.SequenceEditor.getEditor(seq);
 
     // insertMogrtFromPath rejects out-of-range indexes (no auto-create) — ladder.
-    // Called SYNCHRONOUSLY inside lockedAccess, as Adobe's own sample does.
     const tries = [...new Set([vCount, Math.max(0, vCount - 1), 0])];
     let clip = null, usedTrack = -1; const errs = [];
     for (const v of tries) {
       try {
         let items = [];
-        project.lockedAccess(() => {
-          items = editor.insertMogrtFromPath(path, playhead, v, aTrack);
-        });
+        project.lockedAccess(() => { items = editor.insertMogrtFromPath(path, playhead, v, aTrack); });
         clip = Array.isArray(items) ? items[0] : items;
         if (clip) { usedTrack = v; break; }
         errs.push(`track ${v}: returned nothing`);
@@ -310,32 +377,37 @@ async function addElement() {
     }
     if (!clip) return show("Insert failed —<br>" + errs.join("<br>"), "err");
 
-    // Adobe's sample never probes the handles insertMogrtFromPath returns — it
-    // re-fetches the clip FROM THE TRACK and works on that. Do the same: prefer
-    // the newest CLIP item on the track we inserted into.
+    // re-fetch the newest clip from the track we inserted into (sample pattern)
     try {
       const track = await seq.getVideoTrack(usedTrack);
       if (track) {
         const items = await track.getTrackItems(ppro.Constants.TrackItemType.CLIP, false);
         if (items && items.length) clip = items[items.length - 1];
       }
-    } catch (e) { /* keep the insert-returned handle */ }
+    } catch (e) { /* keep insert handle */ }
 
-    // hand the user straight to Essential Graphics: select the inserted clip
-    let selected = false;
+    show(`Adding <strong>${EL[curEl]}</strong> · ${FMT[curFmt].label}…`, "ok");
+
+    // set the panel's values directly on the capsule params
+    const r = await applyCapsuleValues(project, clip, entries);
+
+    // select the finished clip
     try {
       const sel = await seq.getSelection();
       project.lockedAccess(() => {
-        sel.clear && sel.clear();
-        (sel.addItem || sel.add).call(sel, clip);
+        if (sel.clear) sel.clear();
+        (sel.addItem || sel.add).call(sel, clip, false);
         seq.setSelection(sel);
       });
-      selected = true;
-    } catch (e) { console.log("auto-select failed:", e.message || e); }
+    } catch (e) { console.log("select err", e); }
 
-    let note = baked.length ? ` Applied: ${baked.join(", ")}.` : "";
-    if (bakeErr) note = ` <em>Inserted plain — baking failed: ${bakeErr}</em>`;
-    show(`Added <strong>${EL[curEl]}</strong> · ${FMT[curFmt].label} at the playhead.${note}`, bakeErr ? "warn" : "ok");
+    if (r.noCapsule) {
+      show(`Added <strong>${EL[curEl]}</strong>, but its controls didn’t attach in time.`, "warn");
+    } else {
+      const set = r.applied.length ? ` Applied: ${r.applied.join(", ")}.` : "";
+      const pend = textPending.length ? ` Text (${textPending.join(", ")}) not applied yet — Premiere’s UXP API can’t write text controls.` : "";
+      show(`Added <strong>${EL[curEl]}</strong> · ${FMT[curFmt].label}.${set}${pend}`, textPending.length ? "warn" : "ok");
+    }
   } catch (e) {
     show("Error: " + (e && e.message ? e.message : e), "err");
   }
@@ -382,14 +454,3 @@ setInterval(refresh, 2500);
       if (e.isFile && /^ocha_[0-9a-f]{8}\.mogrt$/.test(e.name)) await e.delete();
   } catch (e) { /* cosmetic */ }
 })();
-
-/* TEMP-TEST (remove after verification): prefill sentinel values so the
-   insert test needs only an Add click — synthetic keystrokes don't reach
-   UXP floating panels. */
-setTimeout(() => {
-  try {
-    $("lt-name").value = "ZZTEST PANEL";
-    $("lt-title").value = "OCHA Verification";
-    $("lt-centre").checked = true;
-  } catch (e) {}
-}, 500);

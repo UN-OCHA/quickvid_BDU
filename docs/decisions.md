@@ -676,6 +676,71 @@ Increment 1 of the "unify branding" batch (Javier's Windows-test feedback + spac
   routing too. (Javier: subtitles are for users who can't install the engine → offer a
   no-engine path, CTA fallback; style = a toggle with preview.)
 
+## 2026-07-17 — Premiere plugin: which MOGRT controls the panel CAN drive (measured, not guessed)
+
+Settled by live probing inside Premiere Beta 26.5 (UXP 9.3), logged to files
+rather than inferred from screenshots. Do not re-litigate this without new
+Premiere/UXP versions — re-run the probe first.
+
+**The capsule IS reachable.** An inserted MOGRT's track item exposes:
+
+```
+trackItem.getComponentChain() -> 3 components
+  [0] AE.ADBE Opacity  — Opacity, Blend Mode
+  [1] AE.ADBE Motion   — Position, Scale, Rotation, Anchor Point, Crop…
+  [2] AE.ADBE Capsule  — "Graphic Parameters"  ← the Essential Graphics controls
+        LT   0:Name 1:Title 2:Title line 2 3:Centre align 4:Size
+        Loc  0:Place 1:Date 2:Pin colour 3:Show pin icon 4:Size
+        End  0:Over black 1:Size
+```
+
+The capsule attaches a beat AFTER `insertMogrtFromPath` returns — probe
+immediately and you see only Motion+Opacity and wrongly conclude the controls
+are unreachable (that mistake caused the whole value-baking detour). **Poll for
+`matchName === "AE.ADBE Capsule"`.** Grab component/param handles SYNCHRONOUSLY
+inside `project.lockedAccess`; the handles stay valid across later
+lockedAccess calls.
+
+**What works — booleans and numbers.** Confirmed set live:
+`Centre align = true`, `Size = 50`. Pattern (Adobe's `keyframe.ts`):
+`createSetTimeVaryingAction(false)` (best-effort) → `createKeyframe(value)` →
+`createSetValueAction(kf, true)` inside `executeTransaction`.
+
+**What does NOT work — text.** Name/Title/Place/Date cannot be written:
+- `areKeyframesSupported() === false` on text params, `isTimeVarying() === false`
+- `createKeyframe("string")` → **"Illegal Parameter type"**; `{value:str}` too
+- `getStartValue()` → `null` (even after forcing `setTimeVarying(true)`)
+- `getValueAtTime()` → "not supported for these value types"
+- `ComponentParam` has NO string setter (methods: displayName, createKeyframe,
+  getValueAtTime, find*Keyframe, createRemoveKeyframe*, createSetValueAction,
+  createAddKeyframeAction, createSetTimeVaryingAction, getStartValue,
+  getKeyframeListAsTickTimes, getKeyframePtr, isTimeVarying,
+  createSetInterpolationAtKeyframeAction, areKeyframesSupported)
+- `ppro.TextSegments` exists but only has `importFromJSON`/`exportToJSON` and
+  belongs to the **Transcript/caption** API (`ppro.Transcript.*`), not capsules;
+  every JSON shape → "Not Enough Parameters"
+
+Conclusion: **Premiere's UXP DOM cannot write MOGRT text controls.** Not a bug
+in our code — a platform gap (CEP had `getMGTComponent`; UXP has no equivalent).
+
+**Baking values into the .mogrt does not work either.** A `.mogrt` is a zip →
+`project.aegraphic` (zip) → `<name>.aep` (RIFX, big-endian, XMP trailer after
+the root). We can patch it perfectly — `premiere/plugin/rifx.js` +
+`premiere/plugin/tools/rifx_patch.py` produce a byte-correct capsule
+(definition.json `clientControls[].value` AND the AEP text-engine
+`"(\xfe\xff" + UTF-16BE` strings), verified three ways: byte-identical
+rebuild, JS output identical to the Python patcher, and **After Effects opens
+the patched project and reads back the new text** (accents intact). Premiere
+still renders the DEFAULTS — tested with a fresh `capsuleID`, a unique temp
+file path, randomized XMP DocumentID/InstanceIDs, and in a brand-new empty
+project. Premiere resolves capsule instantiation from something the file
+doesn't control. Patcher is kept in-repo for the day this changes.
+
+**Where this leaves the panel:** it can drive Centre align, Pin colour, Show
+pin icon, Over black and Size — but not the text. Since the hard requirement is
+[[premiere-plugin-all-in-panel]] (never touch Essential Graphics), the text
+mechanism is an open architecture decision — see docs/backlog.md.
+
 ## 2026-07-13 — Open a saved project (UNPUBLISHED, local testing)
 "Add a field to open project" — reopen a former clip from its .ochaquickvid.json to
 keep editing.
