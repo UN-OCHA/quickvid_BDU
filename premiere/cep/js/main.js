@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.11.1";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.12.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -211,14 +211,22 @@ document.querySelectorAll("#pin-colour .seg__opt").forEach((b) => {
 
 $("add").addEventListener("click", addElement);
 
-// captions: inspect the selected caption (v1 — learns the styling API)
-$("cap-style").addEventListener("click", async () => {
+// captions: copy the bundled OCHA .prtextstyle files into Premiere's global
+// Text Styles folder so they appear in the native Style dropdown
+$("cap-install").addEventListener("click", async () => {
   hideStatus();
   if (!hostReady) return show("Premiere host not ready.", "warn");
-  show("Inspecting the selected caption…", "ok");
-  const res = await jsx("ochaProbeCaption()") || "";
-  if (res.indexOf("OK|") === 0) show(res.replace(/^OK\|/, ""), "ok");
-  else show(res.replace(/^ERR\|/, "") || "No response from Premiere.", "warn");
+  show("Installing OCHA caption styles…", "ok");
+  const res = await jsx(`ochaInstallCaptionStyles(${lit(EXT_ROOT)})`) || "";
+  if (res.indexOf("OK|") === 0) {
+    const inst = (res.match(/installed=([^|]*)/) || [])[1] || "";
+    const warn = (res.match(/warn=(.*)$/) || [])[1];
+    let msg = `Installed: <strong>${inst}</strong>. Pick them under Style when creating captions.`;
+    if (warn) msg += ` <em>${warn}</em>`;
+    show(msg, warn ? "warn" : "ok");
+  } else {
+    show(res.replace(/^ERR\|/, "") || "No response from Premiere.", "err");
+  }
 });
 
 // theme toggle
@@ -228,10 +236,5 @@ $("theme").addEventListener("click", () => {
   try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
 });
 
-loadHost().then(async (ok) => {
-  await refresh();
-  // TEMP: dump the full app/qe API to /tmp/ocha_menu_probe.txt to settle whether
-  // "Create captions from transcript" is scriptable. Remove after the decision.
-  if (ok) { try { await jsx("ochaProbeMenus()"); } catch (e) {} }
-});
+loadHost().then(refresh);
 setInterval(refresh, 2500);

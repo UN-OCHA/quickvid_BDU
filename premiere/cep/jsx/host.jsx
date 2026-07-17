@@ -218,98 +218,30 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob) {
   }
 }
 
-/* ---------------- captions: inspect what is stylable (probe v1) ----------------
-   Goal is OCHA-brand caption styling, but first we must learn whether Premiere
-   exposes caption / track-style to ExtendScript. This inspects the SELECTED
-   caption clip and dumps its API + component/property tree to
-   /tmp/ocha_caption_probe.txt so the real styling is built on facts. */
-function ochaReflect(o) {
-  var out = { props: [], methods: [] }, i;
+/* ---------------- captions: install OCHA styles ----------------
+   Premiere caption Track Styles are portable .prtextstyle files read from
+   ~/Documents/Adobe/Common/Assets/Text Styles. The plugin bundles the two
+   OCHA styles (Boxed = social, Clean = events) and copies them there, so
+   they appear in the native Style dropdown. Overwrites on purpose: colleagues
+   pick up brand updates with the plugin. */
+var OCHA_CAPTION_STYLES = ["OCHA Boxed.prtextstyle", "OCHA Clean.prtextstyle"];
+
+function ochaInstallCaptionStyles(extRoot) {
   try {
-    var r = o.reflect;
-    for (i = 0; i < r.properties.length; i++) out.props.push(r.properties[i].name);
-    for (i = 0; i < r.methods.length; i++) out.methods.push(r.methods[i].name);
-  } catch (e) {}
-  return out;
-}
-function ochaWrite(path, text) {
-  try { var f = new File(path); f.encoding = "UTF-8"; f.open("w"); f.write(text); f.close(); return true; }
-  catch (e) { return false; }
-}
-function ochaProbeCaption() {
-  var L = [], P = function (s) { L.push(String(s)); };
-  try {
-    var seq = app.project.activeSequence;
-    if (!seq) return "ERR|Open a sequence first.";
-    var sel = [];
-    try { var s = seq.getSelection(); if (s) { for (var i = 0; i < s.length; i++) sel.push(s[i]); } }
-    catch (e) { P("getSelection ERR " + e); }
-    P("selected items: " + sel.length);
-    if (!sel.length) { ochaWrite("/tmp/ocha_caption_probe.txt", L.join("\n")); return "ERR|Select a caption clip on the timeline, then click again."; }
-
-    var it = sel[0];
-    P("item.name = " + it.name);
-    try { P("item.mediaType = " + it.mediaType); } catch (e) {}
-    try { P("item.type = " + it.type); } catch (e) {}
-    var refl = ochaReflect(it);
-    P("ITEM props: " + refl.props.join(", "));
-    P("ITEM methods: " + refl.methods.join(", "));
-    var all = refl.props.concat(refl.methods), hit = [];
-    for (var q = 0; q < all.length; q++) if (/caption|style|font|track|text|colou?r|fill|background/i.test(all[q])) hit.push(all[q]);
-    P("STYLE-ISH members: " + (hit.length ? hit.join(", ") : "none"));
-
-    // component/property tree (where MOGRT params lived - same technique)
-    try {
-      var comps = it.components;
-      P("components: " + (comps ? comps.numItems : "none"));
-      for (var c = 0; c < (comps ? comps.numItems : 0); c++) {
-        var comp = comps[c], pn = [];
-        try { for (var p = 0; p < comp.properties.numItems; p++) pn.push(comp.properties[p].displayName); } catch (ee) {}
-        P("  [" + c + "] " + comp.displayName + " (" + comp.matchName + "): " + pn.join(", "));
-      }
-    } catch (e) { P("components ERR " + e); }
-
-    ochaWrite("/tmp/ocha_caption_probe.txt", L.join("\n"));
-    return "OK|Inspected '" + it.name + "' - " + L.length + " lines written. Send me /tmp/ocha_caption_probe.txt";
-  } catch (e) { return "ERR|" + e.toString(); }
-}
-
-/* TEMP: full-surface dump to answer "can the plugin trigger Create captions
-   from transcript?". Lists EVERY app + qe method (not a filtered guess) so we
-   can see if any transcription / caption-creation / menu-command hook exists.
-   Writes /tmp/ocha_menu_probe.txt. Remove after the decision. */
-function ochaProbeMenus() {
-  var L = [], P = function (s) { L.push(String(s)); };
-  try {
-    var ar = ochaReflect(app);
-    P("=== app METHODS (" + ar.methods.length + ") ===");
-    P(ar.methods.join(", "));
-    P("=== app PROPS (" + ar.props.length + ") ===");
-    P(ar.props.join(", "));
-    try {
-      var proj = app.project, pr = ochaReflect(proj);
-      P("=== project METHODS (" + pr.methods.length + ") ===");
-      P(pr.methods.join(", "));
-    } catch (e) { P("project reflect ERR " + e); }
-    try {
-      var seq = app.project.activeSequence;
-      if (seq) { var sr = ochaReflect(seq);
-        P("=== sequence METHODS (" + sr.methods.length + ") ===");
-        P(sr.methods.join(", ")); }
-      else P("no active sequence");
-    } catch (e) { P("sequence reflect ERR " + e); }
-    try { app.enableQE(); } catch (e) { P("enableQE ERR " + e); }
-    if (typeof qe !== "undefined" && qe) {
-      var qr = ochaReflect(qe);
-      P("=== qe METHODS (" + qr.methods.length + ") ===");
-      P(qr.methods.join(", "));
-      P("=== qe PROPS (" + qr.props.length + ") ===");
-      P(qr.props.join(", "));
-    } else { P("qe undefined after enableQE"); }
-    var blob = L.join(" "), kws = ["transcri", "caption", "menu", "command", "execute", "speech", "subtitle", "sensei", "text"], found = [];
-    for (var i = 0; i < kws.length; i++) { if (new RegExp(kws[i], "i").test(blob)) found.push(kws[i]); }
-    P("=== KEYWORD HITS: " + (found.length ? found.join(", ") : "NONE") + " ===");
-    ochaWrite("/tmp/ocha_menu_probe.txt", L.join("\n"));
-    return "OK|full API dumped -> /tmp/ocha_menu_probe.txt (hits: " + (found.join(",") || "none") + ")";
+    var destDir = new Folder(Folder.myDocuments.fsName + "/Adobe/Common/Assets/Text Styles");
+    if (!destDir.exists && !destDir.create()) return "ERR|Couldn't create " + destDir.fsName;
+    var done = [], fail = [];
+    for (var i = 0; i < OCHA_CAPTION_STYLES.length; i++) {
+      var name = OCHA_CAPTION_STYLES[i];
+      var src = new File(extRoot + "/caption-styles/" + name);
+      if (!src.exists) { fail.push(name + " (missing in plugin)"); continue; }
+      var dest = new File(destDir.fsName + "/" + name);
+      if (dest.exists) dest.remove();
+      if (src.copy(dest.fsName)) done.push(name.replace(".prtextstyle", ""));
+      else fail.push(name + " (copy failed)");
+    }
+    var out = "OK|installed=" + done.join(", ");
+    if (fail.length) out += "|warn=" + fail.join("; ");
+    return out;
   } catch (e) { return "ERR|" + e.toString(); }
 }
