@@ -74,6 +74,49 @@ function ochaFindParam(props, wantName) {
   return null;
 }
 
+// find a component on the clip by matchName (Motion = "AE.ADBE Motion")
+function ochaFindComp(clip, matchName) {
+  var comps = clip.components;
+  for (var i = 0; i < comps.numItems; i++) {
+    if (comps[i] && comps[i].matchName === matchName) return comps[i];
+  }
+  return null;
+}
+
+// Apply Size (Motion Scale, %) + Position (offset in px from the graphic's
+// current centre) to the clip's intrinsic Motion. Full range, no MOGRT rebuild,
+// same transform an editor nudges by hand. Returns a self-report string so the
+// first live test reveals the coordinate space (pixels vs normalized).
+function ochaApplyMotion(seq, clip, m) {
+  if (m.scale == null && m.posX == null && m.posY == null) return "";
+  var mo = ochaFindComp(clip, "AE.ADBE Motion");
+  if (!mo) return "motion=Motion component not found";
+  var parts = [];
+  if (m.scale != null) {
+    var sp = ochaFindParam(mo.properties, "Scale");
+    if (!sp) parts.push("no Scale prop");
+    else { try { sp.setValue(m.scale, true); parts.push("scale=" + m.scale); }
+           catch (e1) { parts.push("scale ERR " + e1.toString()); } }
+  }
+  if (m.posX != null || m.posY != null) {
+    var pp = ochaFindParam(mo.properties, "Position");
+    if (!pp) parts.push("no Position prop");
+    else {
+      var cx, cy, cur = null;
+      try { cur = pp.getValue(); } catch (e2) { cur = null; }
+      if (cur && cur.length >= 2) { cx = cur[0]; cy = cur[1]; }
+      else { cx = seq.frameSizeHorizontal / 2; cy = seq.frameSizeVertical / 2; }
+      // UI: +X right, +Y up. Premiere screen space: +Y down → subtract.
+      var nx = cx + (m.posX || 0);
+      var ny = cy - (m.posY || 0);
+      try { pp.setValue([nx, ny], true);
+            parts.push("pos=[" + Math.round(nx) + "," + Math.round(ny) + "] from [" + Math.round(cx) + "," + Math.round(cy) + "]"); }
+      catch (e3) { parts.push("pos ERR " + e3.toString()); }
+    }
+  }
+  return "motion=" + parts.join(" · ");
+}
+
 function ochaAdd(el, fmtKey, extRoot, kvBlob) {
   try {
     var seq = app.project.activeSequence;
@@ -108,29 +151,36 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob) {
     }
 
     var setNames = [], failNames = [];
-    if (mgt && kvBlob) {
-      var props = mgt.properties;
-      var entries = kvBlob.split("\u001E");
-      for (var n = 0; n < entries.length; n++) {
-        if (!entries[n]) continue;
-        var kv = entries[n].split("\u001F");
-        var key = kv[0], raw = kv[1];
-        var p = ochaFindParam(props, key);
-        if (!p) { failNames.push(key + " (not found)"); continue; }
-        var val = raw;
-        if (OCHA_BOOL[key]) val = (raw === "true");
-        else if (OCHA_NUM[key]) val = parseFloat(raw);
-        try { p.setValue(val, true); setNames.push(key); }
-        catch (e3) { failNames.push(key + " (" + e3.toString() + ")"); }
-      }
+    var motion = { scale: null, posX: null, posY: null };   // @-keys route here
+    var entries = kvBlob ? kvBlob.split("\u001E") : [];
+    for (var n = 0; n < entries.length; n++) {
+      if (!entries[n]) continue;
+      var kv = entries[n].split("\u001F");
+      var key = kv[0], raw = kv[1];
+      if (key === "@scale") { motion.scale = parseFloat(raw); continue; }
+      if (key === "@posX")  { motion.posX  = parseFloat(raw); continue; }
+      if (key === "@posY")  { motion.posY  = parseFloat(raw); continue; }
+      if (!mgt) { failNames.push(key + " (controls not reachable)"); continue; }
+      var p = ochaFindParam(mgt.properties, key);
+      if (!p) { failNames.push(key + " (not found)"); continue; }
+      var val = raw;
+      if (OCHA_BOOL[key]) val = (raw === "true");
+      else if (OCHA_NUM[key]) val = parseFloat(raw);
+      try { p.setValue(val, true); setNames.push(key); }
+      catch (e3) { failNames.push(key + " (" + e3.toString() + ")"); }
     }
+
+    var motionMsg = ochaApplyMotion(seq, clip, motion);
 
     // leave the clip selected so a manual tweak is one click away
     try { clip.setSelected(true, true); } catch (e4) {}
 
     var out = "OK|track=V" + (usedV + 1) + "|set=" + setNames.join(",");
-    if (!mgt) out += "|warn=controls not reachable after " + waited + "ms";
-    else if (failNames.length) out += "|warn=could not set: " + failNames.join("; ");
+    var warns = [];
+    if (!mgt) warns.push("controls not reachable after " + waited + "ms");
+    if (failNames.length) warns.push("could not set: " + failNames.join("; "));
+    if (warns.length) out += "|warn=" + warns.join(" * ");
+    if (motionMsg) out += "|" + motionMsg;
     return out;
   } catch (e) {
     return "ERR|" + e.toString();

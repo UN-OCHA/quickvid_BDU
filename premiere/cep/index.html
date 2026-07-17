@@ -74,6 +74,29 @@
       </section>
     </main>
 
+    <!-- shared Size + Position (applies to the element being added; not Bug) -->
+    <section class="adjust" id="adjust">
+      <div class="adj-head">Size &amp; position <button id="adj-reset" class="adj-reset" title="Reset">reset</button></div>
+      <div class="adj-row">
+        <span class="adj-lab">Size</span>
+        <input id="adj-size"  class="adj-slider" type="range"  min="20" max="200" step="1" value="100" />
+        <input id="adj-size-n" class="adj-num"   type="number" min="20" max="400" step="1" value="100" />
+        <span class="adj-u">%</span>
+      </div>
+      <div class="adj-row">
+        <span class="adj-lab">X</span>
+        <input id="adj-x"   class="adj-slider" type="range"  min="-400" max="400" step="1" value="0" />
+        <input id="adj-x-n" class="adj-num"   type="number" step="1" value="0" />
+        <span class="adj-u">px</span>
+      </div>
+      <div class="adj-row">
+        <span class="adj-lab">Y</span>
+        <input id="adj-y"   class="adj-slider" type="range"  min="-400" max="400" step="1" value="0" />
+        <input id="adj-y-n" class="adj-num"   type="number" step="1" value="0" />
+        <span class="adj-u">px</span>
+      </div>
+    </section>
+
     <footer class="ft">
       <button id="add" class="cta" disabled>Add to timeline</button>
       <div id="status" class="status is-off"></div>

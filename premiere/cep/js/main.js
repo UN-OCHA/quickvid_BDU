@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.6.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.7.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -96,7 +96,21 @@ function collectValues() {
   } else if (curEl === "ending") {
     push("Over black", $("end-black").checked);
   }
+  // shared Size + Position → Motion (skip Bug; skip values left at default)
+  if (curEl !== "bug") {
+    const size = clampNum($("adj-size-n").value, 100);
+    const px = clampNum($("adj-x-n").value, 0);
+    const py = clampNum($("adj-y-n").value, 0);
+    if (size !== 100) push("@scale", size);
+    if (px !== 0) push("@posX", px);
+    if (py !== 0) push("@posY", py);
+  }
   return kv.join(RS);
+}
+
+function clampNum(v, dflt) {
+  const n = parseFloat(v);
+  return isNaN(n) ? dflt : n;
 }
 
 const EL_LABEL = { lt: "Lower third", loc: "Location", bug: "Bug", ending: "Ending" };
@@ -128,11 +142,31 @@ async function addElement() {
   }
 }
 
+/* ---------- Size & position controls ---------- */
+// each pair: slider id, number id, default — kept in sync both ways
+const ADJ_PAIRS = [["adj-size", "adj-size-n", 100], ["adj-x", "adj-x-n", 0], ["adj-y", "adj-y-n", 0]];
+function linkPair(sliderId, numId) {
+  const s = $(sliderId), n = $(numId);
+  s.addEventListener("input", () => { n.value = s.value; });
+  n.addEventListener("input", () => {
+    // number can exceed the slider range (e.g. Size 300%); clamp the slider only
+    const v = parseFloat(n.value);
+    if (!isNaN(v)) s.value = Math.max(+s.min, Math.min(+s.max, v));
+  });
+}
+function resetAdjust() {
+  ADJ_PAIRS.forEach(([sId, nId, dflt]) => { $(sId).value = dflt; $(nId).value = dflt; });
+}
+ADJ_PAIRS.forEach(([sId, nId]) => linkPair(sId, nId));
+$("adj-reset").addEventListener("click", resetAdjust);
+
 /* ---------- UI wiring ---------- */
 function selectEl(el) {
   curEl = el;
   document.querySelectorAll(".card").forEach((c) => c.classList.toggle("is-active", c.dataset.el === el));
   document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("is-open", p.dataset.pane === el));
+  $("adjust").classList.toggle("is-off", el === "bug");   // no size/pos for the full-frame bug
+  resetAdjust();                                          // each element starts at default size/pos
   hideStatus();
 }
 document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => selectEl(c.dataset.el)));
