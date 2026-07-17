@@ -87,6 +87,47 @@ async function mogrtPath(elKey, fmtKey) {
   return `${folder.nativePath}/${mogrtRel(elKey, fmtKey)}`;
 }
 
+/* ---------------- bake values INTO the .mogrt ----------------
+   Premiere's UXP DOM doesn't expose MOGRT/EGP controls on the component chain
+   (only Motion/Opacity — verified live), so the panel writes the user's values
+   into the capsule itself before inserting: a .mogrt is a zip whose
+   definition.json carries every control's default in clientControls[].value
+   (type 6 text → value.strDB[].str · 1 checkbox → bool · 2 slider → number ·
+   13 dropdown → 1-based index). Patched copy goes to the plugin-data folder. */
+const fflate = require("./lib/fflate.js");
+
+async function bakeMogrt(elKey, fmtKey, values) {
+  const src = await storage.localFileSystem.getEntryWithUrl("plugin:/" + mogrtRel(elKey, fmtKey));
+  const buf = await src.read({ format: storage.formats.binary });
+  const files = fflate.unzipSync(new Uint8Array(buf));
+  if (!files["definition.json"]) throw new Error("definition.json missing in capsule");
+
+  const def = JSON.parse(fflate.strFromU8(files["definition.json"]));
+  const baked = [];
+  for (const c of def.clientControls || []) {
+    let ui = c.uiName;
+    if (ui && ui.strDB) ui = (ui.strDB[0] || {}).str;
+    const key = Object.keys(values).find((k) => k.toLowerCase() === String(ui || "").trim().toLowerCase());
+    if (key === undefined) continue;
+    const v = values[key];
+    if (c.type === 6 && c.value && c.value.strDB) {          // text
+      for (const loc of c.value.strDB) loc.str = String(v);
+    } else {                                                  // bool / number / dropdown index
+      c.value = v;
+    }
+    baked.push(ui);
+  }
+  files["definition.json"] = fflate.strToU8(JSON.stringify(def));
+
+  const out = fflate.zipSync(files);
+  const data = await storage.localFileSystem.getDataFolder();
+  const tmp = await data.createFile("ocha_insert.mogrt", { overwrite: true });
+  // write the exact byte range (a typed array's backing buffer can be larger)
+  await tmp.write(out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength),
+                  { format: storage.formats.binary });
+  return { path: tmp.nativePath, baked };
+}
+
 /* ---------------- text autofill ----------------
    Walk the inserted clip's components; match param display names to the panel
    fields (case-insensitive); set all matches in one undo step. getParam is a
@@ -167,7 +208,33 @@ async function addElement() {
     try { await storage.localFileSystem.getEntryWithUrl("plugin:/" + mogrtRel(curEl, curFmt)); }
     catch (e) { return show("Bundled MOGRT missing: " + mogrtRel(curEl, curFmt), "err"); }
 
-    const path = await mogrtPath(curEl, curFmt);
+    // collect the panel's values for this element → bake them into the capsule
+    const values = {};
+    if (curEl === "lt") {
+      const n = $("lt-name").value.trim(), t1 = $("lt-title").value.trim(), t2 = $("lt-title2").value.trim();
+      if (n) values["Name"] = n;
+      if (t1) values["Title"] = t1;
+      values["Title line 2 (optional)"] = t2;               // empty collapses the line
+      values["Centre align"] = $("lt-centre").checked;
+    } else if (curEl === "loc") {
+      const p = $("loc-place").value.trim(), d = $("loc-date").value.trim();
+      if (p) values["Place"] = p;
+      if (d) values["Date"] = d;
+      const blue = document.querySelector("#pin-colour .seg__opt.is-active");
+      values["Pin colour"] = (blue && blue.dataset.col === "blue") ? 2 : 1;   // 1-based dropdown
+      values["Show pin icon"] = $("loc-icon").checked;
+    } else if (curEl === "ending") {
+      values["Over black"] = $("end-black").checked;
+    }
+
+    let path, baked = [];
+    try {
+      const b = await bakeMogrt(curEl, curFmt, values);
+      path = b.path; baked = b.baked;
+    } catch (e) {
+      path = await mogrtPath(curEl, curFmt);                // fall back to the pristine capsule
+      console.log("bake failed, inserting pristine capsule:", e.message || e);
+    }
     const playhead = await seq.getPlayerPosition();
     const vCount = await seq.getVideoTrackCount();
     const aCount = await seq.getAudioTrackCount();
@@ -202,20 +269,11 @@ async function addElement() {
       }
     } catch (e) { /* keep the insert-returned handle */ }
 
-    const wanted = {};
-    for (const [ctrl, id] of Object.entries(TEXT[curEl])) {
-      const v = ($(id) && $(id).value || "").trim();
-      if (v) wanted[ctrl] = v;
-    }
+    // dev diagnostics only — the console keeps the component map handy while
+    // we build the Motion-based Adjust section (size/position on selection)
+    try { const r = await fillText(project, clip, {}); console.log("components:", r.dbg); } catch (e) {}
 
-    // Always probe the inserted clip's params — sets any typed text AND tells us
-    // what controls exist (the map the EGP-free editing plan builds on).
-    let note = "";
-    try {
-      const r = await fillText(project, clip, wanted);
-      if (r.set.length) note = ` Filled: ${r.set.join(", ")}.`;
-      else note = ` Controls I can drive: ${r.seen.slice(0, 16).join(" · ") || "none"} <span style="opacity:.65">[${r.dbg}]</span>`;
-    } catch (e) { note = " (Param probe error: " + (e.message || e) + ")"; }
+    const note = baked.length ? ` Set: ${baked.join(", ")}.` : "";
     show(`Added <strong>${EL[curEl]}</strong> · ${FMT[curFmt].label} at the playhead.${note}`, "ok");
   } catch (e) {
     show("Error: " + (e && e.message ? e.message : e), "err");
