@@ -96,6 +96,17 @@ async function mogrtPath(elKey, fmtKey) {
    13 dropdown → 1-based index). Patched copy goes to the plugin-data folder. */
 const fflate = require("./lib/fflate.js");
 
+function uuid4() {
+  const b = new Uint8Array(16);
+  (globalThis.crypto && crypto.getRandomValues)
+    ? crypto.getRandomValues(b)
+    : b.forEach((_, i) => { b[i] = (Math.random() * 256) | 0; });
+  b[6] = (b[6] & 0x0f) | 0x40;                     // version 4
+  b[8] = (b[8] & 0x3f) | 0x80;                     // variant 10
+  const h = [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
 async function bakeMogrt(elKey, fmtKey, values) {
   const src = await storage.localFileSystem.getEntryWithUrl("plugin:/" + mogrtRel(elKey, fmtKey));
   const buf = await src.read({ format: storage.formats.binary });
@@ -103,6 +114,10 @@ async function bakeMogrt(elKey, fmtKey, values) {
   if (!files["definition.json"]) throw new Error("definition.json missing in capsule");
 
   const def = JSON.parse(fflate.strFromU8(files["definition.json"]));
+  // Premiere dedupes templates by capsuleID: once a project has imported this
+  // capsule, later inserts of the SAME id reuse the cached master and ignore
+  // the new file's values. Fresh id per bake → our patched values actually load.
+  def.capsuleID = uuid4();
   const baked = [];
   for (const c of def.clientControls || []) {
     let ui = c.uiName;
