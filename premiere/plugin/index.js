@@ -95,22 +95,37 @@ async function fillText(project, item, wanted) {
   const seen = [], set = [], targets = [];
   const chain = await item.getComponentChain();
   const nComp = await chain.getComponentCount();
-  for (let c = 0; c < nComp; c++) {
-    const comp = await chain.getComponentAtIndex(c);
-    let misses = 0;
-    for (let p = 0; p < 80 && misses < 4; p++) {
-      let param = null;
-      try { param = await comp.getParam(p); } catch (e) { misses++; continue; }
-      if (!param) { misses++; continue; }
-      misses = 0;
-      let name = "";
-      try { name = (await param.getDisplayName()) || ""; } catch (e) {}
-      if (!name) continue;
-      seen.push(name);
-      const key = Object.keys(wanted).find((k) => k.toLowerCase() === name.trim().toLowerCase());
-      if (key && wanted[key] !== "") { targets.push({ param, value: String(wanted[key]), name }); }
+
+  // Component/param handles must be grabbed SYNCHRONOUSLY inside lockedAccess
+  // (Adobe's premiere-api sample does exactly this) — outside a lock they
+  // resolve to nothing, which is why the first probe saw zero controls.
+  const found = [];
+  project.lockedAccess(() => {
+    for (let c = 0; c < nComp; c++) {
+      let comp = null;
+      try { comp = chain.getComponentAtIndex(c); } catch (e) { continue; }
+      if (!comp) continue;
+      let misses = 0;
+      for (let p = 0; p < 60 && misses < 6; p++) {
+        let param = null;
+        try { param = comp.getParam(p); } catch (e) { misses++; continue; }
+        if (!param) { misses++; continue; }
+        misses = 0;
+        found.push(param);
+      }
     }
+  });
+
+  // display names CAN be awaited once we hold the references
+  for (const param of found) {
+    let name = "";
+    try { name = (await param.getDisplayName()) || ""; } catch (e) {}
+    if (!name) continue;
+    seen.push(name);
+    const key = Object.keys(wanted).find((k) => k.toLowerCase() === name.trim().toLowerCase());
+    if (key && wanted[key] !== "") targets.push({ param, value: String(wanted[key]), name });
   }
+
   if (targets.length) {
     project.lockedAccess(() => {
       project.executeTransaction((compound) => {
@@ -145,11 +160,15 @@ async function addElement() {
     const editor = await ppro.SequenceEditor.getEditor(seq);
 
     // insertMogrtFromPath rejects out-of-range indexes (no auto-create) — ladder.
+    // Called SYNCHRONOUSLY inside lockedAccess, as Adobe's own sample does.
     const tries = [...new Set([vCount, Math.max(0, vCount - 1), 0])];
     let clip = null; const errs = [];
     for (const v of tries) {
       try {
-        const items = await editor.insertMogrtFromPath(path, playhead, v, aTrack);
+        let items = [];
+        project.lockedAccess(() => {
+          items = editor.insertMogrtFromPath(path, playhead, v, aTrack);
+        });
         clip = Array.isArray(items) ? items[0] : items;
         if (clip) break;
         errs.push(`track ${v}: returned nothing`);
@@ -163,15 +182,14 @@ async function addElement() {
       if (v) wanted[ctrl] = v;
     }
 
+    // Always probe the inserted clip's params — sets any typed text AND tells us
+    // what controls exist (the map the EGP-free editing plan builds on).
     let note = "";
-    if (Object.keys(wanted).length) {
-      try {
-        const r = await fillText(project, clip, wanted);
-        note = r.set.length
-          ? ` Filled: ${r.set.join(", ")}.`
-          : ` Type the text in Essential Graphics — controls I saw: ${r.seen.slice(0, 14).join(" · ") || "none"}.`;
-      } catch (e) { note = " (Inserted — set the text in Essential Graphics. Probe error: " + (e.message || e) + ")"; }
-    }
+    try {
+      const r = await fillText(project, clip, wanted);
+      if (r.set.length) note = ` Filled: ${r.set.join(", ")}.`;
+      else note = ` Controls I can drive: ${r.seen.slice(0, 16).join(" · ") || "none found"}.`;
+    } catch (e) { note = " (Param probe error: " + (e.message || e) + ")"; }
     show(`Added <strong>${EL[curEl]}</strong> · ${FMT[curFmt].label} at the playhead.${note}`, "ok");
   } catch (e) {
     show("Error: " + (e && e.message ? e.message : e), "err");
