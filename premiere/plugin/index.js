@@ -92,31 +92,46 @@ async function mogrtPath(elKey, fmtKey) {
    fields (case-insensitive); set all matches in one undo step. getParam is a
    Promise on 26.x and indexes can be sparse — await everything, tolerate gaps. */
 async function fillText(project, item, wanted) {
-  const seen = [], set = [], targets = [];
-  const chain = await item.getComponentChain();
-  const nComp = await chain.getComponentCount();
+  const seen = [], set = [], targets = [], dbg = [];
+  let chain = null;
+  try { chain = await item.getComponentChain(); } catch (e) { dbg.push("chain: " + (e.message || e)); }
+  if (!chain) return { set, seen, dbg: dbg.join(" · ") || "no component chain" };
+
+  let nComp = 0;
+  try { nComp = await chain.getComponentCount(); } catch (e) { dbg.push("count: " + (e.message || e)); }
+  dbg.push("comps=" + nComp);
 
   // Component/param handles must be grabbed SYNCHRONOUSLY inside lockedAccess
-  // (Adobe's premiere-api sample does exactly this) — outside a lock they
-  // resolve to nothing, which is why the first probe saw zero controls.
-  const found = [];
+  // (Adobe's premiere-api sample does exactly this). Probe a few indexes even
+  // if the count reports 0 — counts have been unreliable on 26.x betas.
+  const found = [], comps = [];
   project.lockedAccess(() => {
-    for (let c = 0; c < nComp; c++) {
+    const maxC = Math.max(Number(nComp) || 0, 6);
+    for (let c = 0; c < maxC; c++) {
       let comp = null;
       try { comp = chain.getComponentAtIndex(c); } catch (e) { continue; }
       if (!comp) continue;
+      const rec = { comp, params: 0 };
+      comps.push(rec);
       let misses = 0;
       for (let p = 0; p < 60 && misses < 6; p++) {
         let param = null;
         try { param = comp.getParam(p); } catch (e) { misses++; continue; }
         if (!param) { misses++; continue; }
         misses = 0;
+        rec.params++;
         found.push(param);
       }
     }
   });
 
-  // display names CAN be awaited once we hold the references
+  // names can be awaited once we hold references
+  for (const rec of comps) {
+    let cn = "";
+    try { cn = (await rec.comp.getMatchName()) || ""; } catch (e) {}
+    if (!cn) { try { cn = (await rec.comp.getDisplayName()) || "?"; } catch (e) { cn = "?"; } }
+    dbg.push(cn.replace(/^AE\.ADBE /, "") + "(" + rec.params + "p)");
+  }
   for (const param of found) {
     let name = "";
     try { name = (await param.getDisplayName()) || ""; } catch (e) {}
@@ -137,7 +152,7 @@ async function fillText(project, item, wanted) {
       }, "OCHA Branding: set text");
     });
   }
-  return { set, seen };
+  return { set, seen, dbg: dbg.join(" · ") };
 }
 
 /* ---------------- insert ---------------- */
@@ -162,7 +177,7 @@ async function addElement() {
     // insertMogrtFromPath rejects out-of-range indexes (no auto-create) — ladder.
     // Called SYNCHRONOUSLY inside lockedAccess, as Adobe's own sample does.
     const tries = [...new Set([vCount, Math.max(0, vCount - 1), 0])];
-    let clip = null; const errs = [];
+    let clip = null, usedTrack = -1; const errs = [];
     for (const v of tries) {
       try {
         let items = [];
@@ -170,11 +185,22 @@ async function addElement() {
           items = editor.insertMogrtFromPath(path, playhead, v, aTrack);
         });
         clip = Array.isArray(items) ? items[0] : items;
-        if (clip) break;
+        if (clip) { usedTrack = v; break; }
         errs.push(`track ${v}: returned nothing`);
       } catch (e) { errs.push(`track ${v}: ${e && e.message ? e.message : e}`); }
     }
     if (!clip) return show("Insert failed —<br>" + errs.join("<br>"), "err");
+
+    // Adobe's sample never probes the handles insertMogrtFromPath returns — it
+    // re-fetches the clip FROM THE TRACK and works on that. Do the same: prefer
+    // the newest CLIP item on the track we inserted into.
+    try {
+      const track = await seq.getVideoTrack(usedTrack);
+      if (track) {
+        const items = await track.getTrackItems(ppro.Constants.TrackItemType.CLIP, false);
+        if (items && items.length) clip = items[items.length - 1];
+      }
+    } catch (e) { /* keep the insert-returned handle */ }
 
     const wanted = {};
     for (const [ctrl, id] of Object.entries(TEXT[curEl])) {
@@ -188,7 +214,7 @@ async function addElement() {
     try {
       const r = await fillText(project, clip, wanted);
       if (r.set.length) note = ` Filled: ${r.set.join(", ")}.`;
-      else note = ` Controls I can drive: ${r.seen.slice(0, 16).join(" · ") || "none found"}.`;
+      else note = ` Controls I can drive: ${r.seen.slice(0, 16).join(" · ") || "none"} <span style="opacity:.65">[${r.dbg}]</span>`;
     } catch (e) { note = " (Param probe error: " + (e.message || e) + ")"; }
     show(`Added <strong>${EL[curEl]}</strong> · ${FMT[curFmt].label} at the playhead.${note}`, "ok");
   } catch (e) {
