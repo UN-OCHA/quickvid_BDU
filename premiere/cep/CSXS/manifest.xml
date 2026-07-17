@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtensionManifest Version="7.0" ExtensionBundleId="org.unocha.branding"
-                   ExtensionBundleVersion="0.15.0" ExtensionBundleName="OCHA Branding"
+                   ExtensionBundleVersion="0.16.0" ExtensionBundleName="OCHA QuickVid"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ExtensionList>
-    <Extension Id="org.unocha.branding.panel" Version="0.15.0"/>
+    <Extension Id="org.unocha.branding.panel" Version="0.16.0"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
@@ -29,7 +29,7 @@
         <Lifecycle><AutoVisible>true</AutoVisible></Lifecycle>
         <UI>
           <Type>Panel</Type>
-          <Menu>OCHA Branding</Menu>
+          <Menu>OCHA QuickVid</Menu>
           <Geometry><Size><Height>580</Height><Width>320</Width></Size></Geometry>
         </UI>
       </DispatchInfo>

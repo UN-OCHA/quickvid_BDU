@@ -1,4 +1,4 @@
-# OCHA Branding — Premiere Pro panel
+# OCHA QuickVid — Premiere Pro panel
 
 Docked panel that drops the OCHA branding MOGRTs (lower third, location, OCHA
 logo, ending) into a sequence — **auto-picking the variant matching the
