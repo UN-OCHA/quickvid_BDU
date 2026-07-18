@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.18.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.19.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -314,13 +314,13 @@ const TOOLS = {
     cta: () => "Create reel",
     working: "Building the reel on a clone…",
   },
-  collect: {
-    title: "Collect media",
-    info: "ochaCollectInfo()",
-    action: "ochaCollectMedia()",
-    cta: (n) => (n > 0 ? `Collect ${n} item${n === 1 ? "" : "s"}` : "Nothing to collect"),
+  package: {
+    title: "Package project",
+    info: "ochaPackageInfo()",
+    action: "ochaPackageProject()",
+    cta: (n) => (n > 0 ? `Package ${n} file${n === 1 ? "" : "s"}` : "Nothing to package"),
     countGated: true,
-    working: "Collecting media into a bin…",
+    working: "Copying media + saving a relinked copy… (large projects take a while)",
   },
   clean: {
     title: "Clean unused MOGRTs",
@@ -389,7 +389,7 @@ function closeModal() {
   curTool = null;
 }
 $("tool-reel").addEventListener("click", () => openTool("reel"));
-$("tool-collect").addEventListener("click", () => openTool("collect"));
+$("tool-package").addEventListener("click", () => openTool("package"));
 $("tool-clean").addEventListener("click", () => openTool("clean"));
 $("modal-run").addEventListener("click", runToolAction);
 $("modal-cancel").addEventListener("click", closeModal);

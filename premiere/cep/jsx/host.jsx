@@ -518,27 +518,115 @@ function ochaCleanMogrts() {
   } catch (e) { return "ERR|" + e.toString(); }
 }
 
-// ---- Collect media ----
-function ochaCollectInfo() {
+// ---- Package project ----
+// Copy every file the project depends on into one clean folder (sorted by type)
+// beside the .prproj, then save a portable, relinked copy of the project inside
+// it. The ORIGINAL project + media are never modified (saveAs writes a new file).
+function ochaPkgExt(p) { var m = /\.([A-Za-z0-9]+)\s*$/.exec(p); return m ? m[1].toLowerCase() : ""; }
+function ochaPkgCategory(p) {
+  var e = ochaPkgExt(p);
+  if (/^(mp4|mov|mxf|avi|mkv|m4v|mts|m2ts|mpg|mpeg|wmv|r3d|braw|dv|3gp|ts|vob|webm|f4v)$/.test(e)) return "footage";
+  if (/^(jpg|jpeg|png|tif|tiff|gif|bmp|webp|heic|heif|dpx|tga|jp2)$/.test(e)) return "images";
+  if (/^(psd|ai|eps|svg|indd|pdf|mogrt|aegraphic|exr|c4d)$/.test(e)) return "graphics";
+  if (/^(wav|mp3|aac|aif|aiff|m4a|flac|ogg|wma|caf)$/.test(e)) return "audio";
+  return "other";
+}
+function ochaPkgFolder(rootFsName, cat) {
+  var f = new Folder(rootFsName + "/" + cat);
+  if (!f.exists) f.create();
+  return f;
+}
+function ochaPkgUniqueDest(folder, name) {
+  var f = new File(folder.fsName + "/" + name);
+  if (!f.exists) return f;
+  var dot = name.lastIndexOf("."), base = dot > 0 ? name.substring(0, dot) : name, ext = dot > 0 ? name.substring(dot) : "";
+  for (var i = 2; i < 9999; i++) { var g = new File(folder.fsName + "/" + base + " (" + i + ")" + ext); if (!g.exists) return g; }
+  return f;
+}
+// every project item pointing at a real file on disk - excludes bins, sequences
+// and synthetics (colour mattes, bars, adjustment layers) which have no path.
+function ochaPkgMediaItems() {
+  var out = [];
+  ochaEachItem(app.project.rootItem, function (it) {
+    var p = ""; try { p = it.getMediaPath(); } catch (e) { p = ""; }
+    if (p && new File(p).exists) out.push({ item: it, path: p });
+  });
+  return out;
+}
+function ochaPkgDest() {
+  var projPath = ""; try { projPath = app.project.path; } catch (e) {}
+  if (!projPath) return null;
+  var projFile = new File(projPath), projFolder = projFile.parent;
+  var base = decodeURI(projFile.name).replace(/\.[^.]+$/, "");
+  var root = new Folder(projFolder.fsName + "/" + base + " - Package");
+  if (root.exists) { for (var i = 2; i < 999; i++) { var r = new Folder(projFolder.fsName + "/" + base + " - Package " + i); if (!r.exists) { root = r; break; } } }
+  return { root: root, projName: base };
+}
+
+function ochaPackageInfo() {
   try {
-    var media = 0;
-    ochaEachItem(app.project.rootItem, function (it) { if (ochaIsMedia(it)) media++; });
-    return "OK|Gathers the project's footage into one bin named 'Collected media' (sequences and OCHA templates are left where they are). " + media + " media item(s) found.|" + media;
+    var projPath = ""; try { projPath = app.project.path; } catch (e) {}
+    if (!projPath) return "ERR|Save your project first - packaging copies its files into a folder next to the .prproj.";
+    var items = ochaPkgMediaItems();
+    var d = ochaPkgDest();
+    return "OK|Copies " + items.length + " media file(s) into a clean folder (footage / images / graphics / audio) and saves a portable, relinked copy of the project inside it. Your current project is left untouched. Destination: '" + decodeURI(d.root.name) + "'.|" + items.length;
   } catch (e) { return "ERR|" + e.toString(); }
 }
-function ochaCollectMedia() {
+
+function ochaPackageProject() {
   try {
-    var root = app.project.rootItem, binName = "Collected media", bin = null, i;
-    for (i = 0; i < root.children.numItems; i++) { var it = root.children[i]; var nm = ""; try { nm = it.name; } catch (e) {} if (nm === binName && ochaIsBin(it)) { bin = it; break; } }
-    if (!bin) { try { bin = root.createBin(binName); } catch (e) { return "ERR|createBin: " + e.toString(); } }
-    // snapshot the media items first (moving mutates the tree we'd be walking)
-    var items = [];
-    ochaEachItem(root, function (it) { if (ochaIsMedia(it)) items.push(it); });
-    var moved = 0, err = "";
-    for (i = 0; i < items.length; i++) {
-      try { items[i].moveBin(bin); moved++; } catch (e) { if (!err) err = e.toString(); }
+    var projPath = ""; try { projPath = app.project.path; } catch (e) {}
+    if (!projPath) return "ERR|Save your project first, then package it.";
+    var d = ochaPkgDest();
+    if (!d) return "ERR|Couldn't resolve the project folder.";
+    var root = d.root;
+    if (!root.exists && !root.create()) return "ERR|Couldn't create the package folder at " + root.fsName;
+
+    var items = ochaPkgMediaItems();
+    if (!items.length) return "ERR|No media files found on disk to package.";
+
+    // 1) copy each unique source file into its category folder (dedupe by path)
+    var map = {}, counts = { footage: 0, images: 0, graphics: 0, audio: 0, other: 0 }, copied = 0, failed = 0, firstErr = "";
+    for (var i = 0; i < items.length; i++) {
+      var src = items[i].path;
+      if (map[src]) continue;                       // same file used by several clips - copy once
+      var cat = ochaPkgCategory(src);
+      var srcFile = new File(src);
+      var destFolder = ochaPkgFolder(root.fsName, cat);
+      var dest = ochaPkgUniqueDest(destFolder, srcFile.name);
+      var ok = false; try { ok = srcFile.copy(dest.fsName); } catch (e1) { ok = false; if (!firstErr) firstErr = e1.toString(); }
+      if (ok && dest.exists) { map[src] = dest.fsName; counts[cat]++; copied++; }
+      else { failed++; if (!firstErr) firstErr = "copy failed: " + srcFile.name; }
     }
-    if (moved === 0 && items.length) return "ERR|Couldn't move items (" + items.length + " media): " + err;
-    return "OK|Moved " + moved + " media item(s) into '" + binName + "'.";
+    if (copied === 0) return "ERR|Couldn't copy any files: " + firstErr;
+
+    // 2) save a COPY of the project into the package root (original file untouched)
+    var newProj = new File(root.fsName + "/" + d.projName + ".prproj");
+    var savedAs = false;
+    try { app.project.saveAs(newProj.fsName); savedAs = true; } catch (e2) { firstErr = firstErr || e2.toString(); }
+
+    // 3) relink the (now packaged) project's items to the copied media
+    var relinked = 0;
+    if (savedAs) {
+      var live = ochaPkgMediaItems();               // re-read: same items, paths still original
+      for (var j = 0; j < live.length; j++) {
+        var np = map[live[j].path];
+        if (!np) continue;
+        try { if (live[j].item.canChangeMediaPath(np)) { live[j].item.changeMediaPath(np); relinked++; } } catch (e3) {}
+      }
+      try { app.project.save(); } catch (e4) {}
+    }
+
+    var parts = [];
+    if (counts.footage) parts.push("footage " + counts.footage);
+    if (counts.images) parts.push("images " + counts.images);
+    if (counts.graphics) parts.push("graphics " + counts.graphics);
+    if (counts.audio) parts.push("audio " + counts.audio);
+    if (counts.other) parts.push("other " + counts.other);
+    var msg = "Packaged " + copied + " file(s) into '" + decodeURI(root.name) + "' (" + parts.join(", ") + ").";
+    if (savedAs) msg += " Saved a relinked copy (" + relinked + " relinked) - you're now working in the package; your original project is unchanged.";
+    else msg += " NOTE: couldn't save the project copy (" + firstErr + ") - files were still copied.";
+    if (failed) msg += " " + failed + " file(s) failed to copy.";
+    return "OK|" + msg;
   } catch (e) { return "ERR|" + e.toString(); }
 }
