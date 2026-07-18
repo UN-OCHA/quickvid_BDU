@@ -280,8 +280,15 @@ body {
 }
 .modal-x svg { width: 100%; height: 100%; display: block; }
 .modal-x:hover { color: var(--text-primary); background: var(--bg-hover); }
-.modal-desc { font-size: var(--fs-sm); line-height: 1.5; color: var(--text-secondary); margin: 0 0 var(--sp-200); }
+.modal-desc { font-size: var(--fs-sm); line-height: 1.5; color: var(--text-secondary); margin: 0 0 var(--sp-150); }
 .modal-desc strong { color: var(--text-primary); font-weight: var(--fw-semibold); }
+.modal-info {
+  font-size: var(--fs-sm); line-height: 1.45; color: var(--text-primary);
+  background: var(--bg-layer-2); border: 1px solid var(--border-default);
+  border-radius: var(--r-md); padding: var(--sp-100) var(--sp-150); margin: 0 0 var(--sp-200);
+}
+.modal-info[hidden] { display: none; }
+.modal-info.is-err { color: var(--notice); background: var(--notice-bg); border-color: var(--notice-border); }
 .modal-result {
   font-size: var(--fs-sm); line-height: 1.5; border-radius: var(--r-md);
   padding: var(--sp-100) var(--sp-150); margin: 0 0 var(--sp-200); user-select: text;

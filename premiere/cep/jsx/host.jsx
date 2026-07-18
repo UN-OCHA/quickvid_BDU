@@ -478,8 +478,8 @@ function ochaReelInfo() {
     var seq = app.project.activeSequence;
     if (!seq) return "ERR|Open the square sequence first.";
     var w = seq.frameSizeHorizontal, h = seq.frameSizeVertical;
-    if (!h || Math.abs(w / h - 1) > 0.12) return "ERR|'" + seq.name + "' is " + w + "x" + h + " - the reel needs a square sequence.";
-    return "OK|'" + seq.name + "' (" + w + "x" + h + ") will become a " + w + "x" + Math.round(w * 16 / 9) + " reel: original centred, blurred fill behind. Works on a clone - your original is untouched.";
+    if (!h || Math.abs(w / h - 1) > 0.12) return "ERR|'" + seq.name + "' is " + w + "x" + h + " - the reel needs a square (1:1) sequence.";
+    return "OK|Ready: '" + seq.name + "' is square (" + w + "x" + h + ") - becomes a " + w + "x" + Math.round(w * 16 / 9) + " reel.";
   } catch (e) { return "ERR|" + e.toString(); }
 }
 
@@ -495,7 +495,7 @@ function ochaCleanInfo() {
         if (!id || !used["n" + id]) { unused++; if (names.length < 6) names.push(nm); }
       }
     });
-    return "OK|" + total + " OCHA template(s) in the project, " + unused + " not used in any sequence." + (unused ? " Remove them?" : "") + "|" + unused;
+    return "OK|" + total + " OCHA template(s) in the project, " + unused + " not used in any sequence.|" + unused;
   } catch (e) { return "ERR|" + e.toString(); }
 }
 function ochaCleanMogrts() {
@@ -569,7 +569,7 @@ function ochaPackageInfo() {
     if (!projPath) return "ERR|Save your project first - packaging copies its files into a folder next to the .prproj.";
     var items = ochaPkgMediaItems();
     var d = ochaPkgDest();
-    return "OK|Copies " + items.length + " media file(s) into a clean folder (footage / images / graphics / audio) and saves a portable, relinked copy of the project inside it. Your current project is left untouched. Destination: '" + decodeURI(d.root.name) + "'.|" + items.length;
+    return "OK|" + items.length + " media file(s) found. Destination folder: '" + decodeURI(d.root.name) + "'.|" + items.length;
   } catch (e) { return "ERR|" + e.toString(); }
 }
 

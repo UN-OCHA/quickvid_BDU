@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.19.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.20.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -303,12 +303,14 @@ document.querySelectorAll(".tab").forEach((t) => {
 });
 
 /* ---------- Toolbox (DataViz pattern: tile → modal with info + a CTA to run) ----------
-   Each tool has an `info` call (read-only — populates the modal) and an `action`
-   call (mutates the project). Count-gated tools disable the CTA when there's
-   nothing to do; the info readout may carry a trailing "|<count>". */
+   Each tool has: `explain` (static "what this does", always shown), an `info`
+   call (read-only — the live status line, may carry a trailing "|<count>"), and
+   an `action` call (mutates the project). Count-gated tools disable the CTA when
+   there's nothing to do. */
 const TOOLS = {
   reel: {
     title: "Square → Reel",
+    explain: "Turns a <strong>square (1:1)</strong> sequence into a vertical <strong>9:16 reel</strong> for Stories, TikTok and Shorts. Your clip stays centred and sharp; a scaled, blurred copy of it fills the empty space above and below so there are no black bars. It builds on a <strong>duplicate</strong> sequence — your square original is never changed.",
     info: "ochaReelInfo()",
     action: "ochaSquareToReel()",
     cta: () => "Create reel",
@@ -316,6 +318,7 @@ const TOOLS = {
   },
   package: {
     title: "Package project",
+    explain: "Collects <strong>every file this project uses</strong> — footage, images, graphics, audio — from wherever they're scattered on the drive into one tidy folder next to your project, sorted into subfolders by type. It then saves a <strong>portable, relinked copy</strong> of the project inside that folder. Ideal before archiving or handing the project to someone else. Your original project and files are left untouched.",
     info: "ochaPackageInfo()",
     action: "ochaPackageProject()",
     cta: (n) => (n > 0 ? `Package ${n} file${n === 1 ? "" : "s"}` : "Nothing to package"),
@@ -324,6 +327,7 @@ const TOOLS = {
   },
   clean: {
     title: "Clean unused MOGRTs",
+    explain: "Removes the <strong>OCHA branding templates</strong> (lower third, location, logo, ending) that are sitting in your project but <strong>aren't used in any sequence</strong> — the leftovers from trying a few options. Templates that are actually on a timeline are always kept. This only tidies the Project panel; your sequences and media aren't touched.",
     info: "ochaCleanInfo()",
     action: "ochaCleanMogrts()",
     cta: (n) => (n > 0 ? `Remove ${n} unused` : "Nothing to remove"),
@@ -340,12 +344,19 @@ function modalResult(msg, kind) {
   r.className = "modal-result is-" + kind;
   r.innerHTML = msg;
 }
+function modalInfo(msg, isErr) {
+  const el = $("modal-info");
+  el.hidden = false;
+  el.className = "modal-info" + (isErr ? " is-err" : "");
+  el.textContent = msg;
+}
 function openTool(key) {
   const cfg = TOOLS[key];
   if (!cfg) return;
   curTool = key;
   $("modal-title").textContent = cfg.title;
-  $("modal-desc").textContent = "Checking the project…";
+  $("modal-desc").innerHTML = cfg.explain;          // static explanation — always shown
+  modalInfo("Checking the project…", false);        // live status line
   $("modal-result").hidden = true;
   const run = $("modal-run");
   run.textContent = cfg.cta(0);
@@ -357,13 +368,13 @@ function openTool(key) {
 async function loadInfo() {
   const cfg = TOOLS[curTool];
   if (!hostReady) { await loadHost(); }
-  if (!hostReady) { $("modal-desc").textContent = "Premiere host not ready — restart Premiere with a project open."; return; }
+  if (!hostReady) { modalInfo("Premiere host not ready — restart Premiere with a project open.", true); return; }
   const res = await jsx(cfg.info) || "";
   const parts = res.split("|");
   const ok = parts[0] === "OK";
-  const desc = parts[1] || (ok ? "" : (res.replace(/^ERR\|/, "") || "Couldn't read the project."));
+  const status = parts[1] || (ok ? "" : (res.replace(/^ERR\|/, "") || "Couldn't read the project."));
   const count = parts.length > 2 ? parseInt(parts[2], 10) : null;
-  $("modal-desc").textContent = desc;
+  modalInfo(status, !ok);
   const run = $("modal-run");
   if (!ok) { run.disabled = true; run.textContent = cfg.cta(0); return; }
   run.textContent = cfg.cta(isNaN(count) ? 0 : (count == null ? 1 : count));
