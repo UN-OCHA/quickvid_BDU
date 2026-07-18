@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <link rel="stylesheet" href="styles.css?v=0.17" />
+  <link rel="stylesheet" href="styles.css?v=0.18" />
 </head>
 <body>
   <div class="app">
@@ -112,29 +112,34 @@
             <span class="adj-tag">advanced</span>
           </button>
           <div class="adj-body" id="adj-body" hidden>
-            <p class="adj-warn">Each template is already sized and placed for its format — change these only if a particular shot needs it.</p>
+            <p class="adj-warn">Relative to each template's built-in size &amp; position: <strong>100%</strong> and <strong>0, 0</strong> leave it exactly as designed. Nudge from there only if a shot needs it.</p>
             <div class="adj-row">
               <span class="adj-lab">Size</span>
               <input id="adj-size"  class="adj-slider" type="range"  min="20" max="200" step="1" value="100" />
               <input id="adj-size-n" class="adj-num"   type="number" min="20" max="400" step="1" value="100" />
               <span class="adj-u">%</span>
+              <button id="adj-size-r" class="adj-row__reset" type="button" title="Reset size to 100%" aria-label="Reset size to 100%">
+                <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M88 64C101.3 64 112 74.7 112 88L112 166.1L139.1 139C239.1 39 401.2 39 501.1 139C601 239 601.1 401.1 501.1 501C401.1 600.9 239 601 139.1 501C124.2 486.1 111.5 469.8 101 452.5C94.1 441.2 97.8 426.4 109.1 419.5C120.4 412.6 135.2 416.3 142.1 427.6C150.6 441.6 160.9 454.9 173.1 467C254.3 548.2 386 548.2 467.3 467C548.6 385.8 548.5 254.1 467.3 172.8C386.1 91.5 254.4 91.6 173.1 172.8L146 199.9L224.2 199.9C237.5 199.9 248.2 210.6 248.2 223.9C248.2 237.2 237.5 247.9 224.2 247.9L88 248C74.7 248 64 237.3 64 224L64 88C64 74.7 74.7 64 88 64z"/></svg>
+              </button>
             </div>
             <div class="adj-row">
               <span class="adj-lab">X</span>
               <input id="adj-x"   class="adj-slider" type="range"  min="-400" max="400" step="1" value="0" />
               <input id="adj-x-n" class="adj-num"   type="number" step="1" value="0" />
               <span class="adj-u">px</span>
+              <button id="adj-x-r" class="adj-row__reset" type="button" title="Reset X to 0" aria-label="Reset X to 0">
+                <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M88 64C101.3 64 112 74.7 112 88L112 166.1L139.1 139C239.1 39 401.2 39 501.1 139C601 239 601.1 401.1 501.1 501C401.1 600.9 239 601 139.1 501C124.2 486.1 111.5 469.8 101 452.5C94.1 441.2 97.8 426.4 109.1 419.5C120.4 412.6 135.2 416.3 142.1 427.6C150.6 441.6 160.9 454.9 173.1 467C254.3 548.2 386 548.2 467.3 467C548.6 385.8 548.5 254.1 467.3 172.8C386.1 91.5 254.4 91.6 173.1 172.8L146 199.9L224.2 199.9C237.5 199.9 248.2 210.6 248.2 223.9C248.2 237.2 237.5 247.9 224.2 247.9L88 248C74.7 248 64 237.3 64 224L64 88C64 74.7 74.7 64 88 64z"/></svg>
+              </button>
             </div>
             <div class="adj-row">
               <span class="adj-lab">Y</span>
               <input id="adj-y"   class="adj-slider" type="range"  min="-400" max="400" step="1" value="0" />
               <input id="adj-y-n" class="adj-num"   type="number" step="1" value="0" />
               <span class="adj-u">px</span>
+              <button id="adj-y-r" class="adj-row__reset" type="button" title="Reset Y to 0" aria-label="Reset Y to 0">
+                <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M88 64C101.3 64 112 74.7 112 88L112 166.1L139.1 139C239.1 39 401.2 39 501.1 139C601 239 601.1 401.1 501.1 501C401.1 600.9 239 601 139.1 501C124.2 486.1 111.5 469.8 101 452.5C94.1 441.2 97.8 426.4 109.1 419.5C120.4 412.6 135.2 416.3 142.1 427.6C150.6 441.6 160.9 454.9 173.1 467C254.3 548.2 386 548.2 467.3 467C548.6 385.8 548.5 254.1 467.3 172.8C386.1 91.5 254.4 91.6 173.1 172.8L146 199.9L224.2 199.9C237.5 199.9 248.2 210.6 248.2 223.9C248.2 237.2 237.5 247.9 224.2 247.9L88 248C74.7 248 64 237.3 64 224L64 88C64 74.7 74.7 64 88 64z"/></svg>
+              </button>
             </div>
-            <button id="adj-reset" class="adj-reset" title="Reset to default">
-              <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M88 64C101.3 64 112 74.7 112 88L112 166.1L139.1 139C239.1 39 401.2 39 501.1 139C601 239 601.1 401.1 501.1 501C401.1 600.9 239 601 139.1 501C124.2 486.1 111.5 469.8 101 452.5C94.1 441.2 97.8 426.4 109.1 419.5C120.4 412.6 135.2 416.3 142.1 427.6C150.6 441.6 160.9 454.9 173.1 467C254.3 548.2 386 548.2 467.3 467C548.6 385.8 548.5 254.1 467.3 172.8C386.1 91.5 254.4 91.6 173.1 172.8L146 199.9L224.2 199.9C237.5 199.9 248.2 210.6 248.2 223.9C248.2 237.2 237.5 247.9 224.2 247.9L88 248C74.7 248 64 237.3 64 224L64 88C64 74.7 74.7 64 88 64z"/></svg>
-              Reset
-            </button>
           </div>
         </section>
 
@@ -177,6 +182,27 @@
     <div class="statusbar"><div id="status" class="status is-off"></div></div>
 
   </div>
+
+  <!-- Toolbox modal: one reusable dialog reused for every tool (DataViz pattern:
+       tile opens this with the tool's info + a CTA to actually run it). -->
+  <div class="modal" id="tool-modal" hidden>
+    <div class="modal-scrim" id="modal-scrim"></div>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <span class="modal-title" id="modal-title">Tool</span>
+        <button class="modal-x" id="modal-x" type="button" aria-label="Close">
+          <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M183.1 137.4C170.6 124.9 150.3 124.9 137.8 137.4C125.3 149.9 125.3 170.2 137.8 182.7L275.1 320L137.8 457.4C125.3 469.9 125.3 490.2 137.8 502.7C150.3 515.2 170.6 515.2 183.1 502.7L320.4 365.3L457.8 502.7C470.3 515.2 490.6 515.2 503.1 502.7C515.6 490.2 515.6 469.9 503.1 457.4L365.7 320L503.1 182.7C515.6 170.2 515.6 149.9 503.1 137.4C490.6 124.9 470.3 124.9 457.8 137.4L320.4 274.7L183.1 137.4z"/></svg>
+        </button>
+      </div>
+      <p class="modal-desc" id="modal-desc">…</p>
+      <div class="modal-result" id="modal-result" hidden></div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary" id="modal-cancel" type="button">Cancel</button>
+        <button class="btn btn-primary btn--inline" id="modal-run" type="button" disabled>Run</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/main.js"></script>
 </body>
 </html>

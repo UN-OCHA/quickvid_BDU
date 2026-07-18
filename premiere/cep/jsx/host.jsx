@@ -437,3 +437,108 @@ function ochaWriteMotion(scale, offX, offY) {
     return "OK|" + out.join(",");
   } catch (e) { return "ERR|" + e.toString(); }
 }
+
+/* ---------------- Toolbox: info readouts + real actions ----------------
+   info* = what the modal shows on open (safe, read-only).
+   the action fns actually change the project (self-reporting). */
+function ochaAllSequences() {
+  var seqs = [];
+  try { var ss = app.project.sequences; if (ss && ss.numSequences !== undefined) { for (var i = 0; i < ss.numSequences; i++) seqs.push(ss[i]); } } catch (e) {}
+  if (!seqs.length) { try { var a = app.project.activeSequence; if (a) seqs.push(a); } catch (e) {} }
+  return seqs;
+}
+function ochaUsedItemIds() {
+  var used = {}, seqs = ochaAllSequences(), s, t, c;
+  for (s = 0; s < seqs.length; s++) {
+    var seq = seqs[s];
+    try {
+      for (t = 0; t < seq.videoTracks.numTracks; t++) {
+        var clips = seq.videoTracks[t].clips;
+        for (c = 0; c < clips.numItems; c++) {
+          try { var pi = clips[c].projectItem; if (pi) { var id = pi.nodeId; if (id) used["n" + id] = 1; } } catch (e) {}
+        }
+      }
+    } catch (e) {}
+  }
+  return used;
+}
+function ochaIsBin(it) { try { return !!(it.children && it.children.numItems !== undefined); } catch (e) { return false; } }
+function ochaIsSequence(it) { try { return !!(it.isSequence && it.isSequence()); } catch (e) { return false; } }
+// a real footage/media item to collect: not a bin, not a sequence, not an OCHA template
+function ochaIsMedia(it) {
+  if (ochaIsBin(it) || ochaIsSequence(it)) return false;
+  var nm = ""; try { nm = it.name; } catch (e) {}
+  if (!nm || /^OCHA (Lower Third|Location|Bug|Ending)/.test(nm)) return false;
+  return true;
+}
+
+// ---- Reel ----
+function ochaReelInfo() {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return "ERR|Open the square sequence first.";
+    var w = seq.frameSizeHorizontal, h = seq.frameSizeVertical;
+    if (!h || Math.abs(w / h - 1) > 0.12) return "ERR|'" + seq.name + "' is " + w + "x" + h + " - the reel needs a square sequence.";
+    return "OK|'" + seq.name + "' (" + w + "x" + h + ") will become a " + w + "x" + Math.round(w * 16 / 9) + " reel: original centred, blurred fill behind. Works on a clone - your original is untouched.";
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
+// ---- Clean unused MOGRTs ----
+function ochaCleanInfo() {
+  try {
+    var used = ochaUsedItemIds(), total = 0, unused = 0, names = [];
+    ochaEachItem(app.project.rootItem, function (it) {
+      var nm = ""; try { nm = it.name; } catch (e) {}
+      if (/^OCHA (Lower Third|Location|Bug|Ending)/.test(nm)) {
+        total++;
+        var id = null; try { id = it.nodeId; } catch (e) {}
+        if (!id || !used["n" + id]) { unused++; if (names.length < 6) names.push(nm); }
+      }
+    });
+    return "OK|" + total + " OCHA template(s) in the project, " + unused + " not used in any sequence." + (unused ? " Remove them?" : "") + "|" + unused;
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+function ochaCleanMogrts() {
+  try {
+    var used = ochaUsedItemIds(), toRemove = [];
+    ochaEachItem(app.project.rootItem, function (it) {
+      var nm = ""; try { nm = it.name; } catch (e) {}
+      if (/^OCHA (Lower Third|Location|Bug|Ending)/.test(nm)) {
+        var id = null; try { id = it.nodeId; } catch (e) {}
+        if (!id || !used["n" + id]) toRemove.push(it);
+      }
+    });
+    var removed = 0, err = "";
+    for (var i = 0; i < toRemove.length; i++) {
+      try { toRemove[i].deleteBin(); removed++; }
+      catch (e1) { try { app.project.deleteSequence ? 0 : 0; toRemove[i].remove(); removed++; } catch (e2) { if (!err) err = e2.toString(); } }
+    }
+    if (removed === 0 && toRemove.length) return "ERR|Couldn't remove (" + toRemove.length + " unused): " + err;
+    return "OK|Removed " + removed + " unused OCHA template(s).";
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
+// ---- Collect media ----
+function ochaCollectInfo() {
+  try {
+    var media = 0;
+    ochaEachItem(app.project.rootItem, function (it) { if (ochaIsMedia(it)) media++; });
+    return "OK|Gathers the project's footage into one bin named 'Collected media' (sequences and OCHA templates are left where they are). " + media + " media item(s) found.|" + media;
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+function ochaCollectMedia() {
+  try {
+    var root = app.project.rootItem, binName = "Collected media", bin = null, i;
+    for (i = 0; i < root.children.numItems; i++) { var it = root.children[i]; var nm = ""; try { nm = it.name; } catch (e) {} if (nm === binName && ochaIsBin(it)) { bin = it; break; } }
+    if (!bin) { try { bin = root.createBin(binName); } catch (e) { return "ERR|createBin: " + e.toString(); } }
+    // snapshot the media items first (moving mutates the tree we'd be walking)
+    var items = [];
+    ochaEachItem(root, function (it) { if (ochaIsMedia(it)) items.push(it); });
+    var moved = 0, err = "";
+    for (i = 0; i < items.length; i++) {
+      try { items[i].moveBin(bin); moved++; } catch (e) { if (!err) err = e.toString(); }
+    }
+    if (moved === 0 && items.length) return "ERR|Couldn't move items (" + items.length + " media): " + err;
+    return "OK|Moved " + moved + " media item(s) into '" + binName + "'.";
+  } catch (e) { return "ERR|" + e.toString(); }
+}

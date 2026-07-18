@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.17.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.18.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -164,9 +164,17 @@ async function addElement() {
   }
 }
 
-/* ---------- Size & position controls ---------- */
-// each pair: slider id, number id, default — kept in sync both ways
-const ADJ_PAIRS = [["adj-size", "adj-size-n", 100], ["adj-x", "adj-x-n", 0], ["adj-y", "adj-y-n", 0]];
+/* ---------- Size & position controls ----------
+   All three are RELATIVE to the template's built-in transform: Size 100% and
+   X/Y 0 leave the graphic exactly as designed (the host reads/writes position
+   as an offset from the format centre, size as a % of Motion Scale). Each value
+   has its own reset back to that default. */
+// [slider id, number id, default, per-row reset id]
+const ADJ_PAIRS = [
+  ["adj-size", "adj-size-n", 100, "adj-size-r"],
+  ["adj-x", "adj-x-n", 0, "adj-x-r"],
+  ["adj-y", "adj-y-n", 0, "adj-y-r"],
+];
 function linkPair(sliderId, numId) {
   const s = $(sliderId), n = $(numId);
   s.addEventListener("input", () => { n.value = s.value; });
@@ -179,8 +187,16 @@ function linkPair(sliderId, numId) {
 function resetAdjust() {
   ADJ_PAIRS.forEach(([sId, nId, dflt]) => { $(sId).value = dflt; $(nId).value = dflt; });
 }
-ADJ_PAIRS.forEach(([sId, nId]) => linkPair(sId, nId));
-$("adj-reset").addEventListener("click", resetAdjust);
+// reset a single value to its default; in selection mode this writes live too
+function resetOne(sId, nId, dflt) {
+  $(sId).value = dflt; $(nId).value = dflt;
+  adjLiveWrite();   // no-op in placement mode; pushes to the bound clip in edit mode
+}
+ADJ_PAIRS.forEach(([sId, nId, dflt, rId]) => {
+  linkPair(sId, nId);
+  const r = $(rId);
+  if (r) r.addEventListener("click", () => resetOne(sId, nId, dflt));
+});
 
 // advanced accordion — collapsed by default; caution note inside
 function setAdjustOpen(open) {
@@ -216,7 +232,7 @@ function setAdjustEditing(name) {
     if (warn) warn.textContent = "Editing the selected clip — changes apply live.";
     if (tag) { tag.textContent = "editing"; tag.style.color = "var(--accent)"; tag.style.borderColor = "var(--accent)"; tag.style.background = "var(--accent-bg)"; }
   } else {
-    if (warn) warn.textContent = "Each template is already sized and placed for its format — change these only if a particular shot needs it.";
+    if (warn) warn.innerHTML = "Relative to each template's built-in size &amp; position: <strong>100%</strong> and <strong>0, 0</strong> leave it exactly as designed. Nudge from there only if a shot needs it.";
     if (tag) { tag.textContent = "advanced"; tag.style.color = ""; tag.style.borderColor = ""; tag.style.background = ""; }
   }
 }
@@ -286,18 +302,100 @@ document.querySelectorAll(".tab").forEach((t) => {
   });
 });
 
-/* ---------- Toolbox (v1: safe readiness / detection — the actions wire in next) ---------- */
-async function runTool(label, call) {
-  hideStatus();
-  if (!hostReady) return show("Premiere host not ready.", "warn");
-  show(label + "…", "ok");
-  const res = await jsx(call) || "";
-  const kind = res.indexOf("OK|") === 0 ? "ok" : (res.indexOf("WARN|") === 0 ? "warn" : "err");
-  show(res.replace(/^(OK|WARN|ERR)\|/, "") || "No response from Premiere.", kind);
+/* ---------- Toolbox (DataViz pattern: tile → modal with info + a CTA to run) ----------
+   Each tool has an `info` call (read-only — populates the modal) and an `action`
+   call (mutates the project). Count-gated tools disable the CTA when there's
+   nothing to do; the info readout may carry a trailing "|<count>". */
+const TOOLS = {
+  reel: {
+    title: "Square → Reel",
+    info: "ochaReelInfo()",
+    action: "ochaSquareToReel()",
+    cta: () => "Create reel",
+    working: "Building the reel on a clone…",
+  },
+  collect: {
+    title: "Collect media",
+    info: "ochaCollectInfo()",
+    action: "ochaCollectMedia()",
+    cta: (n) => (n > 0 ? `Collect ${n} item${n === 1 ? "" : "s"}` : "Nothing to collect"),
+    countGated: true,
+    working: "Collecting media into a bin…",
+  },
+  clean: {
+    title: "Clean unused MOGRTs",
+    info: "ochaCleanInfo()",
+    action: "ochaCleanMogrts()",
+    cta: (n) => (n > 0 ? `Remove ${n} unused` : "Nothing to remove"),
+    countGated: true,
+    danger: true,
+    working: "Removing unused templates…",
+  },
+};
+let curTool = null;
+
+function modalResult(msg, kind) {
+  const r = $("modal-result");
+  r.hidden = false;
+  r.className = "modal-result is-" + kind;
+  r.innerHTML = msg;
 }
-$("tool-reel").addEventListener("click", () => runTool("Building reel (on a clone)", "ochaSquareToReel()"));
-$("tool-collect").addEventListener("click", () => runTool("Scanning media", "ochaCollectReport()"));
-$("tool-clean").addEventListener("click", () => runTool("Scanning templates", "ochaCleanReport()"));
+function openTool(key) {
+  const cfg = TOOLS[key];
+  if (!cfg) return;
+  curTool = key;
+  $("modal-title").textContent = cfg.title;
+  $("modal-desc").textContent = "Checking the project…";
+  $("modal-result").hidden = true;
+  const run = $("modal-run");
+  run.textContent = cfg.cta(0);
+  run.disabled = true;
+  run.classList.toggle("is-danger", !!cfg.danger);
+  $("tool-modal").hidden = false;
+  loadInfo();
+}
+async function loadInfo() {
+  const cfg = TOOLS[curTool];
+  if (!hostReady) { await loadHost(); }
+  if (!hostReady) { $("modal-desc").textContent = "Premiere host not ready — restart Premiere with a project open."; return; }
+  const res = await jsx(cfg.info) || "";
+  const parts = res.split("|");
+  const ok = parts[0] === "OK";
+  const desc = parts[1] || (ok ? "" : (res.replace(/^ERR\|/, "") || "Couldn't read the project."));
+  const count = parts.length > 2 ? parseInt(parts[2], 10) : null;
+  $("modal-desc").textContent = desc;
+  const run = $("modal-run");
+  if (!ok) { run.disabled = true; run.textContent = cfg.cta(0); return; }
+  run.textContent = cfg.cta(isNaN(count) ? 0 : (count == null ? 1 : count));
+  run.disabled = cfg.countGated ? !(count > 0) : false;
+}
+async function runToolAction() {
+  const cfg = TOOLS[curTool];
+  const run = $("modal-run"), cancel = $("modal-cancel");
+  run.disabled = true; cancel.disabled = true;
+  modalResult(cfg.working, "run");
+  const res = await jsx(cfg.action) || "";
+  const ok = res.indexOf("OK|") === 0;
+  modalResult(res.replace(/^(OK|WARN|ERR)\|/, "") || "No response from Premiere.", ok ? "ok" : "err");
+  cancel.disabled = false;
+  cancel.textContent = ok ? "Done" : "Close";
+  if (ok) { refresh(); loadInfo(); }   // refresh format chip + re-read counts
+  else { run.disabled = false; }
+}
+function closeModal() {
+  $("tool-modal").hidden = true;
+  $("modal-cancel").textContent = "Cancel";
+  $("modal-cancel").disabled = false;
+  curTool = null;
+}
+$("tool-reel").addEventListener("click", () => openTool("reel"));
+$("tool-collect").addEventListener("click", () => openTool("collect"));
+$("tool-clean").addEventListener("click", () => openTool("clean"));
+$("modal-run").addEventListener("click", runToolAction);
+$("modal-cancel").addEventListener("click", closeModal);
+$("modal-x").addEventListener("click", closeModal);
+$("modal-scrim").addEventListener("click", closeModal);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("tool-modal").hidden) closeModal(); });
 
 // theme toggle
 $("theme").addEventListener("click", () => {
