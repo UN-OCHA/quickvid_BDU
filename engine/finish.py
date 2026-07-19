@@ -106,10 +106,37 @@ def ff_progress(cmd, total_dur, lo=0, hi=100):
         print(f"PROGRESS {hi}", flush=True)           # snap to the stage ceiling on a clean finish
 
 
+def _rotation(s):
+    """Display rotation of a video stream, as 0 or 90 (the only distinction that
+    matters for placement: 90/270 swap width<->height, 0/180 don't). iPhones store
+    PORTRAIT footage as landscape pixels + a rotation flag — carried either as an
+    old-style `rotate` tag OR a newer displaymatrix side_data `rotation` (a float,
+    often negative). ffmpeg auto-rotates the frames on decode, but ffprobe still
+    reports the CODED (landscape) width/height — so without this the engine lays a
+    portrait clip out as if it were 16:9. Returns 90 when the axes are swapped."""
+    deg = None
+    tags = s.get("tags") or {}
+    if tags.get("rotate") is not None:
+        try:
+            deg = int(tags["rotate"])
+        except (ValueError, TypeError):
+            deg = None
+    if deg is None:
+        for sd in s.get("side_data_list") or []:
+            if sd.get("rotation") is not None:
+                try:
+                    deg = int(round(float(sd["rotation"])))
+                except (ValueError, TypeError):
+                    deg = None
+                break
+    return 90 if abs(deg or 0) % 180 == 90 else 0
+
+
 def probe(video):
     meta = json.loads(subprocess.run(
         [FP, "-v", "error", "-select_streams", "v:0", "-show_entries",
-         "stream=width,height,color_transfer,color_primaries,r_frame_rate",
+         "stream=width,height,color_transfer,color_primaries,r_frame_rate:"
+         "stream_tags=rotate:stream_side_data=rotation",
          "-show_entries", "format=duration", "-of", "json", video],
         capture_output=True, text=True).stdout)
     s = meta["streams"][0]
@@ -117,7 +144,10 @@ def probe(video):
     fps = round(float(num) / float(den or 1))
     hdr = (s.get("color_transfer") in ("arib-std-b67", "smpte2084")
            or s.get("color_primaries") == "bt2020")
-    return {"W": int(s["width"]), "H": int(s["height"]),
+    W, H = int(s["width"]), int(s["height"])
+    if _rotation(s) == 90:                       # portrait shot on a phone → report the
+        W, H = H, W                              # DISPLAYED dims, matching ffmpeg's auto-rotate
+    return {"W": W, "H": H,
             "dur": float(meta["format"]["duration"]),
             "fps": fps or 30, "hdr": hdr}
 

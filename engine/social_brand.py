@@ -51,6 +51,70 @@ from PIL import ImageFont
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 FFPROBE = FF.replace("ffmpeg", "ffprobe")
+COLOR = ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"]
+
+
+def _ffmpeg_hdr():
+    """The BUNDLED imageio ffmpeg — it has zscale/tonemap (a Homebrew build set via
+    IMAGEIO_FFMPEG_EXE may not). Ignore the override to reach the bundled binary.
+    Mirrors finish.py._ffmpeg_hdr — keep in sync."""
+    import imageio_ffmpeg
+    saved = os.environ.pop("IMAGEIO_FFMPEG_EXE", None)
+    try:
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    finally:
+        if saved is not None:
+            os.environ["IMAGEIO_FFMPEG_EXE"] = saved
+
+
+def is_hdr(src):
+    """True for iPhone/HLG/PQ HDR footage (BT.2020 primaries or HLG/PQ transfer).
+    Composited against sRGB brand graphics without tonemapping, the blue shifts —
+    so the caller converts to SDR bt709 first. Mirrors finish.py's HDR test."""
+    streams = json.loads(subprocess.run(
+        [FFPROBE, "-v", "error", "-select_streams", "v:0", "-show_entries",
+         "stream=color_transfer,color_primaries", "-of", "json", src],
+        capture_output=True, text=True).stdout).get("streams") or [{}]
+    s = streams[0]
+    return (s.get("color_transfer") in ("arib-std-b67", "smpte2084")
+            or s.get("color_primaries") == "bt2020")
+
+
+def to_sdr(src, tmp):
+    """HDR (HLG/PQ, BT.2020) → SDR bt709 so overlaid sRGB graphics read correctly.
+    ffmpeg auto-rotates on decode, so this also bakes any rotation upright.
+    Mirrors finish.py.to_sdr — keep in sync."""
+    out = os.path.join(tmp, "_sdr.mp4")
+    subprocess.run(
+        [_ffmpeg_hdr(), "-y", "-v", "error", "-i", src,
+         "-vf", "zscale=t=linear:npl=203,tonemap=hable:desat=0,"
+                "zscale=p=bt709:t=bt709:m=bt709:r=tv,format=yuv420p",
+         "-c:v", "libx264", "-crf", "16", "-preset", "medium"] + COLOR
+        + ["-c:a", "copy", out], check=True)
+    return out
+
+
+def _rotation(s):
+    """Display rotation as 0 or 90 (90 = axes swapped). iPhones store PORTRAIT as
+    landscape pixels + a rotation flag (old `rotate` tag OR newer displaymatrix
+    side_data). ffmpeg auto-rotates the frames but ffprobe still reports the CODED
+    dims — so without this a portrait clip is laid out as 16:9. Mirrors finish.py."""
+    deg = None
+    tags = s.get("tags") or {}
+    if tags.get("rotate") is not None:
+        try:
+            deg = int(tags["rotate"])
+        except (ValueError, TypeError):
+            deg = None
+    if deg is None:
+        for sd in s.get("side_data_list") or []:
+            if sd.get("rotation") is not None:
+                try:
+                    deg = int(round(float(sd["rotation"])))
+                except (ValueError, TypeError):
+                    deg = None
+                break
+    return 90 if abs(deg or 0) % 180 == 90 else 0
 LOGO_SVG = os.path.join(ROOT, "assets", "OCHA_logo_horizontal_white.svg")
 BUG_SVG = os.path.join(ROOT, "assets", "OCHA_logo_vertical_white.svg")
 BUG_HEIGHT_FRAC = 0.065    # corner watermark, mainly for EVENT (landscape) videos — mirrors
@@ -155,12 +219,16 @@ def fix_sentence_caps(texts):
 
 def probe(src):
     r = subprocess.run([FFPROBE, "-v", "error", "-select_streams", "v:0",
-                        "-show_entries", "stream=width,height,r_frame_rate",
+                        "-show_entries", "stream=width,height,r_frame_rate:"
+                        "stream_tags=rotate:stream_side_data=rotation",
                         "-show_entries", "format=duration", "-of", "json", src],
                        capture_output=True, text=True, check=True)
     j = json.loads(r.stdout); st = j["streams"][0]
     num, den = st["r_frame_rate"].split("/")
-    return st["width"], st["height"], round(float(num) / float(den)) or 30, float(j["format"]["duration"])
+    w, h = int(st["width"]), int(st["height"])
+    if _rotation(st) == 90:                       # portrait phone clip → DISPLAYED dims,
+        w, h = h, w                               # matching ffmpeg's auto-rotate (see finish.py)
+    return w, h, round(float(num) / float(den)) or 30, float(j["format"]["duration"])
 
 
 def _ff_progress(cmd, total_dur):
@@ -204,6 +272,13 @@ def render(spec: dict, log=print) -> str:
     hold = float(end.get("hold", 2.0))
     work = os.path.join(os.path.dirname(os.path.abspath(out)), "_brand_work")
     os.makedirs(work, exist_ok=True)
+
+    # iPhone/HDR footage: tonemap to SDR bt709 first, else the blue shifts when the
+    # sRGB brand graphics composite over it. (probe already reports display dims for
+    # rotated phone clips.) to_sdr also bakes rotation upright.
+    if is_hdr(src):
+        log("HDR source → converting to SDR (bt709) so brand colours match…")
+        src = to_sdr(src, work)
 
     # cues: end = next start; last ends at footage_end; "" = boundary only
     raw = spec.get("cues") or []
@@ -367,11 +442,11 @@ def render(spec: dict, log=print) -> str:
         fc.append("[amain]anull[aout]")
 
     log("Compositing with ffmpeg…")
-    cmd = [FF, "-y", "-loglevel", "error"] + inputs + [
+    cmd = ([FF, "-y", "-loglevel", "error"] + inputs + [
         "-filter_complex", ";".join(fc), "-map", "[vout]", "-map", "[aout]",
         "-t", f"{out_dur:.2f}", "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
-        "-b:v", spec.get("bitrate", "6M"), "-c:a", "aac", "-b:a", "160k", "-r", str(fps),
-        "-movflags", "+faststart", out]
+        "-b:v", spec.get("bitrate", "6M"), "-c:a", "aac", "-b:a", "160k", "-r", str(fps)]
+        + COLOR + ["-movflags", "+faststart", out])
     rc, err = _ff_progress(cmd, out_dur)
     if rc != 0:
         raise RuntimeError("branding ffmpeg failed: " + (err or "")[-500:])

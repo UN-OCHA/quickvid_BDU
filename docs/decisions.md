@@ -954,6 +954,26 @@ Learned from real failures on live / just-ended events:
   `engine_bridge._run` surfaces that message verbatim in the UI.
 - No server restart for any of this — `webtv.py` runs as a subprocess per job.
 
+## 2026-07-19 — iPhone footage: rotation + HDR (`finish.py`, `social_brand.py`)
+A portrait clip shot on an iPhone came out with branding placed for 16:9 and the
+blue shifted. Two classic iPhone traits, both fixed in the engine's probe/prep:
+- **Rotation.** Phones store portrait as landscape pixels + a rotation flag (old
+  `rotate` tag OR newer displaymatrix side_data). ffmpeg auto-rotates the frames on
+  decode, but `ffprobe stream=width,height` still reports the CODED (landscape) dims —
+  so `profile()`/placement laid a 9:16 clip out as 16:9. `probe()` now reads the flag
+  (`_rotation()`, handles both shapes) and returns DISPLAY dims (swapped on 90/270),
+  matching the auto-rotated frames. No transpose needed — autorotate already orients
+  the pixels; we just had to report the right size. Verified end-to-end (portrait in →
+  portrait out, LT in-frame).
+- **HDR/colour.** iPhone HDR is BT.2020 + HLG (`arib-std-b67`) 10-bit. Composited
+  against sRGB brand graphics without tonemapping, the blue drifts. `finish.py` already
+  tonemapped (`to_sdr`); `social_brand.py` (the subtitles path) did NOT — added
+  `is_hdr()` + `to_sdr()` (mirrors finish.py) and a `bt709` tag on the output. Verified
+  on a real BT.2020/HLG sample → bt709 out.
+- Both are no-ops for ordinary landscape/SDR clips (swap only on 90°, tonemap only on
+  BT.2020/HLG). `probe()` is shared with `statement.py`, so Edit-mode framing of a
+  rotated clip is fixed too. Keep `_rotation`/`to_sdr` in sync across the two modules.
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the
