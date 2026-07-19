@@ -19,6 +19,19 @@ cd "$(dirname "$0")"
 # or the page will say "engine not detected" even while this window is running.
 PORT="${QV_PORT:-17870}"
 
+# Is this the very first run? (No .venv yet = fresh install.) A brand-new Mac
+# sometimes needs ONE restart after the first-run setup — newly-installed Command
+# Line Tools / portable binaries aren't fully wired into the session until then —
+# so on a first run we set that expectation up front with a visible pop-up.
+FIRST_RUN=0
+[ -d .venv ] || FIRST_RUN=1
+
+# Native macOS pop-up (a non-technical user won't read the Terminal). Silent
+# no-op if osascript isn't available. Usage: qv_dialog "message"
+qv_dialog() {
+  osascript -e "display dialog \"$1\" buttons {\"OK\"} default button 1 with title \"OCHA QuickVid\" with icon note" >/dev/null 2>&1 || true
+}
+
 # Self-register this install's location so the tiny "Start OCHA QuickVid" starter the
 # web page hands out can find the engine wherever it lives (no buried folders).
 QV_SUPPORT="$HOME/Library/Application Support/OCHA QuickVid"
@@ -132,6 +145,14 @@ print("Speech model ready.")
 PY
 fi
 
+# First run just finished setting up: tell the user (visibly) that a brand-new
+# Mac may need one restart. Shown once — never on later launches.
+if [ "$FIRST_RUN" = 1 ]; then
+  qv_dialog "Setup is complete — OCHA QuickVid will open in your browser now.
+
+On a brand-new Mac, if it does not open, or the page says \"engine not detected\", please RESTART your Mac once and open OCHA QuickVid again. That is all it needs."
+fi
+
 # 6) Launch and open the browser. 127.0.0.1 (not "localhost") on purpose — the
 #    app treats it as its one canonical address so saved progress is never split
 #    between the two. With QV_DETACH=1 (the web-downloaded starter/installer) the
@@ -174,6 +195,13 @@ if [ -n "$QV_DETACH" ]; then
   tail -n 25 "$QV_SUPPORT/engine.log" 2>/dev/null
   echo "----------------------------------------------------------------------"
   echo "Copy the lines above and send them to ochavisual@un.org — we'll sort it out."
+  # On a fresh Mac the first launch can fail simply because setup finished after
+  # the session was already running — a restart is the usual cure, so lead with it.
+  qv_dialog "OCHA QuickVid finished setting up but the engine did not start.
+
+On a new Mac this is almost always fixed by a RESTART. Please restart your Mac, then open OCHA QuickVid again.
+
+If it still does not work, send the details in the Terminal window to ochavisual@un.org."
   read -r -p "Press Enter to close…"
   exit 1
 fi
