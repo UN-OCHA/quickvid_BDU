@@ -993,6 +993,32 @@ versioned, free, one source of truth.
   it, and (c) the detached extractor helper. Deferred until we settle plugin
   distribution (the plugin is still a dev symlink install, not yet a `.zxp`).
 
+## 2026-07-19 — Text-on-screen + readability gradient (plugin) — UI shipped, backend planned
+New plugin element **Text** (white Raleway Bold, animated in, user-typed, placed
+centre-left + nudged with the shared Size/position X/Y) + a **readability gradient**
+(subtle black scrim, top or bottom) reused by event captions. Reference:
+`references/text_on_screen/text_on_screen.mp4` @00:32 (white bold, left-aligned,
+lines reveal sliding up).
+- **Shipped (v0.23.0, verified in-browser):** the panel UI — a 5th "Text" card +
+  multi-line field + gradient segmented control (None/Bottom/Top); `collectValues`
+  emits `Text` + `Gradient`; `EL_LABEL.text`; host `OCHA_EL_NAME.text = "OCHA Text"`
+  so `ochaAdd("text", …)` will insert + set the text once the MOGRT exists.
+- **Backend TODO (needs AE + Premiere to build/verify — hand-run):**
+  1. `premiere/ae/build_ocha_mogrts.jsx`: add `buildText(fmt)` (mirror `buildLT`:
+     one editable text layer, Raleway-Bold white, LEFT, size ≈ H·ratio, default pos
+     [safe.left·W, ~0.58·H], slide-up+fade reveal via `key2`, `sizeGroup`,
+     `protectRegions`, expose Size + the `ADBE Text Document` as EGP "Text") and
+     register in the `builders`/`builderNames` arrays. Add a `DATA.text` config
+     block (ratio per orient, color #FFFFFF, tracking, y_frac, enter/exit).
+  2. The **gradient**: cleanest path that avoids AE + non-uniform-scale headaches is
+     panel-generated — render a black transparent→opaque gradient on an HTML canvas
+     at the sequence's exact W×H, save via `cep.fs.writeFile`, and a host
+     `ochaAddGradient(pngPath, pos)` imports it full-frame (uniform scale 100%,
+     centred) on the top track. Wire the Text pane's toggle + a "Add bottom
+     gradient" button in Captions (task: event-caption scrim) to it.
+  3. Run the AE builder in AE (Prefs > Scripting > Allow Scripts to Write Files),
+     restart Premiere, test Add Text + gradient.
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the

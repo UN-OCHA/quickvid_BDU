@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.22.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.23.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -119,6 +119,11 @@ function collectValues() {
     push("Show pin icon", $("loc-icon").checked);
   } else if (curEl === "ending") {
     push("Over black", $("end-black").checked);
+  } else if (curEl === "text") {
+    const body = $("text-body").value.trim();
+    if (body) push("Text", body);
+    const g = document.querySelector("#text-grad .seg__opt.is-active");
+    push("Gradient", (g && g.dataset.grad) || "none");   // none | bottom | top (host adds the scrim)
   }
   // shared Size + Position → Motion (all four elements; skip values at default)
   const size = clampNum($("adj-size-n").value, 100);
@@ -135,7 +140,7 @@ function clampNum(v, dflt) {
   return isNaN(n) ? dflt : n;
 }
 
-const EL_LABEL = { lt: "Lower third", loc: "Location", bug: "OCHA logo", ending: "Ending" };
+const EL_LABEL = { lt: "Lower third", loc: "Location", bug: "OCHA logo", ending: "Ending", text: "Text" };
 
 async function addElement() {
   hideStatus();
@@ -266,9 +271,12 @@ function selectEl(el) {
 }
 document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => selectEl(c.dataset.el)));
 
-document.querySelectorAll("#pin-colour .seg__opt").forEach((b) => {
-  b.addEventListener("click", () => {
-    document.querySelectorAll("#pin-colour .seg__opt").forEach((q) => q.classList.toggle("is-active", q === b));
+// segmented controls (pin colour, text-gradient) — one active option each
+["#pin-colour", "#text-grad"].forEach((sel) => {
+  document.querySelectorAll(sel + " .seg__opt").forEach((b) => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll(sel + " .seg__opt").forEach((q) => q.classList.toggle("is-active", q === b));
+    });
   });
 });
 

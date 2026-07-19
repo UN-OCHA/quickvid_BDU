@@ -18,7 +18,8 @@ var OCHA_EL_NAME = {
   lt: "OCHA Lower Third",
   loc: "OCHA Location",
   bug: "OCHA Bug",
-  ending: "OCHA Ending"
+  ending: "OCHA Ending",
+  text: "OCHA Text"
 };
 var OCHA_FMT = {
   reels:  { folder: "reels",  label: "Reels 9x16" },

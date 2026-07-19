@@ -156,6 +156,14 @@ body {
 .fld input { width: 100%; padding: var(--sp-100) var(--sp-150); }
 .fld input:focus, .adj-num:focus { border-color: var(--accent); }
 .fld input::placeholder { color: var(--text-tertiary); }
+.fld__area {
+  width: 100%; padding: var(--sp-100) var(--sp-150); resize: vertical; min-height: 56px;
+  background: var(--field-bg); border: 1px solid var(--border-field); border-radius: var(--r-md);
+  color: var(--text-primary); font: inherit; line-height: 1.35; outline: none;
+  transition: border-color var(--dur-2) var(--ease);
+}
+.fld__area:focus { border-color: var(--accent); }
+.fld__area::placeholder { color: var(--text-tertiary); }
 
 .opt-check { display: flex; align-items: center; gap: var(--sp-100); font-size: var(--fs-sm); margin: var(--sp-75) 0 var(--sp-150); cursor: pointer; }
 .opt-check input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }

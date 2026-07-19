@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <link rel="stylesheet" href="styles.css?v=0.22" />
+  <link rel="stylesheet" href="styles.css?v=0.23" />
 </head>
 <body>
   <div class="app">
@@ -80,6 +80,15 @@
             </svg>
             <span class="card__label">Ending</span>
           </button>
+          <button class="card" data-el="text">
+            <svg class="card__icon" viewBox="0 0 44 30" aria-hidden="true">
+              <rect width="44" height="30" rx="3" fill="#17171b"/>
+              <rect x="8" y="9"  width="20" height="4" rx="1" fill="#ffffff"/>
+              <rect x="8" y="15" width="26" height="4" rx="1" fill="#ffffff"/>
+              <rect x="8" y="21" width="14" height="4" rx="1" fill="#ffffff"/>
+            </svg>
+            <span class="card__label">Text</span>
+          </button>
         </nav>
 
         <section class="pane is-open" data-pane="lt">
@@ -112,6 +121,18 @@
         <section class="pane" data-pane="ending">
           <label class="opt-check"><input id="end-black" type="checkbox" /><span>Over black <em>(else over footage)</em></span></label>
           <p class="note">OCHA logo + click sound, snapping over your final shot — place it so it ends with your video.</p>
+        </section>
+
+        <section class="pane" data-pane="text">
+          <label class="fld"><span class="fld__label">Text on screen</span>
+            <textarea id="text-body" class="fld__area" rows="3" placeholder="Half a million&#10;people are displaced&#10;by insecurity in Mali"></textarea></label>
+          <div class="seg" id="text-grad">
+            <span class="seg__label">Readability gradient</span>
+            <button class="seg__opt is-active" data-grad="none" type="button">None</button>
+            <button class="seg__opt" data-grad="bottom" type="button">Bottom</button>
+            <button class="seg__opt" data-grad="top" type="button">Top</button>
+          </div>
+          <p class="note">White Raleway Bold, animated in. Placed centre-left by default — nudge with <strong>Size &amp; position</strong> below. Add a subtle black gradient (top or bottom) if the footage is busy behind the text.</p>
         </section>
 
         <!-- shared Size + Position — collapsed accordion (advanced) -->
