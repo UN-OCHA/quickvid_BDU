@@ -262,6 +262,16 @@ body {
 ::-webkit-scrollbar-thumb { background: #555; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
 ::-webkit-scrollbar-thumb:hover { background: #777; background-clip: content-box; }
 
+/* ---------- Beta banner (pinned bottom, last child of the .app flex column) ---------- */
+#beta-banner {
+  display: flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0;
+  background: var(--notice-bg); color: var(--notice); border-top: 1px solid var(--notice-border);
+  padding: 5px var(--sp-150); font-size: var(--fs-xs); font-weight: var(--fw-medium); letter-spacing: 0.2px;
+}
+#beta-banner svg { color: var(--notice); }
+#beta-banner .beta-banner-link { color: var(--notice); text-decoration: underline; font-weight: var(--fw-semibold); cursor: pointer; }
+#beta-banner .beta-banner-link:hover { color: var(--text-primary); }
+
 /* ---------- Toolbox modal ---------- */
 .modal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: var(--sp-300); }
 .modal[hidden] { display: none; }

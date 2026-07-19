@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.20.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.21.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -407,6 +407,20 @@ $("modal-cancel").addEventListener("click", closeModal);
 $("modal-x").addEventListener("click", closeModal);
 $("modal-scrim").addEventListener("click", closeModal);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("tool-modal").hidden) closeModal(); });
+
+// external links (mailto, http) — CEP won't follow a plain <a href>; open in the
+// user's default browser / mail client via the CEP util (fallback to window.open)
+document.querySelectorAll(".ext-link").forEach((a) => {
+  a.addEventListener("click", (e) => {
+    e.preventDefault();
+    const url = a.dataset.url;
+    if (!url) return;
+    try {
+      if (window.cep && window.cep.util) window.cep.util.openURLInDefaultBrowser(url);
+      else window.open(url);
+    } catch (err) { try { window.open(url); } catch (e2) {} }
+  });
+});
 
 // theme toggle
 $("theme").addEventListener("click", () => {

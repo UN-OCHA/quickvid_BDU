@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <link rel="stylesheet" href="styles.css?v=0.20" />
+  <link rel="stylesheet" href="styles.css?v=0.21" />
 </head>
 <body>
   <div class="app">
@@ -179,6 +179,14 @@
     </div>
 
     <div class="statusbar"><div id="status" class="status is-off"></div></div>
+
+    <!-- Beta banner — pinned at the bottom while the plugin is in beta. Soft
+         amber "heads up, still in flight" + a one-click feedback path. No dismiss
+         on purpose. Remove this block when the plugin exits beta. -->
+    <div id="beta-banner">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      <span class="beta-banner-text">Beta — feedback to <a href="#" class="ext-link beta-banner-link" data-url="mailto:ochavisual@un.org?subject=OCHA%20QuickVid%20plugin%20feedback">ochavisual@un.org</a></span>
+    </div>
 
   </div>
 
