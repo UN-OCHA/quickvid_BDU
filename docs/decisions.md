@@ -974,6 +974,25 @@ blue shifted. Two classic iPhone traits, both fixed in the engine's probe/prep:
   BT.2020/HLG). `probe()` is shared with `statement.py`, so Edit-mode framing of a
   rotated clip is fixed too. Keep `_rotation`/`to_sdr` in sync across the two modules.
 
+## 2026-07-19 — Plugin auto-update: channel via GitHub, not Dropbox
+The DataViz plugin checks a `version.json` on **Dropbox** and (phase 2) downloads a
+signed `.zxp` that a detached helper extracts after the host app quits. For the
+QuickVid Premiere plugin we channel it via **GitHub** instead — the repo is already
+on GitHub and the web app self-updates from it, so: no Dropbox tokens/link-rot,
+versioned, free, one source of truth.
+- **Shipped (MVP, v0.22.0):** `premiere/cep/version.json` on GitHub; on panel open
+  `checkForUpdate()` (main.js) XHRs
+  `raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/premiere/cep/version.json`,
+  compares to `PANEL_VERSION`, and if newer shows a blue "New version — how to
+  update" banner (per-version dismiss). Notify + manual download. XHR, not fetch
+  (CEP allows cross-origin XHR); links open via `cep.util.openURLInDefaultBrowser`.
+  Release step = bump `PANEL_VERSION` + manifest + `version.json` together.
+- **Phase 2 (needs a decision):** full silent auto-update like DataViz needs (a) a
+  packaged **signed `.zxp`** (self-signed cert via ZXPSignCmd) hosted as a GitHub
+  Release asset, (b) `--enable-nodejs` in the manifest so `https.get` can download
+  it, and (c) the detached extractor helper. Deferred until we settle plugin
+  distribution (the plugin is still a dev symlink install, not yet a `.zxp`).
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the

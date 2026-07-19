@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <link rel="stylesheet" href="styles.css?v=0.21" />
+  <link rel="stylesheet" href="styles.css?v=0.22" />
 </head>
 <body>
   <div class="app">
@@ -16,6 +16,16 @@
         <svg class="icon-moon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M303.3 112.7C196.2 121.2 112 210.8 112 320C112 434.9 205.1 528 320 528C353.3 528 384.7 520.2 412.6 506.3C309.2 482.9 232 390.5 232 280C232 214.2 259.4 154.9 303.3 112.7zM64 320C64 178.6 178.6 64 320 64C339.4 64 358.4 66.2 376.7 70.3C386.6 72.5 394 80.8 395.2 90.8C396.4 100.8 391.2 110.6 382.1 115.2C321.5 145.4 280 207.9 280 280C280 381.6 362.4 464 464 464C469 464 473.9 463.8 478.8 463.4C488.9 462.6 498.4 468.2 502.6 477.5C506.8 486.8 504.6 497.6 497.3 504.6C451.3 548.8 388.8 576 320 576C178.6 576 64 461.4 64 320z"/></svg>
       </button>
     </header>
+
+    <!-- Update banner — hidden until the GitHub version.json reports a newer
+         release than this panel's version (see checkForUpdate in main.js). -->
+    <div id="update-banner" hidden>
+      <span id="update-link" class="update-link">
+        <svg width="12" height="12" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M488 576C501.3 576 512 565.3 512 552C512 538.7 501.3 528 488 528L152 528C138.7 528 128 538.7 128 552C128 565.3 138.7 576 152 576L488 576zM303 441C312.4 450.4 327.6 450.4 336.9 441L473 305C482.4 295.6 482.4 280.4 473 271.1C463.6 261.8 448.4 261.7 439.1 271.1L344.1 366.1L344.1 88C344.1 74.7 333.4 64 320.1 64C306.8 64 296.1 74.7 296.1 88L296.1 366.1L201.1 271.1C191.7 261.7 176.5 261.7 167.2 271.1C157.9 280.5 157.8 295.7 167.2 305L303 441z"/></svg>
+        New version <strong id="update-version"></strong> — <u>how to update</u>
+      </span>
+      <button id="update-dismiss" class="update-dismiss" type="button" aria-label="Dismiss">&times;</button>
+    </div>
 
     <!-- section tabs -->
     <nav class="tabs" id="tabs">

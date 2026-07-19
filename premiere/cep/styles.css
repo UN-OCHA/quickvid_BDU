@@ -262,6 +262,19 @@ body {
 ::-webkit-scrollbar-thumb { background: #555; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
 ::-webkit-scrollbar-thumb:hover { background: #777; background-clip: content-box; }
 
+/* ---------- Update banner (below the header; shown only when a newer release exists) ---------- */
+#update-banner {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  background: var(--accent-bg); color: var(--accent); border-bottom: 1px solid var(--accent);
+  padding: 5px var(--sp-150); font-size: var(--fs-xs); font-weight: var(--fw-medium);
+}
+#update-banner[hidden] { display: none; }
+.update-link { display: flex; align-items: center; justify-content: center; gap: 5px; flex: 1; cursor: pointer; }
+.update-link u, .update-link strong { color: var(--accent); }
+.update-link:hover u { text-decoration: none; }
+.update-dismiss { background: none; border: 0; color: var(--accent); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; flex-shrink: 0; }
+.update-dismiss:hover { color: var(--text-primary); }
+
 /* ---------- Beta banner (pinned bottom, last child of the .app flex column) ---------- */
 #beta-banner {
   display: flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0;

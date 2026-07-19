@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.21.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.22.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -429,6 +429,58 @@ $("theme").addEventListener("click", () => {
   try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
 });
 
+/* ---------- Update check (GitHub-hosted version.json; notify + manual download) ----------
+   Mirrors the DataViz plugin's version check but channelled via GitHub (same repo
+   the web app self-updates from) instead of Dropbox — no tokens, versioned, free.
+   MVP = notify-only: shows a banner linking to the download/instructions. Full
+   silent .zxp auto-extract (DataViz phase 2) needs a signed .zxp + --enable-nodejs. */
+const UPDATE_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/premiere/cep/version.json";
+const UPD_DISMISS_KEY = "qv-update-dismissed";
+function cmpVer(a, b) {                         // -1 a<b, 0 equal, 1 a>b
+  const pa = String(a).split("."), pb = String(b).split(".");
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = parseInt(pa[i], 10) || 0, nb = parseInt(pb[i], 10) || 0;
+    if (na !== nb) return na < nb ? -1 : 1;
+  }
+  return 0;
+}
+function checkForUpdate() {
+  // XHR (not fetch) — CEP's CEF allows cross-origin XHR; matches DataViz.
+  let xhr;
+  try { xhr = new XMLHttpRequest(); } catch (e) { return; }
+  xhr.open("GET", UPDATE_URL + "?t=" + Date.now(), true);
+  xhr.timeout = 6000;
+  xhr.onreadystatechange = () => {
+    if (xhr.readyState !== 4) return;
+    if (xhr.status < 200 || xhr.status >= 300) return;         // offline / blocked → silent
+    let info;
+    try { info = JSON.parse(xhr.responseText); } catch (e) { return; }
+    if (!info || !info.version) return;
+    if (cmpVer(PANEL_VERSION, info.version) >= 0) return;      // already current or newer
+    try { if (localStorage.getItem(UPD_DISMISS_KEY) === info.version) return; } catch (e) {}  // dismissed this one
+    showUpdateBanner(info);
+  };
+  try { xhr.send(); } catch (e) { /* silent */ }
+}
+function showUpdateBanner(info) {
+  const bar = $("update-banner");
+  if (!bar) return;
+  $("update-version").textContent = "v" + info.version;
+  const url = info.downloadUrl || "https://github.com/UN-OCHA/quickvid_BDU";
+  $("update-link").onclick = () => {
+    try {
+      if (window.cep && window.cep.util) window.cep.util.openURLInDefaultBrowser(url);
+      else window.open(url);
+    } catch (e) { try { window.open(url); } catch (e2) {} }
+  };
+  $("update-dismiss").onclick = () => {
+    try { localStorage.setItem(UPD_DISMISS_KEY, info.version); } catch (e) {}
+    bar.hidden = true;
+  };
+  bar.hidden = false;
+}
+
 loadHost().then(refresh);
+checkForUpdate();               // once on load; a new release surfaces on next panel open
 setInterval(refresh, 2500);
 setInterval(syncAdjust, 900);   // bind Adjust sliders to a selected OCHA clip
