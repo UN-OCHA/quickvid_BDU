@@ -33,23 +33,31 @@
 .dropzone.has-file { border-style: solid; border-color: var(--ocha-cyan); color: var(--ink); }
 .dropzone .fa-solid { font-size: 1.5rem; color: var(--ocha-cyan); }
 
-/* ---- Titles & branding : lower-third rows + column labels ---- */
-.lt-row, .lt-labels { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-.lt-name, .lt-org, .lt-org2 { flex: 2 1 7rem; min-width: 0; }  /* small basis (they grow to fill) so the row fits one line; min-width:0 lets inputs shrink */
-.lt-start           { flex: 0 0 5.75rem; }         /* time selector (mm:ss + spinner) */
-.lt-dur             { flex: 0 0 6rem; }             /* duration selector (secs + unit + spinner) */
-.lt-align           { flex: 0 0 6.5rem; }
-.lt-remove          { flex: none; width: 2.25rem; }
-#lt-rows { margin-top: 0.3rem; }                    /* keep column labels close to the fields */
-#lt-rows > .lt-row + .lt-row { margin-top: 0.55rem; }
-
-/* Column header labels sit above the rows and line up with each field */
-.lt-labels > span {
-  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.5px; color: var(--muted);
+/* ---- Titles & branding : lower-third rows ----
+   One person per block: the three text fields stack a line each (they were
+   cramped side-by-side), then a single Start | Duration | Alignment line.
+   Each control carries its own caption, so there's no shared column header. */
+.lt-row { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+.lt-name, .lt-org, .lt-org2 { flex: 1 1 100%; min-width: 0; }   /* one field per line */
+/* flex-start so the CAPTIONS share a baseline (a select is ~2px shorter than the
+   composite timefields, so bottom-aligning would stagger the labels instead) */
+.lt-meta { flex: 1 1 100%; display: flex; gap: 0.5rem; align-items: flex-start; flex-wrap: wrap; }
+.lt-cell { display: block; }                        /* block, so the caption sits above its control */
+.lt-cap {
+  display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--muted); margin-bottom: 0.15rem;
 }
-.lt-labels .lt-name, .lt-labels .lt-org, .lt-labels .lt-align { padding-inline-start: 0.8rem; }
-.lt-labels .lt-start, .lt-labels .lt-dur { text-align: center; }
+.lt-cell--start { width: 5.75rem; }                 /* mm:ss + spinner */
+.lt-cell--dur   { width: 6rem; }                    /* secs + unit + spinner */
+.lt-cell--align { width: 6.5rem; }
+.lt-cell > .timefield, .lt-cell > select { width: 100%; }
+.lt-remove { flex: none; width: 2.25rem; }
+.lt-meta .lt-remove { margin-inline-start: auto; }  /* trailing, away from the controls */
+#lt-rows, #st-lt-rows { margin-top: 0.3rem; }
+.lt-row + .lt-row {                                 /* rows are multi-line now — separate them clearly */
+  margin-top: 0.75rem; padding-top: 0.75rem;
+  border-top: 1px solid var(--input-border);
+}
 
 /* ---- Start-time selector (mm:ss with ▲▼ nudge) ---- */
 .timefield { position: relative; display: block; }

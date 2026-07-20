@@ -613,17 +613,25 @@ function stAddLt(v) {
     `<input class="cd-form__input lt-name" placeholder="First Name Last Name" autocomplete="off">
      <input class="cd-form__input lt-org" placeholder="Job title" autocomplete="off">
      <input class="cd-form__input lt-org2" placeholder="Additional info" autocomplete="off">
-     <span class="lt-start timefield">
-       <input class="cd-form__input timefield__input" type="text" inputmode="numeric" value="00:02" maxlength="5" aria-label="Start (mm:ss)">
-       <span class="timefield__spin"><button type="button" class="timefield__up" tabindex="-1" aria-label="Later">&#9650;</button><button type="button" class="timefield__down" tabindex="-1" aria-label="Earlier">&#9660;</button></span>
-     </span>
-     <span class="lt-dur timefield">
-       <input class="cd-form__input durfield__input" type="text" inputmode="numeric" value="5" maxlength="3" aria-label="Duration (seconds)">
-       <span class="durfield__unit" aria-hidden="true">sec</span>
-       <span class="timefield__spin"><button type="button" class="durfield__up" tabindex="-1" aria-label="Longer">&#9650;</button><button type="button" class="durfield__down" tabindex="-1" aria-label="Shorter">&#9660;</button></span>
-     </span>
-     <select class="cd-form__input lt-align"><option value="center">Centre</option><option value="left">Left</option></select>
-     <button class="cd-button cd-button--outline cd-button--small lt-remove" type="button" aria-label="Remove"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>`;
+     <div class="lt-meta">
+       <span class="lt-cell lt-cell--start"><span class="lt-cap">Start</span>
+         <span class="lt-start timefield">
+           <input class="cd-form__input timefield__input" type="text" inputmode="numeric" value="00:02" maxlength="5" aria-label="Start (mm:ss)">
+           <span class="timefield__spin"><button type="button" class="timefield__up" tabindex="-1" aria-label="Later">&#9650;</button><button type="button" class="timefield__down" tabindex="-1" aria-label="Earlier">&#9660;</button></span>
+         </span>
+       </span>
+       <span class="lt-cell lt-cell--dur"><span class="lt-cap">Duration</span>
+         <span class="lt-dur timefield">
+           <input class="cd-form__input durfield__input" type="text" inputmode="numeric" value="5" maxlength="3" aria-label="Duration (seconds)">
+           <span class="durfield__unit" aria-hidden="true">sec</span>
+           <span class="timefield__spin"><button type="button" class="durfield__up" tabindex="-1" aria-label="Longer">&#9650;</button><button type="button" class="durfield__down" tabindex="-1" aria-label="Shorter">&#9660;</button></span>
+         </span>
+       </span>
+       <span class="lt-cell lt-cell--align"><span class="lt-cap">Alignment</span>
+         <select class="cd-form__input lt-align"><option value="center">Centre</option><option value="left">Left</option></select>
+       </span>
+       <button class="cd-button cd-button--outline cd-button--small lt-remove" type="button" aria-label="Remove"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+     </div>`;
   const tf = row.querySelector(".timefield__input"), df = row.querySelector(".durfield__input");
   if (v.name) row.querySelector(".lt-name").value = v.name;
   if (v.org) row.querySelector(".lt-org").value = v.org;

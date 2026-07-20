@@ -162,23 +162,31 @@ function addLtRow() {
     `<input class="cd-form__input lt-name" placeholder="First Name Last Name" autocomplete="off">
      <input class="cd-form__input lt-org" placeholder="Job title" autocomplete="off">
      <input class="cd-form__input lt-org2" placeholder="Additional info" autocomplete="off">
-     <span class="lt-start timefield">
-       <input class="cd-form__input timefield__input" type="text" inputmode="numeric" value="00:10" maxlength="5" aria-label="Start time (mm:ss)" title="When it appears (mm:ss)">
-       <span class="timefield__spin">
-         <button type="button" class="timefield__up" tabindex="-1" aria-label="Later">&#9650;</button>
-         <button type="button" class="timefield__down" tabindex="-1" aria-label="Earlier">&#9660;</button>
+     <div class="lt-meta">
+       <span class="lt-cell lt-cell--start"><span class="lt-cap">Start</span>
+         <span class="lt-start timefield">
+           <input class="cd-form__input timefield__input" type="text" inputmode="numeric" value="00:10" maxlength="5" aria-label="Start time (mm:ss)" title="When it appears (mm:ss)">
+           <span class="timefield__spin">
+             <button type="button" class="timefield__up" tabindex="-1" aria-label="Later">&#9650;</button>
+             <button type="button" class="timefield__down" tabindex="-1" aria-label="Earlier">&#9660;</button>
+           </span>
+         </span>
        </span>
-     </span>
-     <span class="lt-dur timefield">
-       <input class="cd-form__input durfield__input" type="text" inputmode="numeric" value="4" maxlength="3" aria-label="Duration in seconds" title="Seconds on screen">
-       <span class="durfield__unit" aria-hidden="true">sec</span>
-       <span class="timefield__spin">
-         <button type="button" class="durfield__up" tabindex="-1" aria-label="Longer">&#9650;</button>
-         <button type="button" class="durfield__down" tabindex="-1" aria-label="Shorter">&#9660;</button>
+       <span class="lt-cell lt-cell--dur"><span class="lt-cap">Duration</span>
+         <span class="lt-dur timefield">
+           <input class="cd-form__input durfield__input" type="text" inputmode="numeric" value="4" maxlength="3" aria-label="Duration in seconds" title="Seconds on screen">
+           <span class="durfield__unit" aria-hidden="true">sec</span>
+           <span class="timefield__spin">
+             <button type="button" class="durfield__up" tabindex="-1" aria-label="Longer">&#9650;</button>
+             <button type="button" class="durfield__down" tabindex="-1" aria-label="Shorter">&#9660;</button>
+           </span>
+         </span>
        </span>
-     </span>
-     <select class="cd-form__input lt-align" title="Alignment"><option value="left">Left</option><option value="center">Centre</option></select>
-     <button class="cd-button cd-button--outline cd-button--small lt-remove" type="button" aria-label="Remove"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>`;
+       <span class="lt-cell lt-cell--align"><span class="lt-cap">Alignment</span>
+         <select class="cd-form__input lt-align" title="Alignment"><option value="left">Left</option><option value="center">Centre</option></select>
+       </span>
+       <button class="cd-button cd-button--outline cd-button--small lt-remove" type="button" aria-label="Remove"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+     </div>`;
   const tf = row.querySelector(".timefield__input");
   const setTf = (sec) => { tf.value = fmtMMSS(sec); };
   tf.addEventListener("blur", () => setTf(parseTime(tf.value)));
