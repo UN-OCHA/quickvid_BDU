@@ -630,7 +630,7 @@ function stAddLt(v) {
        <span class="lt-cell lt-cell--align"><span class="lt-cap">Alignment</span>
          <select class="cd-form__input lt-align"><option value="center">Centre</option><option value="left">Left</option></select>
        </span>
-       <button class="cd-button cd-button--outline cd-button--small lt-remove" type="button" aria-label="Remove"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+       <button class="cd-button cd-button--outline cd-button--small lt-remove" type="button" title="Remove this lower third"><i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="cd-button__text">Remove</span></button>
      </div>`;
   const tf = row.querySelector(".timefield__input"), df = row.querySelector(".durfield__input");
   if (v.name) row.querySelector(".lt-name").value = v.name;

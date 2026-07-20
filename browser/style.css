@@ -37,7 +37,23 @@
    One person per block: the three text fields stack a line each (they were
    cramped side-by-side), then a single Start | Duration | Alignment line.
    Each control carries its own caption, so there's no shared column header. */
-.lt-row { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+/* Each lower third is an enclosed card, so it's obvious which fields belong
+   together once there are several people. */
+#lt-rows, #st-lt-rows { counter-reset: lt; }
+.lt-row {
+  display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;
+  counter-increment: lt;
+  border: 1px solid var(--input-border); border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ocha-cyan) 3%, var(--card));
+  padding: 0.7rem 0.75rem;
+}
+/* auto-numbered header — a CSS counter, so removing a row renumbers by itself */
+.lt-row::before {
+  content: "Lower third " counter(lt);
+  flex: 1 1 100%;
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--ocha-blue-dark); margin-bottom: 0.1rem;
+}
 .lt-name, .lt-org, .lt-org2 { flex: 1 1 100%; min-width: 0; }   /* one field per line */
 /* flex-start so the CAPTIONS share a baseline (a select is ~2px shorter than the
    composite timefields, so bottom-aligning would stagger the labels instead) */
@@ -51,13 +67,15 @@
 .lt-cell--dur   { width: 6rem; }                    /* secs + unit + spinner */
 .lt-cell--align { width: 6.5rem; }
 .lt-cell > .timefield, .lt-cell > select { width: 100%; }
-.lt-remove { flex: none; width: 2.25rem; }
+/* Remove: labelled (not a bare ×) and reads as destructive on hover */
+.lt-remove { flex: none; width: auto; align-self: flex-end; }
 .lt-meta .lt-remove { margin-inline-start: auto; }  /* trailing, away from the controls */
-#lt-rows, #st-lt-rows { margin-top: 0.3rem; }
-.lt-row + .lt-row {                                 /* rows are multi-line now — separate them clearly */
-  margin-top: 0.75rem; padding-top: 0.75rem;
-  border-top: 1px solid var(--input-border);
+.lt-remove:hover, .lt-remove:focus-visible {
+  color: var(--err); border-color: var(--err);
+  background: color-mix(in srgb, var(--err) 8%, var(--card));
 }
+#lt-rows, #st-lt-rows { margin-top: 0.3rem; }
+.lt-row + .lt-row { margin-top: 0.6rem; }           /* cards carry their own border now */
 
 /* ---- Start-time selector (mm:ss with ▲▼ nudge) ---- */
 .timefield { position: relative; display: block; }
