@@ -31,7 +31,12 @@ function setStatus(text, kind, percent) {
 //    == ENGINE_MIN unless a newer engine adds a real user benefit an older-but-still-
 //    compatible engine lacks; then the soft banner appears.
 const ENGINE_MIN = "0.5.0";
-const ENGINE_LATEST = "0.6.3";   // 0.6.3 resvg fallback fix (fresh-Mac installs: float zoom crashed every render)
+// Newest published version. SEEDED here (so the banner still works offline) and then
+// corrected from the repo's VERSION file at load — see trackLatestVersion below.
+// It used to be hardcoded only, which meant the banner quietly went stale every
+// release: it was still advertising 0.6.3 while main had moved on to 0.7.0.
+let ENGINE_LATEST = "0.7.0";
+const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
 function cmpVer(a, b) {
@@ -98,6 +103,24 @@ function gate() {
   } else { banner.hidden = true; }
   if (typeof stModeChanged === "function") stModeChanged(up);     // Edit wizard shows/hides
 }
+
+// Ask GitHub what the newest published version actually is, so the "update available"
+// banner can't drift out of date between releases. Falls back silently to the seeded
+// ENGINE_LATEST when offline (VPN, blocked, no network) — this must never block the UI.
+(function trackLatestVersion() {
+  try {
+    fetch(ENGINE_LATEST_URL + "?t=" + Date.now(), { cache: "no-store" })
+      .then((r) => (r.ok ? r.text() : null))
+      .then((t) => {
+        const v = String(t || "").trim();
+        if (/^\d+\.\d+/.test(v) && cmpVer(v, ENGINE_LATEST) > 0) {
+          ENGINE_LATEST = v;
+          gate();                                   // repaint the banner with the real number
+        }
+      })
+      .catch(() => {});
+  } catch (e) { /* no fetch available — keep the seeded value */ }
+})();
 document.addEventListener("click", (e) => {
   if (e.target.closest("#st-upd-dismiss")) { state._updDismissed = true; $("#st-update-banner").hidden = true; }
   // copy the Mac install one-liner
