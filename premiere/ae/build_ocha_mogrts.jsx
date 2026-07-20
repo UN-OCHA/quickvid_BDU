@@ -107,6 +107,29 @@ var DATA = {
    "line2_weight": 500
   }
  },
+ "text": {
+  "ratio": {
+   "portrait": 0.052,
+   "square": 0.058,
+   "landscape": 0.062
+  },
+  "color": "#FFFFFF",
+  "line_gap": 1.16,
+  "letter_spacing": 0,
+  "y_frac": 0.56,
+  "enter": 0.5,
+  "exit": 0.4,
+  "rise": 0.045,
+  "fonts": {
+   "family": "Raleway",
+   "weight": 700
+  }
+ },
+ "gradient": {
+  "height_frac": 0.45,
+  "opacity": 80,
+  "feather_frac": 0.75
+ },
  "safe": {
   "landscape": {
    "top": 0.06,
@@ -868,6 +891,87 @@ function buildEnding(fmt) {
   return comp;
 }
 
+// ---------------------------------------------------------------- text on screen
+// Emphasis text: white Raleway Bold, left-aligned, typed by the editor into the
+// Essential Graphics "Text" field. Rises into place + fades in, holds, fades out.
+// Placement is a sensible default (left safe margin, lower-middle, like the
+// reference clip); the panel's Size & position X/Y nudges it per shot via the
+// clip's native Motion, so no position control is exposed here.
+function buildText(fmt) {
+  var W = fmt.w, H = fmt.h, safe = DATA.safe[fmt.orient], T = DATA.text;
+  var DUR = 5;
+  var comp = S.proj.items.addComp("OCHA Text - " + fmt.label, W, H, 1, DUR, 30);
+  comp.parentFolder = S.root;
+
+  var size = Math.round(H * T.ratio[fmt.orient]);
+  var px = Math.round(safe.left * W);
+  var py = Math.round(H * T.y_frac);
+  var DEF = "YOUR TEXT HERE";
+
+  var txt = comp.layers.addText(DEF);            // never create empty - AE needs a value
+  txt.name = "Text";
+  setText(txt, DEF, T.fonts.family + "-Bold", size, hex2rgb(T.color),
+          T.letter_spacing * size);
+  // fixed leading so multi-line emphasis text sets tight, like the reference
+  try {
+    var st = txt.property("ADBE Text Properties").property("ADBE Text Document");
+    var td = st.value;
+    td.autoLeading = false;
+    td.leading = Math.round(size * T.line_gap);
+    st.setValue(td);
+  } catch (eLead) {}
+  txt.transform.position.setValue([px, py]);
+
+  // reveal: rise + fade in; fade out on the tail so it can sit mid-clip
+  var rise = Math.round(H * T.rise);
+  key2(txt.transform.position, 0, [px, py + rise], T.enter, [px, py]);
+  key2(txt.transform.opacity, 0, 0, T.enter, 100);
+  key2(txt.transform.opacity, DUR - T.exit, 100, DUR, 0);
+
+  var ctl = ctlNull(comp);
+  addSlider(ctl, "Size", 100);
+  sizeGroup(comp, [txt], "" + px, "" + py);      // scales in place about its own anchor
+  protectRegions(comp, T.enter, T.exit);
+  comp.motionGraphicsTemplateName = comp.name;
+  addEGP(ctl.effect("Size").property(1), comp, "Size");   // display: Text, Size
+  addEGP(txt.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Text");
+  return comp;
+}
+
+// ---------------------------------------------------------------- readability gradient
+// A soft black scrim that keeps white text / event captions legible over busy
+// footage. Built as a full-frame black solid cut by a FEATHERED LINEAR WIPE: the
+// wipe clears the far end and the feather does the fade. Far more script-robust
+// than assembling gradient-fill colour stops, and it scales to any format because
+// completion is a percentage and the feather is derived from comp height.
+function buildGradient(fmt) {
+  var W = fmt.w, H = fmt.h, G = DATA.gradient;
+  var DUR = 5;
+  var comp = S.proj.items.addComp("OCHA Gradient - " + fmt.label, W, H, 1, DUR, 30);
+  comp.parentFolder = S.root;
+
+  var sol = comp.layers.addSolid([0, 0, 0], "Scrim", W, H, 1, DUR);
+  var wipe = sol.property("ADBE Effect Parade").addProperty("ADBE Linear Wipe");
+  // completion clears everything but the band; angle 0 clears from the TOP, so the
+  // scrim lands at the BOTTOM. "Top" flips the angle to 180 to move it up.
+  wipe.property("Transition Completion").setValue(Math.round((1 - G.height_frac) * 100));
+  wipe.property("Feather").setValue(Math.round(H * G.height_frac * G.feather_frac));
+  wipe.property("Wipe Angle").expression =
+    "thisComp.layer('Controls').effect('Top')('Checkbox') > 0 ? 180 : 0;";
+  sol.transform.opacity.expression =
+    "thisComp.layer('Controls').effect('Opacity')('Slider');";
+
+  var ctl = ctlNull(comp);
+  addCheckbox(ctl, "Top", false);
+  addSlider(ctl, "Opacity", G.opacity);
+  var mv = new MarkerValue("gradient"); mv.duration = DUR; mv.protectedRegion = true;
+  comp.markerProperty.setValueAtTime(0, mv);     // fixed piece - protect it all
+  comp.motionGraphicsTemplateName = comp.name;
+  addEGP(ctl.effect("Opacity").property(1), comp, "Opacity");   // display: Top, Opacity
+  addEGP(ctl.effect("Top").property(1), comp, "Top");
+  return comp;
+}
+
 // ---------------------------------------------------------------- build + export
 function exportComp(comp, cname, fmtKey) {
   var dir = new Folder(MOGRT_ROOT + "/" + fmtKey);
@@ -886,8 +990,8 @@ function exportComp(comp, cname, fmtKey) {
   }
 }
 
-var builders = [buildLT, buildPin, buildBug, buildEnding];
-var builderNames = ["LT", "Pin", "Bug", "Ending"];
+var builders = [buildLT, buildPin, buildBug, buildEnding, buildText, buildGradient];
+var builderNames = ["LT", "Pin", "Bug", "Ending", "Text", "Gradient"];
 try {
   for (var f = 0; f < DATA.formats.length; f++) {
     var fmt = DATA.formats[f];

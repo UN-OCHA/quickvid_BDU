@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.24.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.25.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -122,8 +122,8 @@ function collectValues() {
   } else if (curEl === "text") {
     const body = $("text-body").value.trim();
     if (body) push("Text", body);
-    const g = document.querySelector("#text-grad .seg__opt.is-active");
-    push("Gradient", (g && g.dataset.grad) || "none");   // none | bottom | top (host adds the scrim)
+    // the readability scrim is its OWN template, not a control here — addElement
+    // inserts it as a follow-up when the toggle isn't "none" (see gradientChoice)
   }
   // shared Size + Position → Motion (all four elements; skip values at default)
   const size = clampNum($("adj-size-n").value, 100);
@@ -142,6 +142,17 @@ function clampNum(v, dflt) {
 
 const EL_LABEL = { lt: "Lower third", loc: "Location", bug: "OCHA logo", ending: "Ending", text: "Text" };
 
+/* The readability scrim is a template of its own (OCHA Gradient) rather than a
+   control inside Text — the Captions tab needs it standalone for event captions. */
+function gradientChoice() {
+  const g = document.querySelector("#text-grad .seg__opt.is-active");
+  return (g && g.dataset.grad) || "none";
+}
+function addGradient(top) {
+  const kv = "Top" + US + (top ? "true" : "false");
+  return jsx(`ochaAdd("gradient",${lit(curFmt)},${lit(EXT_ROOT)},${lit(kv)})`).then((r) => r || "");
+}
+
 async function addElement() {
   hideStatus();
   if (!curFmt) return show("This sequence isn’t one of the OCHA formats (9:16, 4:5, 1:1, 16:9).", "warn");
@@ -158,6 +169,16 @@ async function addElement() {
       let msg = `Added <strong>${EL_LABEL[curEl]}</strong> on ${track} at the playhead.`;
       if (set.length) msg += ` Applied: ${set.join(", ")}.`;
       if (warn) msg += ` <em>${warn}</em>`;
+      // Text: drop the readability scrim in too when the toggle asks for it
+      if (curEl === "text") {
+        const grad = gradientChoice();
+        if (grad !== "none") {
+          const gres = await addGradient(grad === "top");
+          msg += gres.indexOf("OK|") === 0
+            ? ` Added the ${grad} gradient — drag it below the text.`
+            : ` <em>Gradient failed: ${gres.replace(/^ERR\|/, "")}</em>`;
+        }
+      }
       show(msg, warn ? "warn" : "ok");
     } else {
       show(res.replace(/^ERR\|/, "") || "No response from Premiere.", "err");
@@ -295,6 +316,21 @@ $("cap-install").addEventListener("click", async () => {
     let msg = `Installed: <strong>${inst}</strong>. Pick them under Style when creating captions.`;
     if (warn) msg += ` <em>${warn}</em>`;
     show(msg, warn ? "warn" : "ok");
+  } else {
+    show(res.replace(/^ERR\|/, "") || "No response from Premiere.", "err");
+  }
+});
+
+// captions: the event (Clean) style has no box, so it needs a bottom scrim under
+// the text — same OCHA Gradient template the Text element uses.
+$("cap-gradient").addEventListener("click", async () => {
+  hideStatus();
+  if (!hostReady) return show("Premiere host not ready.", "warn");
+  if (!curFmt) return show("Open one of the OCHA formats (9:16, 4:5, 1:1, 16:9) first.", "warn");
+  show("Adding the gradient…", "ok");
+  const res = await addGradient(false);          // bottom
+  if (res.indexOf("OK|") === 0) {
+    show("Added the <strong>bottom gradient</strong> at the playhead. Drag it just below your caption track.", "ok");
   } else {
     show(res.replace(/^ERR\|/, "") || "No response from Premiere.", "err");
   }

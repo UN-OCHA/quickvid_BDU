@@ -1003,21 +1003,26 @@ lines reveal sliding up).
   multi-line field + gradient segmented control (None/Bottom/Top); `collectValues`
   emits `Text` + `Gradient`; `EL_LABEL.text`; host `OCHA_EL_NAME.text = "OCHA Text"`
   so `ochaAdd("text", …)` will insert + set the text once the MOGRT exists.
-- **Backend TODO (needs AE + Premiere to build/verify — hand-run):**
-  1. `premiere/ae/build_ocha_mogrts.jsx`: add `buildText(fmt)` (mirror `buildLT`:
-     one editable text layer, Raleway-Bold white, LEFT, size ≈ H·ratio, default pos
-     [safe.left·W, ~0.58·H], slide-up+fade reveal via `key2`, `sizeGroup`,
-     `protectRegions`, expose Size + the `ADBE Text Document` as EGP "Text") and
-     register in the `builders`/`builderNames` arrays. Add a `DATA.text` config
-     block (ratio per orient, color #FFFFFF, tracking, y_frac, enter/exit).
-  2. The **gradient**: cleanest path that avoids AE + non-uniform-scale headaches is
-     panel-generated — render a black transparent→opaque gradient on an HTML canvas
-     at the sequence's exact W×H, save via `cep.fs.writeFile`, and a host
-     `ochaAddGradient(pngPath, pos)` imports it full-frame (uniform scale 100%,
-     centred) on the top track. Wire the Text pane's toggle + a "Add bottom
-     gradient" button in Captions (task: event-caption scrim) to it.
-  3. Run the AE builder in AE (Prefs > Scripting > Allow Scripts to Write Files),
-     restart Premiere, test Add Text + gradient.
+- **Backend BUILT (v0.25.0) — awaiting one AE run to generate the MOGRTs:**
+  1. `buildText(fmt)` in `premiere/ae/build_ocha_mogrts.jsx` — one editable text
+     layer (Raleway-Bold, white, LEFT), size = H·`DATA.text.ratio[orient]`, default
+     position [safe.left·W, 0.56·H], rise+fade reveal via `key2`, `sizeGroup`,
+     `protectRegions`; exposes **Size** + the `ADBE Text Document` as EGP "Text".
+  2. `buildGradient(fmt)` — the scrim is its **own MOGRT**, not a panel-generated
+     PNG as first sketched. Decisive reason: one mechanism (`ochaAdd`), one AE build
+     step, and it auto-fits every format — no `cep.fs` writing, no non-uniform-scale
+     fiddling. Built as a full-frame black solid cut by a **feathered Linear Wipe**
+     (completion leaves the band, feather does the fade) — far more script-robust
+     than assembling gradient-fill colour stops. Controls: **Top** (checkbox, flips
+     the wipe angle 0↔180) + **Opacity**.
+  3. Both registered in `builders`/`builderNames`; host `OCHA_EL_NAME` gained
+     `text`/`gradient`, `OCHA_BOOL` gained `Top`, `OCHA_NUM` gained `Opacity`.
+  4. Panel: the Text pane's toggle inserts the scrim as a follow-up after the text;
+     Captions has an "Add bottom gradient (event captions)" button — both go through
+     the same `addGradient()`.
+- **Remaining:** run the builder in AE (Prefs > Scripting & Expressions > "Allow
+  Scripts to Write Files and Access Network"), restart Premiere, test. The two new
+  build functions are the only part not verifiable outside AE.
 
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.

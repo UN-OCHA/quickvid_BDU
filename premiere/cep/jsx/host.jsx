@@ -19,7 +19,8 @@ var OCHA_EL_NAME = {
   loc: "OCHA Location",
   bug: "OCHA Bug",
   ending: "OCHA Ending",
-  text: "OCHA Text"
+  text: "OCHA Text",
+  gradient: "OCHA Gradient"
 };
 var OCHA_FMT = {
   reels:  { folder: "reels",  label: "Reels 9x16" },
@@ -28,8 +29,8 @@ var OCHA_FMT = {
   event:  { folder: "event",  label: "Event 16x9" }
 };
 // value coercion per control (everything not listed is text)
-var OCHA_BOOL = { "Centre align": 1, "Show pin icon": 1, "Over black": 1 };
-var OCHA_NUM  = { "Pin colour": 1, "Size": 1 };
+var OCHA_BOOL = { "Centre align": 1, "Show pin icon": 1, "Over black": 1, "Top": 1 };
+var OCHA_NUM  = { "Pin colour": 1, "Size": 1, "Opacity": 1 };
 
 function ochaFmtFromSize(w, h) {
   if (!w || !h) return null;
