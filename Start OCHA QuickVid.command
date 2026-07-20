@@ -32,25 +32,45 @@ qv_dialog() {
   osascript -e "display dialog \"$1\" buttons {\"OK\"} default button 1 with title \"OCHA QuickVid\" with icon note" >/dev/null 2>&1 || true
 }
 
+# Stop the detached engine (only used right after a self-update — the live process
+# still has the OLD Python loaded and would keep serving the previous version).
+# Every step is failure-tolerant: `set -e` is on and a missing pid must not abort
+# the launch.
+qv_stop_engine() {
+  local pids i
+  pids="$(lsof -ti tcp:"$PORT" 2>/dev/null || true)"
+  if [ -n "$pids" ]; then
+    kill $pids 2>/dev/null || true
+  fi
+  i=0
+  while [ "$i" -lt 20 ]; do                      # ~6s for the port to come free
+    if ! curl -s -m 1 "http://127.0.0.1:$PORT/api/health" 2>/dev/null | grep -q quickvid; then
+      return 0
+    fi
+    sleep 0.3
+    i=$((i + 1))
+  done
+  return 0
+}
+
 # Self-register this install's location so the tiny "Start OCHA QuickVid" starter the
 # web page hands out can find the engine wherever it lives (no buried folders).
 QV_SUPPORT="$HOME/Library/Application Support/OCHA QuickVid"
 mkdir -p "$QV_SUPPORT"
 pwd > "$QV_SUPPORT/home"
 
-# Already running? Then there's nothing to do — just open the page.
-if curl -s -m 2 "http://127.0.0.1:$PORT/api/health" 2>/dev/null | grep -q quickvid; then
-  echo "OCHA QuickVid is already running — opening it in your browser."
-  [ -z "$QV_NO_OPEN" ] && open "http://127.0.0.1:$PORT"
-  exit 0
-fi
-
-# --- Self-update: if GitHub has a newer version, refresh the app code before starting,
-#     so nobody has to re-download anything. Skipped for developer checkouts (a .git dir),
-#     and never allowed to block startup: any hiccup falls through to the current version.
+# --- Self-update. This runs BEFORE the "already running" check ON PURPOSE.
+#     The engine is detached (QV_DETACH) and stays up until shutdown/logout, so
+#     checking "already running" first meant we exited early and NEVER reached this
+#     block — which is exactly what stranded installs on an old version even though
+#     the launcher promised to auto-update. Order matters here; don't move it back.
+#     Skipped for developer checkouts (a .git dir); never allowed to block startup.
+UPDATED=0
 if [ -z "$QV_NO_UPDATE" ] && [ ! -d .git ]; then
   LOCAL_V="$(cat VERSION 2>/dev/null || echo 0.0.0)"
-  REMOTE_V="$(curl -fsL -m 3 "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION" 2>/dev/null | tr -d '[:space:]')"
+  # 8s, not 3s: on office wifi / VPN the first byte can take a few seconds, and a
+  # timeout here is indistinguishable from "you're already up to date".
+  REMOTE_V="$(curl -fsL -m 8 "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION" 2>/dev/null | tr -d '[:space:]')"
   case "$REMOTE_V" in
     [0-9]*.[0-9]*)
       if [ "$REMOTE_V" != "$LOCAL_V" ] \
@@ -59,13 +79,29 @@ if [ -z "$QV_NO_UPDATE" ] && [ ! -d .git ]; then
         UTMP="$(mktemp -d)"
         if curl -fsL -m 180 -o "$UTMP/qv.zip" "https://github.com/UN-OCHA/quickvid_BDU/archive/refs/heads/main.zip" \
            && ditto -x -k "$UTMP/qv.zip" "$UTMP" && [ -f "$UTMP/quickvid_BDU-main/VERSION" ]; then
-          # Mirror the new code over this install: keep the Python env (.venv) and this
-          # running launcher (a file can't safely replace itself mid-run). --delete clears
+          # Mirror the new code over this install: keep the Python env (.venv). The
+          # launcher is excluded because rsync would rewrite it IN PLACE while bash is
+          # still reading it — it's swapped safely by rename just below. --delete clears
           # anything dropped upstream; -c (checksum) avoids the same-size/same-mtime skip
-          # that would strand VERSION and make it re-update every launch. rsync ships with macOS.
+          # that would strand VERSION and make it re-update every launch.
           if rsync -ac --delete --exclude='.venv' --exclude='Start OCHA QuickVid.command' \
                    "$UTMP/quickvid_BDU-main/" "./"; then
             cp -f "$UTMP/quickvid_BDU-main/VERSION" ./VERSION   # guarantee the marker (belt + suspenders)
+            UPDATED=1
+            # Update the launcher ITSELF via rename. Overwriting in place corrupts a
+            # running bash script, but mv only swaps the directory entry: this process
+            # keeps reading the old inode, the next launch picks up the new file.
+            # Without this a bug in the launcher (like the ordering one above) could
+            # never be fixed remotely — every user would need a manual re-download.
+            NEWSTART="$UTMP/quickvid_BDU-main/Start OCHA QuickVid.command"
+            if [ -f "$NEWSTART" ] && ! cmp -s "$NEWSTART" "./Start OCHA QuickVid.command"; then
+              if cp "$NEWSTART" "./.qv-starter.new" && chmod +x "./.qv-starter.new" \
+                 && mv -f "./.qv-starter.new" "./Start OCHA QuickVid.command"; then
+                echo "(launcher updated too — takes effect next time you start it)"
+              else
+                rm -f "./.qv-starter.new"
+              fi
+            fi
             echo "Updated to $REMOTE_V."
           else
             echo "(update copy interrupted — starting your current version)"
@@ -76,6 +112,20 @@ if [ -z "$QV_NO_UPDATE" ] && [ ! -d .git ]; then
         rm -rf "$UTMP"
       fi ;;
   esac
+fi
+
+# Already running? Then there's nothing to do — just open the page. EXCEPT straight
+# after an update: the live engine still has the OLD Python loaded, so it would keep
+# serving the previous version. Stop it and fall through to a fresh start.
+if curl -s -m 2 "http://127.0.0.1:$PORT/api/health" 2>/dev/null | grep -q quickvid; then
+  if [ "$UPDATED" = 1 ]; then
+    echo "Restarting the engine so the update takes effect…"
+    qv_stop_engine
+  else
+    echo "OCHA QuickVid is already running — opening it in your browser."
+    [ -z "$QV_NO_OPEN" ] && open "http://127.0.0.1:$PORT"
+    exit 0
+  fi
 fi
 
 echo "OCHA QuickVid — checking your setup…"
