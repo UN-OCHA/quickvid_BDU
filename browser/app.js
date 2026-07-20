@@ -159,9 +159,9 @@ function addLtRow() {
   const row = document.createElement("div");
   row.className = "lt-row";
   row.innerHTML =
-    `<input class="cd-form__input lt-name" placeholder="e.g. Vanessa May" autocomplete="off">
-     <input class="cd-form__input lt-org" placeholder="e.g. OCHA Venezuela" autocomplete="off">
-     <input class="cd-form__input lt-org2" placeholder="2nd line (optional)" autocomplete="off">
+    `<input class="cd-form__input lt-name" placeholder="First Name Last Name" autocomplete="off">
+     <input class="cd-form__input lt-org" placeholder="Job title" autocomplete="off">
+     <input class="cd-form__input lt-org2" placeholder="Additional info" autocomplete="off">
      <span class="lt-start timefield">
        <input class="cd-form__input timefield__input" type="text" inputmode="numeric" value="00:10" maxlength="5" aria-label="Start time (mm:ss)" title="When it appears (mm:ss)">
        <span class="timefield__spin">

@@ -610,9 +610,9 @@ function stAddLt(v) {
   const row = document.createElement("div");
   row.className = "lt-row";
   row.innerHTML =
-    `<input class="cd-form__input lt-name" placeholder="e.g. Tom Fletcher" autocomplete="off">
-     <input class="cd-form__input lt-org" placeholder="e.g. UN Relief Chief" autocomplete="off">
-     <input class="cd-form__input lt-org2" placeholder="2nd line (optional)" autocomplete="off">
+    `<input class="cd-form__input lt-name" placeholder="First Name Last Name" autocomplete="off">
+     <input class="cd-form__input lt-org" placeholder="Job title" autocomplete="off">
+     <input class="cd-form__input lt-org2" placeholder="Additional info" autocomplete="off">
      <span class="lt-start timefield">
        <input class="cd-form__input timefield__input" type="text" inputmode="numeric" value="00:02" maxlength="5" aria-label="Start (mm:ss)">
        <span class="timefield__spin"><button type="button" class="timefield__up" tabindex="-1" aria-label="Later">&#9650;</button><button type="button" class="timefield__down" tabindex="-1" aria-label="Earlier">&#9660;</button></span>
