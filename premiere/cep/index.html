@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <link rel="stylesheet" href="styles.css?v=0.26" />
+  <link rel="stylesheet" href="styles.css?v=0.27" />
 </head>
 <body>
   <div class="app">
@@ -30,7 +30,7 @@
     <!-- section tabs -->
     <nav class="tabs" id="tabs">
       <button class="tab is-active" data-sec="brand">
-        <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M323.4 112.7L494.8 192L323.4 271.2C321.3 272.2 318.8 272.2 316.7 271.2L145.2 192L316.6 112.7C318.7 111.7 321.2 111.7 323.4 112.7zM357 64.3C333.6 53.5 306.5 53.5 283.1 64.3L108.5 145C88.5 154.3 88.5 182.7 108.5 192L283.1 272.7C306.5 283.5 333.6 283.5 357 272.7L531.6 192C551.6 182.7 551.6 154.3 531.6 145L357 64.3zM137.9 279.9L108.5 293.5C88.5 302.8 88.5 331.2 108.5 340.5L283.1 421.2C306.5 432 333.6 432 357 421.2L531.6 340.5C551.6 331.2 551.6 302.8 531.6 293.5L502.2 279.9L363 344.3C335.6 356.9 304.5 356.9 277 344.3L137.9 279.9zM137.9 431.9L108.5 445.5C88.5 454.8 88.5 483.2 108.5 492.5L283.1 573.2C306.5 584 333.6 584 357 573.2L531.6 492.5C551.6 483.2 551.6 454.8 531.6 445.5L502.2 431.9L363 496.3C335.6 508.9 304.5 508.9 277 496.3L137.9 431.9z"/></svg>
+        <svg viewBox="0 0 640 512" fill="currentColor" aria-hidden="true"><path d="M96 32C60.7 32 32 60.7 32 96l0 32c-17.7 0-32 14.3-32 32l0 96c0 17.7 14.3 32 32 32l0 32c-17.7 0-32 14.3-32 32s14.3 32 32 32l32 0c0 53 43 96 96 96s96-43 96-96l128 0c0 53 43 96 96 96s96-43 96-96l32 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l0-32c0-35.3-28.7-64-64-64l-4.2 0c-.4-1.1-.9-2.1-1.3-3.2L485.7 102c-10.3-23.1-33.2-38-58.5-38l-51.8 0C364.4 44.9 343.7 32 320 32L96 32zm288 96l43.2 0 42.7 96L384 224l0-96zM112 384a48 48 0 1 1 96 0 48 48 0 1 1 -96 0zm368-48a48 48 0 1 1 0 96 48 48 0 1 1 0-96zM253.3 135.1l34.7 52 0-43.2c0-8.8 7.2-16 16-16s16 7.2 16 16l0 96c0 7.1-4.6 13.3-11.4 15.3s-14-.6-17.9-6.4l-34.7-52 0 43.2c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-96c0-7.1 4.6-13.3 11.4-15.3s14 .6 17.9 6.4zM128 144l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64c0-8.8 7.2-16 16-16s16 7.2 16 16l0 64c0 26.5-21.5 48-48 48s-48-21.5-48-48l0-64c0-8.8 7.2-16 16-16s16 7.2 16 16z"/></svg>
         <span>Branding</span>
       </button>
       <button class="tab" data-sec="captions">
@@ -127,13 +127,10 @@
           <label class="fld"><span class="fld__label">Text on screen</span>
             <textarea id="text-body" class="fld__area" rows="3" placeholder="Half a million&#10;people are displaced&#10;by insecurity in Mali"></textarea></label>
           <p class="note">White Raleway Bold, revealed line by line. Placed centre-left by default — nudge with <strong>Size &amp; position</strong> below. <strong>Add to timeline</strong> adds the text only.</p>
-          <div class="tool-cards tool-cards--inline">
+          <div class="tool-cards">
             <button id="text-grad-btn" class="tool-tile" type="button" title="Add a black readability gradient on its own track — separate from the text.">
-              <svg class="tool-tile-icon" viewBox="0 0 44 30" aria-hidden="true">
-                <defs><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity="0"/><stop offset="1" stop-color="currentColor" stop-opacity="1"/></linearGradient></defs>
-                <rect width="44" height="30" rx="3" fill="url(#tg)"/>
-              </svg>
-              <span class="tool-tile-name">Readability gradient…</span>
+              <svg class="tool-tile-icon" viewBox="0 0 576 512" fill="currentColor" aria-hidden="true"><path d="M264.5 5.2c14.9-6.9 32.1-6.9 47 0l218.6 101c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 149.8C37.4 145.8 32 137.3 32 128s5.4-17.9 13.9-21.8L264.5 5.2zM476.9 209.6l53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 277.8C37.4 273.8 32 265.3 32 256s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0l152-70.2zm-152 198.2l152-70.2 53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 405.8C37.4 401.8 32 393.3 32 384s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0z"/></svg>
+              <span class="tool-tile-name">Readability gradient</span>
             </button>
           </div>
         </section>
@@ -187,14 +184,11 @@
         <div class="tool-cards">
           <button id="cap-install" class="tool-tile" type="button" title="Install the OCHA caption styles into Premiere, and see the full captioning steps.">
             <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M320 64C333.3 64 344 74.7 344 88L344 344.1L425 263C434.4 253.6 449.6 253.6 458.9 263C468.2 272.4 468.3 287.6 458.9 296.9L336.9 418.9C327.5 428.3 312.3 428.3 303 418.9L181 296.9C171.6 287.5 171.6 272.3 181 263C190.4 253.7 205.6 253.6 214.9 263L296 344.1L296 88C296 74.7 306.7 64 320 64zM144 416L144 480C144 497.7 158.3 512 176 512L464 512C481.7 512 496 497.7 496 480L496 416C496 402.7 506.7 392 520 392C533.3 392 544 402.7 544 416L544 480C544 524.2 508.2 560 464 560L176 560C131.8 560 96 524.2 96 480L96 416C96 402.7 106.7 392 120 392C133.3 392 144 402.7 144 416z"/></svg>
-            <span class="tool-tile-name">Install caption styles…</span>
+            <span class="tool-tile-name">Install caption styles</span>
           </button>
           <button id="cap-gradient" class="tool-tile" type="button" title="Add the bottom readability gradient that the Clean (event) caption style is designed to sit on.">
-            <svg class="tool-tile-icon" viewBox="0 0 44 30" aria-hidden="true">
-              <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity="0"/><stop offset="1" stop-color="currentColor" stop-opacity="1"/></linearGradient></defs>
-              <rect width="44" height="30" rx="3" fill="url(#cg)"/>
-            </svg>
-            <span class="tool-tile-name">Caption gradient…</span>
+            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M96 480h448a32 32 0 0 1 0 64H96a32 32 0 0 1 0-64z"/><path opacity=".45" d="M96 96h96v48H96zm160 0h128v48H256zm192 0h96v48h-96zM96 224h48v96H96zm0 160h48v64H96zM496 224h48v96h-48zm0 160h48v64h-48z"/></svg>
+            <span class="tool-tile-name">Caption gradient</span>
           </button>
         </div>
       </div>
@@ -216,10 +210,7 @@
             <span class="tool-tile-name">Clean MOGRTs</span>
           </button>
           <button id="tool-gradient" class="tool-tile" type="button" title="Drop a black readability gradient on its own track — the same one the Text and Captions tabs use.">
-            <svg class="tool-tile-icon" viewBox="0 0 44 30" aria-hidden="true">
-              <defs><linearGradient id="xg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity="0"/><stop offset="1" stop-color="currentColor" stop-opacity="1"/></linearGradient></defs>
-              <rect width="44" height="30" rx="3" fill="url(#xg)"/>
-            </svg>
+            <svg class="tool-tile-icon" viewBox="0 0 576 512" fill="currentColor" aria-hidden="true"><path d="M264.5 5.2c14.9-6.9 32.1-6.9 47 0l218.6 101c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 149.8C37.4 145.8 32 137.3 32 128s5.4-17.9 13.9-21.8L264.5 5.2zM476.9 209.6l53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 277.8C37.4 273.8 32 265.3 32 256s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0l152-70.2zm-152 198.2l152-70.2 53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 405.8C37.4 401.8 32 393.3 32 384s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0z"/></svg>
             <span class="tool-tile-name">Gradient</span>
           </button>
         </div>

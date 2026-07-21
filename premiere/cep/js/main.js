@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.26.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.27.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -146,7 +146,13 @@ const EL_LABEL = { lt: "Lower third", loc: "Location", bug: "OCHA logo", ending:
    button + modal rather than riding along with the Text CTA — Text, Captions and the
    Toolbox all reach the same one. `pos` is bottom | top | full. */
 function addGradient(pos, opacity) {
-  const kv = ["Top" + US + (pos === "top" ? "true" : "false"),
+  // NOTE THE INVERSION. The AE template's checkbox is NAMED "Top" but produces a
+  // gradient at the BOTTOM when ticked — Linear Wipe clears the side its angle
+  // points away from, and the built templates went out that way round. Rather than
+  // mislabel the buttons (a user picking "Top" must get a scrim at the top), the
+  // panel keeps honest labels and flips the value HERE, in one place. If the AE
+  // templates are ever rebuilt with the expression corrected, drop the inversion.
+  const kv = ["Top" + US + (pos === "bottom" ? "true" : "false"),
               "Full screen" + US + (pos === "full" ? "true" : "false"),
               "Opacity" + US + (opacity == null ? 80 : opacity)].join(RS);
   return jsx(`ochaAdd("gradient",${lit(curFmt)},${lit(EXT_ROOT)},${lit(kv)})`).then((r) => r || "");

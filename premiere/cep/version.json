@@ -1,6 +1,6 @@
 {
-  "version": "0.26.0",
+  "version": "0.27.0",
   "date": "2026-07-21",
-  "notes": "Text on screen reveals line by line, readability gradient as its own button + modal (bottom/top/full screen), caption gradient for the Clean style, and a step-by-step Install caption styles modal.",
+  "notes": "Font Awesome icons for the gradient, caption-gradient and Branding tab; gradient Top/Bottom now matches what you pick; tidier button labels.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }
