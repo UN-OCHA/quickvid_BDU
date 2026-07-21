@@ -1,6 +1,6 @@
 {
-  "version": "0.30.1",
+  "version": "0.31.0",
   "date": "2026-07-21",
-  "notes": "The Properties-panel refresh now actually fires: after each settled edit and when you click from the panel into Premiere (it previously waited for a field blur that never happens in CEP).",
+  "notes": "Stops blinking your selection: Premiere's Properties panel can't be made to re-read script-set values, so the panel says so instead. Tighter copy on the Text pane.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }

@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.30.1";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.31.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -172,7 +172,6 @@ async function addElement() {
   hideStatus();
   if (boundClip) {                       // bound to a clip -> update it, never duplicate
     const res = await jsx(`ochaWriteText(${lit(collectValues())})`) || "";
-    if (res.indexOf("OK|") === 0) refreshHostUI();
     return show(res.indexOf("OK|") === 0
       ? `Updated <strong>${boundClip}</strong>.`
       : (res.replace(/^ERR\|/, "") || "Couldn't update the clip."),
@@ -270,7 +269,9 @@ function adjLiveWrite() {
 function setAdjustEditing(name) {
   const warn = document.querySelector(".adj-warn"), tag = document.querySelector(".adj-tag");
   if (name) {
-    if (warn) warn.textContent = "Editing the selected clip — changes apply live.";
+    if (warn) warn.textContent = "Editing the selected clip \u2014 changes apply live. "
+      + "Premiere's Properties panel may keep showing the template defaults; "
+      + "Effect Controls \u203a Graphic Parameters and the video itself are always correct.";
     if (tag) { tag.textContent = "editing"; tag.style.color = "var(--accent)"; tag.style.borderColor = "var(--accent)"; tag.style.background = "var(--accent-bg)"; }
   } else {
     if (warn) warn.innerHTML = "Relative to each template's built-in size &amp; position: <strong>100%</strong> and <strong>0, 0</strong> leave it exactly as designed. Nudge from there only if a shot needs it.";
@@ -344,28 +345,12 @@ async function syncText() {
 
 // Typing while bound writes straight to that clip, debounced so every keystroke
 // isn't a round-trip into Premiere.
-// Make Premiere re-read the clip so its Properties / Essential Graphics panel shows
-// what we just wrote. Debounced and idle-triggered: doing it per keystroke would
-// flicker the selection.
-let refreshTimer = null;
-function refreshHostUI() {
-  if (!boundClip) return;
-  clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(async () => {
-    // Premiere coalesces a deselect+reselect issued in one script run, so the panel
-    // never re-reads. Split across two calls with a gap and it does.
-    await jsx("ochaDeselect()");
-    setTimeout(() => jsx("ochaReselect()"), 120);
-  }, 900);          // ~1s after the LAST edit — long enough not to blink between words
-}
-
 function textEdited() {
   if (!boundClip) return;
   clearTimeout(textWriteTimer);
   textWriteTimer = setTimeout(async () => {
     const res = await jsx(`ochaWriteText(${lit(collectValues())})`) || "";
     if (res.indexOf("OK|") !== 0) show(res.replace(/^ERR\|/, "") || "Couldn't update the clip.", "err");
-    else refreshHostUI();               // every settled write also refreshes the panel
   }, 400);
 }
 // Bind to EVERY control in the element panes, not just the text inputs — the first
@@ -374,13 +359,7 @@ function textEdited() {
 document.querySelectorAll('section.pane input, section.pane select').forEach((el) => {
   el.addEventListener("input", textEdited);
   el.addEventListener("change", textEdited);
-  // a settled edit is the moment to make Premiere's panel re-read the clip
-  el.addEventListener("blur", refreshHostUI);
 });
-// Field blur alone missed the COMMON exit: CEP focus is per-webview, so clicking from
-// the panel straight into Premiere never blurs the input — the refresh simply didn't
-// run. The window itself does lose focus then, so refresh on that too.
-window.addEventListener("blur", refreshHostUI);
 
 /* ---------- UI wiring ---------- */
 function selectEl(el, fromClip) {
@@ -402,7 +381,7 @@ document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", ()
   document.querySelectorAll(sel + " .seg__opt").forEach((b) => {
     b.addEventListener("click", () => {
       document.querySelectorAll(sel + " .seg__opt").forEach((q) => q.classList.toggle("is-active", q === b));
-      if (sel === "#pin-colour") { textEdited(); refreshHostUI(); }   // not an <input> — bind it by hand
+      if (sel === "#pin-colour") textEdited();          // not an <input> — bind it by hand
     });
   });
 });

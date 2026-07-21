@@ -286,30 +286,13 @@ function ochaWriteText(kvBlob) {
 // no "reload this clip's parameters" call; deselecting and reselecting is what makes
 // the panel re-read. Called once the user stops typing, never on every keystroke, or
 // the selection would flicker while they work.
-// Doing setSelected(false) and setSelected(true) in ONE script run doesn't work -
-// Premiere coalesces them and the panel never sees a selection change. So this is
-// split: the panel calls ochaDeselect(), waits a beat so Premiere processes it, then
-// calls ochaReselect(). The clip is remembered here between the two calls.
-var OCHA_RESELECT = null;
-
-function ochaDeselect() {
-  try {
-    var clip = ochaSelectedOchaClip();
-    if (!clip) return "none";
-    OCHA_RESELECT = clip;
-    clip.setSelected(false, true);
-    return "OK|deselected";
-  } catch (e) { return "ERR|" + e.toString(); }
-}
-
-function ochaReselect() {
-  try {
-    if (!OCHA_RESELECT) return "none";
-    OCHA_RESELECT.setSelected(true, true);
-    OCHA_RESELECT = null;
-    return "OK|reselected";
-  } catch (e) { OCHA_RESELECT = null; return "ERR|" + e.toString(); }
-}
+// NO PANEL-REFRESH HELPER HERE, DELIBERATELY. Parameters set from script show up in
+// Effect Controls > Graphic Parameters and in the render, but Premiere's newer
+// Properties panel keeps showing the values it read when the clip was selected.
+// Tried and rejected: setValue(v, true) alone; setSelected(false)+setSelected(true) in
+// one run; the same split across two calls with a gap (the selection visibly blinks,
+// the panel still shows defaults). It is a Premiere limitation, so the panel says so
+// rather than blinking the user's selection for nothing.
 
 function ochaAdd(el, fmtKey, extRoot, kvBlob) {
   try {
