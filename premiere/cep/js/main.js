@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.28.2";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.29.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -170,6 +170,13 @@ function gradOpacity() { return clampNum($("grad-op-n").value, 80); }
 
 async function addElement() {
   hideStatus();
+  if (boundClip) {                       // bound to a clip -> update it, never duplicate
+    const res = await jsx(`ochaWriteText(${lit(collectValues())})`) || "";
+    return show(res.indexOf("OK|") === 0
+      ? `Updated <strong>${boundClip}</strong>.`
+      : (res.replace(/^ERR\|/, "") || "Couldn't update the clip."),
+      res.indexOf("OK|") === 0 ? "ok" : "err");
+  }
   if (!curFmt) return show("This sequence isn’t one of the OCHA formats (9:16, 4:5, 1:1, 16:9).", "warn");
   const btn = $("add");
   btn.disabled = true;
@@ -287,6 +294,67 @@ async function syncAdjust() {
     $("adj-y").value = $("adj-y-n").value = Math.round(+p[3]) || 0;
   }
 }
+
+
+/* ---------- editing the SELECTED clip ----------
+   Select an OCHA clip and the panel binds to it: its real text is loaded into the
+   fields and the CTA becomes "Update selected", so typing changes THAT clip instead
+   of silently building a second one. Deselect and it goes back to adding.
+   Mirrors how the Size & position sliders already behave. */
+const FIELD_OF = {                       // EGP control name -> panel input id
+  "Name": "lt-name",
+  "Title": "lt-title",
+  "Title line 2 (optional)": "lt-title2",
+  "Place": "loc-place",
+  "Date": "loc-date",
+  "Line 1": "text-l1",
+  "Line 2": "text-l2",
+  "Line 3": "text-l3",
+};
+let boundClip = null;                    // clip name we're editing, or null
+let textWriteTimer = null;
+
+function setBound(clipName, el) {
+  boundClip = clipName;
+  const btn = $("add");
+  btn.textContent = clipName ? "Update selected" : "Add to timeline";
+  btn.classList.toggle("is-editing", !!clipName);
+  if (clipName && el && el !== curEl) selectEl(el);      // show the matching pane
+}
+
+async function syncText() {
+  if (!hostReady) return;
+  if (document.activeElement && FIELD_OF[document.activeElement.dataset.ctl || ""]) return;  // don't fight the typist
+  const res = await jsx("ochaReadText()") || "none";
+  if (res === "none" || res.indexOf("|") < 0) {
+    if (boundClip !== null) setBound(null, null);
+    return;
+  }
+  const [name, el, blob] = res.split("|");
+  if (name === boundClip) return;                        // same clip — leave the fields alone
+  setBound(name, el);
+  (blob || "").split(RS).forEach((pair) => {
+    if (!pair) return;
+    const [ctl, val] = pair.split(US);
+    const id = FIELD_OF[ctl];
+    if (id && $(id)) $(id).value = val || "";
+  });
+}
+
+// Typing while bound writes straight to that clip, debounced so every keystroke
+// isn't a round-trip into Premiere.
+function textEdited() {
+  if (!boundClip) return;
+  clearTimeout(textWriteTimer);
+  textWriteTimer = setTimeout(async () => {
+    const res = await jsx(`ochaWriteText(${lit(collectValues())})`) || "";
+    if (res.indexOf("OK|") !== 0) show(res.replace(/^ERR\|/, "") || "Couldn't update the clip.", "err");
+  }, 400);
+}
+Object.values(FIELD_OF).forEach((id) => {
+  const el = $(id);
+  if (el) { el.dataset.ctl = id; el.addEventListener("input", textEdited); }
+});
 
 /* ---------- UI wiring ---------- */
 function selectEl(el) {
@@ -578,3 +646,4 @@ try { Analytics.init(PANEL_VERSION); } catch (e) { /* analytics must never break
 checkForUpdate();               // once on load; a new release surfaces on next panel open
 setInterval(refresh, 2500);
 setInterval(syncAdjust, 900);   // bind Adjust sliders to a selected OCHA clip
+setInterval(syncText, 900);     // bind the text fields to a selected OCHA clip

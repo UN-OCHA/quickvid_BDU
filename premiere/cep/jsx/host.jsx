@@ -182,6 +182,73 @@ function ochaApplyMotion(seq, clip, m) {
   return "motion=" + parts.join(" / ");
 }
 
+// ---------------- edit a SELECTED clip's text from the panel ----------------
+// The panel already binds Size/position to the selected clip; these do the same for
+// the text controls, so selecting a lower third or a text clip loads what is
+// actually on the timeline instead of whatever was last typed.
+
+// Which element is this clip? Derived from the clip name via OCHA_EL_NAME, so it
+// stays correct as elements are added.
+function ochaElOfClip(nm) {
+  for (var k in OCHA_EL_NAME) {
+    if (!OCHA_EL_NAME.hasOwnProperty(k)) continue;
+    if (nm.indexOf(OCHA_EL_NAME[k] + " ") === 0 || nm === OCHA_EL_NAME[k]) return k;
+  }
+  return "";
+}
+
+// "<clipName>|<el>|Name<US>value<RS>Title<US>value..." or "none".
+// Only text-ish controls are returned; the panel matches them to its own fields.
+function ochaReadText() {
+  try {
+    var clip = ochaSelectedOchaClip();
+    if (!clip) return "none";
+    var nm = ""; try { nm = clip.name; } catch (e) {}
+    var el = ochaElOfClip(nm);
+    if (!el) return "none";
+    var mgt = null; try { mgt = clip.getMGTComponent(); } catch (e1) { mgt = null; }
+    if (!mgt) return "none";
+    var out = [];
+    for (var i = 0; i < mgt.properties.numItems; i++) {
+      var pr = mgt.properties[i], dn = "";
+      try { dn = pr.displayName; } catch (e2) { continue; }
+      if (!dn || OCHA_BOOL[dn] || OCHA_NUM[dn] || dn === "Size") continue;
+      var v = "";
+      try { v = pr.getValue(); } catch (e3) { continue; }
+      if (typeof v !== "string") continue;
+      out.push(dn + "\u001F" + v);
+    }
+    return nm + "|" + el + "|" + out.join("\u001E");
+  } catch (e) { return "none"; }
+}
+
+// Write text values back to the SELECTED clip. Same kv blob shape as ochaAdd, so
+// the panel builds it with the one collectValues() it already has.
+function ochaWriteText(kvBlob) {
+  try {
+    var clip = ochaSelectedOchaClip();
+    if (!clip) return "ERR|Select an OCHA clip first.";
+    var mgt = null; try { mgt = clip.getMGTComponent(); } catch (e1) { mgt = null; }
+    if (!mgt) return "ERR|Controls not reachable on that clip.";
+    var entries = kvBlob ? kvBlob.split("\u001E") : [];
+    var set = [], fail = [];
+    for (var n = 0; n < entries.length; n++) {
+      if (!entries[n]) continue;
+      var kv = entries[n].split("\u001F"), key = kv[0], raw = kv[1];
+      if (key.charAt(0) === "@") continue;              // Motion is handled elsewhere
+      var pr = ochaFindParam(mgt.properties, key);
+      if (!pr) { fail.push(key); continue; }
+      var val = raw;
+      if (OCHA_BOOL[key]) val = (raw === "true");
+      else if (OCHA_NUM[key]) val = parseFloat(raw);
+      try { pr.setValue(val, true); set.push(key); } catch (e2) { fail.push(key); }
+    }
+    var out = "OK|set=" + set.join(",");
+    if (fail.length) out += "|warn=could not set: " + fail.join("; ");
+    return out;
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
 function ochaAdd(el, fmtKey, extRoot, kvBlob) {
   try {
     var seq = app.project.activeSequence;

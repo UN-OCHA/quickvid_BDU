@@ -343,3 +343,10 @@ body {
 .btn--inline { width: auto; }
 .btn-primary.is-danger { background: var(--negative); color: #fff; }
 .btn-primary.is-danger:hover:not(:disabled) { background: #d94a51; }
+
+/* CTA while bound to a selected clip — it updates that clip instead of adding a
+   new one, so it must not look like the normal Add action. */
+.btn-primary.is-editing {
+  background: var(--bg-layer-1); color: var(--accent);
+  border: 1px solid var(--accent);
+}

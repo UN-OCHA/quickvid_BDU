@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtensionManifest Version="7.0" ExtensionBundleId="org.unocha.branding"
-                   ExtensionBundleVersion="0.28.2" ExtensionBundleName="OCHA QuickVid"
+                   ExtensionBundleVersion="0.29.0" ExtensionBundleName="OCHA QuickVid"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ExtensionList>
-    <Extension Id="org.unocha.branding.panel" Version="0.28.2"/>
+    <Extension Id="org.unocha.branding.panel" Version="0.29.0"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>

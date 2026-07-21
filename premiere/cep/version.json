@@ -1,6 +1,6 @@
 {
-  "version": "0.28.2",
+  "version": "0.29.0",
   "date": "2026-07-21",
-  "notes": "Text and Gradient clips are now recognised as OCHA elements (Size/position binds to them, the MOGRT cleaner counts them, and the packager no longer treats them as footage).",
+  "notes": "Select a lower third or text clip and the panel loads its actual text \u2014 edits go straight to that clip, and the button becomes Update selected. Essential Graphics line order fixed (needs an AE rebuild).",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }
