@@ -937,7 +937,11 @@ function buildText(fmt) {
     var t0 = i * stagger;
     key2(L.transform.position, t0, [px, py + i * lineH + rise], t0 + T.enter, [px, py + i * lineH]);
     key2(L.transform.opacity, t0, 0, t0 + T.enter, 100);
-    var tOut = DUR - T.exit - (LINES - 1 - i) * stagger;   // last line leaves first
+    // Reversed exit: the LAST line to arrive is the first to leave, and line 1
+    // finishes exactly on DUR. Getting this backwards makes the exit replay the
+    // entrance order instead of reversing it — it still moves, so it looks almost
+    // right, which is exactly why it's worth spelling out.
+    var tOut = DUR - T.exit - i * stagger;
     key2(L.transform.position, tOut, [px, py + i * lineH], tOut + T.exit, [px, py + i * lineH + rise]);
     key2(L.transform.opacity, tOut, 100, tOut + T.exit, 0);
 
