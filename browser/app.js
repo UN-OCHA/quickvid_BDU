@@ -159,6 +159,17 @@ async function enginePick() {
 function ftSafeName(s) {
   return (s || "").trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").slice(0, 80);
 }
+/* The job folder is REQUIRED: the finished video lands in <folder>/export/ and the
+   settings autosave there. Rather than fail after a render, block the CTA and mark
+   the block red — error and offending field visible together. */
+function ftFolderMissing(on) {
+  const box = $("#f-folder");
+  if (!box) return;
+  box.classList.toggle("is-missing", !!on);
+  $("#f-folder-err").hidden = !on;
+  $("#f-proj-name").setAttribute("aria-invalid", on ? "true" : "false");
+}
+
 const ftPick = document.getElementById("f-folder-pick");
 if (ftPick) ftPick.onclick = async () => {
   const name = ($("#f-proj-name").value || "").trim();
@@ -177,6 +188,7 @@ if (ftPick) ftPick.onclick = async () => {
     $("#f-folder-path").innerHTML =
       `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Job folder: <strong>${esc(state.jobDir)}</strong> — the finished video lands in its <code>export/</code> folder, and your settings autosave here.`;
     setStatus("");
+    ftFolderMissing(false);                           // requirement satisfied
     // Same-named job already there? Offer to pick up where it left off.
     try {
       const lr = await fetch(`${ENGINE}/api/statement/load-project?dir=${encodeURIComponent(state.jobDir)}`);
@@ -358,6 +370,14 @@ function ftCollect() {
 
 $("#run").onclick = async () => {
   if (!state.enginePath) return setStatus("Choose a video first.", "warn");
+  if (!state.jobDir) {
+    ftFolderMissing(true);
+    setStatus("Choose a project folder before adding titles & branding.", "error");
+    $("#f-folder").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("#f-proj-name").focus();
+    return;
+  }
+  ftFolderMissing(false);       // satisfied — clear any red left from an earlier press
   const { lowerThirds, ending, subtitles, bug, pins } = ftCollect();
   if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on && !pins.length)
     return setStatus("Add at least one lower third, subtitles, the bug, a location strip, or pick an ending.", "warn");

@@ -132,6 +132,29 @@
 .st-folder-row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
 .st-folder-row .cd-button { flex: none; }
 .st-folder-row .app-hint { margin: 0; flex: 1 1 18rem; }
+
+/* "required" tag next to the label — quiet until it matters */
+.req {
+  font-style: normal; font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--muted); margin-inline-start: 0.35rem;
+}
+
+/* Missing-field state: the job folder is required, so pressing the CTA without one
+   turns the whole block red rather than only printing a message somewhere else on
+   the page — the error and the thing to fix have to be visible together. */
+.field-err {
+  margin: 0.4rem 0 0; display: flex; align-items: flex-start; gap: 0.4rem;
+  font-size: 0.85rem; font-weight: 600; color: var(--err);
+}
+.st-folder.is-missing .cd-form__input {
+  border-color: var(--err);
+  background: color-mix(in srgb, var(--err) 5%, var(--card));
+}
+.st-folder.is-missing .cd-form__input:focus { outline-color: var(--err); }
+.st-folder.is-missing .cd-button--outline {
+  color: var(--err); border-color: var(--err);
+}
+.st-folder.is-missing .req { color: var(--err); }
 .st-proj-name { flex: 1 1 16rem; min-width: 0; }
 /* "Open a saved project" — a secondary entry point under the new-project fields */
 .st-open-row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid var(--line); }

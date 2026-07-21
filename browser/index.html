@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="style.css" />
 
   <script src="location.js?v=1" defer></script>   <!-- shared location strip: BOTH tabs -->
-  <script src="app.js?v=18" defer></script>
+  <script src="app.js?v=20" defer></script>
   <script src="statement.js?v=11" defer></script>
 </head>
 <body>
@@ -118,13 +118,18 @@
 
         <!-- Same job-folder contract as the Edit tab: name it, pick where it lives,
              and the finished video lands in <folder>/export/ instead of a temporary spot. -->
-        <div class="st-folder">
-          <span class="cd-form__label">Project name &amp; where it lives</span>
+        <div class="st-folder" id="f-folder">
+          <span class="cd-form__label">Project name &amp; where it lives <em class="req">required</em></span>
           <div class="st-folder-row">
             <input class="cd-form__input st-proj-name" id="f-proj-name" placeholder="e.g. HC mission Bentiu — titles" autocomplete="off" />
             <button class="cd-button cd-button--outline cd-button--small" id="f-folder-pick" type="button"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Choose where to save…</span></button>
           </div>
-          <span class="app-hint" id="f-folder-path">Name the job, then pick a location — a folder with that name is created there and the finished video lands in its <code>export/</code> folder, with a README explaining how it was made. Optional: skip it and the file goes to a temporary spot you download from.</span>
+          <!-- shown by ftFolderMissing() when the CTA is pressed with no folder picked -->
+          <p class="field-err" id="f-folder-err" role="alert" hidden>
+            <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+            Choose a project folder first — name the job, then press <strong>Choose where to save…</strong>
+          </p>
+          <span class="app-hint" id="f-folder-path">Name the job, then pick a location — a folder with that name is created there and the finished video lands in its <code>export/</code> folder, with a README explaining how it was made. Your settings autosave there too, so you can reopen the job later.</span>
         </div>
       </div>
     </section>
