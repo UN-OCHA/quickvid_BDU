@@ -42,18 +42,24 @@ function doGet(e) {
   var p = (e && e.parameter) || {};
 
   // ---- 1. the ping path: no action param, no token, nothing sensitive ----
+  // The /exec URL ships inside the panel, and the panel lives in a PUBLIC repo, so
+  // this endpoint is effectively public knowledge. That is unavoidable for any
+  // client-side ping (the DataViz plugin is in the same position). It is not a data
+  // risk — nothing here reads the sheet — but it does mean someone could post junk
+  // rows. So only accept values that look like ours, and drop anything else on the
+  // floor: shapes are cheap to check and keep the log trustworthy.
   if (!p.action) {
     try {
-      // Cap the stored values: a malformed or hostile query must not write an
-      // unbounded cell, and we only ever want short labels here anyway.
-      _log().appendRow([
-        new Date().toISOString(),
-        String(p.v || '').slice(0, 40),
-        String(p.e || 'open').slice(0, 80),
-        String(p.loc || 'unknown').slice(0, 120)
-      ]);
+      var v = String(p.v || '');
+      var ev = String(p.e || '');
+      var loc = String(p.loc || 'unknown');
+      var okV = /^[0-9]+\.[0-9]+(\.[0-9]+)?$/.test(v);            // 0.28.0
+      var okE = /^[a-z]{1,20}(:[A-Za-z0-9 ._-]{1,40}){0,3}$/.test(ev);  // open:mac, add:lt:reels
+      if (okV && okE) {
+        _log().appendRow([new Date().toISOString(), v, ev, loc.slice(0, 120)]);
+      }
     } catch (err) { /* never surface anything to the panel */ }
-    return ContentService.createTextOutput('ok');
+    return ContentService.createTextOutput('ok');   // always 'ok' — reveal nothing
   }
 
   // ---- 2. the admin path ----
