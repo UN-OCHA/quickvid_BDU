@@ -1,6 +1,6 @@
 {
-  "version": "0.29.0",
+  "version": "0.29.1",
   "date": "2026-07-21",
-  "notes": "Select a lower third or text clip and the panel loads its actual text \u2014 edits go straight to that clip, and the button becomes Update selected. Essential Graphics line order fixed (needs an AE rebuild).",
+  "notes": "Checkboxes and the pin colour now update the selected clip too, and Premiere's Properties panel refreshes to show what you typed.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }

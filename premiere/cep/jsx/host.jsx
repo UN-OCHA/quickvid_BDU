@@ -249,6 +249,22 @@ function ochaWriteText(kvBlob) {
   } catch (e) { return "ERR|" + e.toString(); }
 }
 
+// setValue() changes what RENDERS immediately, but Premiere's Properties / Essential
+// Graphics panel keeps showing the values it read when the clip was selected - so the
+// program monitor is right while the panel still shows the template defaults. There is
+// no "reload this clip's parameters" call; deselecting and reselecting is what makes
+// the panel re-read. Called once the user stops typing, never on every keystroke, or
+// the selection would flicker while they work.
+function ochaRefreshUI() {
+  try {
+    var clip = ochaSelectedOchaClip();
+    if (!clip) return "none";
+    clip.setSelected(false, true);
+    clip.setSelected(true, true);
+    return "OK|refreshed";
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
 function ochaAdd(el, fmtKey, extRoot, kvBlob) {
   try {
     var seq = app.project.activeSequence;

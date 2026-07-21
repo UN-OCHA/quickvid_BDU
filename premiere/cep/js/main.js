@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.29.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.29.1";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -172,6 +172,7 @@ async function addElement() {
   hideStatus();
   if (boundClip) {                       // bound to a clip -> update it, never duplicate
     const res = await jsx(`ochaWriteText(${lit(collectValues())})`) || "";
+    if (res.indexOf("OK|") === 0) refreshHostUI();
     return show(res.indexOf("OK|") === 0
       ? `Updated <strong>${boundClip}</strong>.`
       : (res.replace(/^ERR\|/, "") || "Couldn't update the clip."),
@@ -324,7 +325,7 @@ function setBound(clipName, el) {
 
 async function syncText() {
   if (!hostReady) return;
-  if (document.activeElement && FIELD_OF[document.activeElement.dataset.ctl || ""]) return;  // don't fight the typist
+  if (document.activeElement && document.activeElement.closest("section.pane")) return;  // don't fight the typist
   const res = await jsx("ochaReadText()") || "none";
   if (res === "none" || res.indexOf("|") < 0) {
     if (boundClip !== null) setBound(null, null);
@@ -343,6 +344,16 @@ async function syncText() {
 
 // Typing while bound writes straight to that clip, debounced so every keystroke
 // isn't a round-trip into Premiere.
+// Make Premiere re-read the clip so its Properties / Essential Graphics panel shows
+// what we just wrote. Debounced and idle-triggered: doing it per keystroke would
+// flicker the selection.
+let refreshTimer = null;
+function refreshHostUI() {
+  if (!boundClip) return;
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => { jsx("ochaRefreshUI()"); }, 500);
+}
+
 function textEdited() {
   if (!boundClip) return;
   clearTimeout(textWriteTimer);
@@ -351,9 +362,14 @@ function textEdited() {
     if (res.indexOf("OK|") !== 0) show(res.replace(/^ERR\|/, "") || "Couldn't update the clip.", "err");
   }, 400);
 }
-Object.values(FIELD_OF).forEach((id) => {
-  const el = $(id);
-  if (el) { el.dataset.ctl = id; el.addEventListener("input", textEdited); }
+// Bind to EVERY control in the element panes, not just the text inputs — the first
+// pass only wired FIELD_OF, so toggling "Centre align" (and the icon / over-black
+// checkboxes) changed nothing on the selected clip.
+document.querySelectorAll('section.pane input, section.pane select').forEach((el) => {
+  el.addEventListener("input", textEdited);
+  el.addEventListener("change", textEdited);
+  // a settled edit is the moment to make Premiere's panel re-read the clip
+  el.addEventListener("blur", refreshHostUI);
 });
 
 /* ---------- UI wiring ---------- */
@@ -372,6 +388,7 @@ document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", ()
   document.querySelectorAll(sel + " .seg__opt").forEach((b) => {
     b.addEventListener("click", () => {
       document.querySelectorAll(sel + " .seg__opt").forEach((q) => q.classList.toggle("is-active", q === b));
+      if (sel === "#pin-colour") { textEdited(); refreshHostUI(); }   // not an <input> — bind it by hand
     });
   });
 });
