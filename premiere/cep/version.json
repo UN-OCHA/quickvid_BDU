@@ -1,6 +1,6 @@
 {
-  "version": "0.28.0",
+  "version": "0.28.1",
   "date": "2026-07-21",
-  "notes": "Text on screen is now three separate lines, each animating in just behind the one above and leaving in reverse. FA icons, gradient Top/Bottom matches the label.",
+  "notes": "Fix: rebuilt templates now actually reach projects that had already used them \u2014 the copy kept beside your project is refreshed instead of reused forever.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }

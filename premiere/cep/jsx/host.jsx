@@ -87,8 +87,28 @@ function ochaLocalMogrt(extRoot, el, fmtKey) {
     var dir = new Folder(projFolder.fsName + "/" + OCHA_ASSET_DIR);
     if (!dir.exists) dir.create();
     var dest = new File(dir.fsName + "/" + ochaMogrtName(el, fmtKey));
-    if (!dest.exists) {
-      var ok = new File(src).copy(dest.fsName);
+    var srcF = new File(src);
+
+    // REFRESH THE COPY WHEN THE BUNDLED TEMPLATE IS NEWER. This used to be a plain
+    // "if (!dest.exists)", which meant a rebuilt template could NEVER reach a project
+    // that had already used it once: Premiere kept importing the stale copy, the new
+    // controls were missing, and the panel reported "Line 1 (not found)" while the
+    // file on disk was perfectly correct. Cost an afternoon to find - the evidence
+    // that cracked it was the copy being 2 minutes OLDER than the AE build.
+    var refresh = !dest.exists;
+    if (dest.exists) {
+      try {
+        refresh = !!(srcF.modified && dest.modified &&
+                     srcF.modified.getTime() > dest.modified.getTime());
+      } catch (eM) {
+        refresh = true;                       // can't compare - prefer the bundled one
+      }
+      if (refresh && !dest.remove()) {
+        return { path: src, note: "used the current template (couldn't replace the older copy in the project folder)" };
+      }
+    }
+    if (refresh) {
+      var ok = srcF.copy(dest.fsName);
       if (!ok || !dest.exists) return { path: src, note: "couldn't copy template into the project folder - used the bundled copy" };
     }
     return { path: dest.fsName, note: "" };
