@@ -313,6 +313,20 @@ body {
 .modal-x:hover { color: var(--text-primary); background: var(--bg-hover); }
 .modal-desc { font-size: var(--fs-sm); line-height: 1.5; color: var(--text-secondary); margin: 0 0 var(--sp-150); }
 .modal-desc strong { color: var(--text-primary); font-weight: var(--fw-semibold); }
+/* optional per-tool settings inside the modal (the gradient's position + fade) */
+.modal-settings {
+  background: var(--bg-layer-2); border: 1px solid var(--border-default);
+  border-radius: var(--r-md); padding: var(--sp-150); margin: 0 0 var(--sp-200);
+}
+.modal-settings[hidden] { display: none; }
+.modal-settings .seg { margin: 0; flex-wrap: wrap; }
+.modal-settings .adj-row { margin-bottom: 0; }
+
+/* a tile used inline inside a pane (not the 3-up Toolbox grid) */
+.tool-cards--inline { grid-template-columns: 1fr; margin-top: var(--sp-150); }
+.tool-cards--inline .tool-tile { min-height: 0; flex-direction: row; justify-content: flex-start; gap: var(--sp-150); padding: var(--sp-100) var(--sp-150); }
+.tool-cards--inline .tool-tile-icon { width: 26px; height: 26px; }
+
 .modal-info {
   font-size: var(--fs-sm); line-height: 1.45; color: var(--text-primary);
   background: var(--bg-layer-2); border: 1px solid var(--border-default);

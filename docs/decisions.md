@@ -1024,6 +1024,39 @@ lines reveal sliding up).
   Scripts to Write Files and Access Network"), restart Premiere, test. The two new
   build functions are the only part not verifiable outside AE.
 
+## 2026-07-21 — Text + gradient: shipped for real (24 MOGRTs, plugin v0.26.0)
+The 19 Jul entry's "remaining" step is done — the AE builder ran clean and produced
+**24 MOGRTs** (6 elements x 4 formats). Two rounds of fixes on top of it:
+
+**Phase 1 — AE templates** (`premiere/ae/build_ocha_mogrts.jsx`):
+- **Text reveals per LINE, not as a block.** A Text Animator (Position + Opacity)
+  with a Range Selector whose **Based On = Lines**, animated via `ADBE Text Percent
+  Start`. The gotcha that cost a build: `ADBE Text Range Type2` lives inside the
+  selector's **`ADBE Text Range Advanced`** group, not on the selector itself —
+  reading it off the selector returns null and kills the whole run (only 20 of 24
+  templates got written). Wrapped in try/catch: if the animator can't be built the
+  layer falls back to the old whole-block reveal rather than aborting the build.
+- **Out animation is the reverse of the in** (selector runs 100 -> 0 at the tail).
+- **Gradient orientation was inverted.** AE's Linear Wipe clears the side the angle
+  points AWAY from, so angle **180 = scrim at the BOTTOM**, 0 = top — the opposite of
+  the first assumption. `Top` (checkbox) now drives the angle through an expression.
+- **Full screen** checkbox added (drives Transition Completion to 0 = even wash).
+
+**Phase 2 — panel restructure** (v0.26.0). The gradient stopped being a passenger on
+the Text CTA and became its own thing, reachable from three places:
+- `addGradient(pos, opacity)` is the single entry point (bottom | top | full). The
+  Text CTA now adds **only** the text.
+- Three tiles open the same DataViz-style modal: `#text-grad-btn` (inline in the Text
+  pane), `#tool-gradient` (Toolbox) -> full settings; `#cap-gradient` (Captions) ->
+  fade only, position locked to bottom, since that's what **OCHA Clean** needs.
+- **Install caption styles** became a tile + modal explaining the whole flow
+  (install once -> Window > Text > Captions -> pick Boxed/Clean -> add the gradient
+  on a track below), instead of a bare button with a one-line result.
+- `TOOLS` entries gained `settings` ("all" | "fade"), `needsFmt`, `ready` and `done`.
+  `needsFmt` matters: installing caption styles writes into Premiere itself, so it
+  must NOT be gated on having an OCHA-format sequence open. `done` turns the host's
+  `track=V2|set=...` reply into a sentence.
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the

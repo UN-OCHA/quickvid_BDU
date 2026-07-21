@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.25.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.26.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -122,8 +122,8 @@ function collectValues() {
   } else if (curEl === "text") {
     const body = $("text-body").value.trim();
     if (body) push("Text", body);
-    // the readability scrim is its OWN template, not a control here — addElement
-    // inserts it as a follow-up when the toggle isn't "none" (see gradientChoice)
+    // the readability gradient is its OWN template with its own button + modal —
+    // deliberately NOT part of this CTA, which adds the text only
   }
   // shared Size + Position → Motion (all four elements; skip values at default)
   const size = clampNum($("adj-size-n").value, 100);
@@ -142,16 +142,20 @@ function clampNum(v, dflt) {
 
 const EL_LABEL = { lt: "Lower third", loc: "Location", bug: "OCHA logo", ending: "Ending", text: "Text" };
 
-/* The readability scrim is a template of its own (OCHA Gradient) rather than a
-   control inside Text — the Captions tab needs it standalone for event captions. */
-function gradientChoice() {
-  const g = document.querySelector("#text-grad .seg__opt.is-active");
-  return (g && g.dataset.grad) || "none";
-}
-function addGradient(top) {
-  const kv = "Top" + US + (top ? "true" : "false");
+/* The readability scrim is a template of its own (OCHA Gradient), added by its own
+   button + modal rather than riding along with the Text CTA — Text, Captions and the
+   Toolbox all reach the same one. `pos` is bottom | top | full. */
+function addGradient(pos, opacity) {
+  const kv = ["Top" + US + (pos === "top" ? "true" : "false"),
+              "Full screen" + US + (pos === "full" ? "true" : "false"),
+              "Opacity" + US + (opacity == null ? 80 : opacity)].join(RS);
   return jsx(`ochaAdd("gradient",${lit(curFmt)},${lit(EXT_ROOT)},${lit(kv)})`).then((r) => r || "");
 }
+function gradPos() {
+  const g = document.querySelector("#grad-pos .seg__opt.is-active");
+  return (g && g.dataset.pos) || "bottom";
+}
+function gradOpacity() { return clampNum($("grad-op-n").value, 80); }
 
 async function addElement() {
   hideStatus();
@@ -169,16 +173,6 @@ async function addElement() {
       let msg = `Added <strong>${EL_LABEL[curEl]}</strong> on ${track} at the playhead.`;
       if (set.length) msg += ` Applied: ${set.join(", ")}.`;
       if (warn) msg += ` <em>${warn}</em>`;
-      // Text: drop the readability scrim in too when the toggle asks for it
-      if (curEl === "text") {
-        const grad = gradientChoice();
-        if (grad !== "none") {
-          const gres = await addGradient(grad === "top");
-          msg += gres.indexOf("OK|") === 0
-            ? ` Added the ${grad} gradient — drag it below the text.`
-            : ` <em>Gradient failed: ${gres.replace(/^ERR\|/, "")}</em>`;
-        }
-      }
       show(msg, warn ? "warn" : "ok");
     } else {
       show(res.replace(/^ERR\|/, "") || "No response from Premiere.", "err");
@@ -218,6 +212,7 @@ function resetOne(sId, nId, dflt) {
   $(sId).value = dflt; $(nId).value = dflt;
   adjLiveWrite();   // no-op in placement mode; pushes to the bound clip in edit mode
 }
+linkPair("grad-op", "grad-op-n");     // gradient fade slider <-> number
 ADJ_PAIRS.forEach(([sId, nId, dflt, rId]) => {
   linkPair(sId, nId);
   const r = $(rId);
@@ -293,7 +288,7 @@ function selectEl(el) {
 document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => selectEl(c.dataset.el)));
 
 // segmented controls (pin colour, text-gradient) — one active option each
-["#pin-colour", "#text-grad"].forEach((sel) => {
+["#pin-colour", "#grad-pos"].forEach((sel) => {
   document.querySelectorAll(sel + " .seg__opt").forEach((b) => {
     b.addEventListener("click", () => {
       document.querySelectorAll(sel + " .seg__opt").forEach((q) => q.classList.toggle("is-active", q === b));
@@ -305,36 +300,9 @@ $("add").addEventListener("click", addElement);
 
 // captions: copy the bundled OCHA .prtextstyle files into Premiere's global
 // Text Styles folder so they appear in the native Style dropdown
-$("cap-install").addEventListener("click", async () => {
-  hideStatus();
-  if (!hostReady) return show("Premiere host not ready.", "warn");
-  show("Installing OCHA caption styles…", "ok");
-  const res = await jsx(`ochaInstallCaptionStyles(${lit(EXT_ROOT)})`) || "";
-  if (res.indexOf("OK|") === 0) {
-    const inst = (res.match(/installed=([^|]*)/) || [])[1] || "";
-    const warn = (res.match(/warn=(.*)$/) || [])[1];
-    let msg = `Installed: <strong>${inst}</strong>. Pick them under Style when creating captions.`;
-    if (warn) msg += ` <em>${warn}</em>`;
-    show(msg, warn ? "warn" : "ok");
-  } else {
-    show(res.replace(/^ERR\|/, "") || "No response from Premiere.", "err");
-  }
-});
-
-// captions: the event (Clean) style has no box, so it needs a bottom scrim under
-// the text — same OCHA Gradient template the Text element uses.
-$("cap-gradient").addEventListener("click", async () => {
-  hideStatus();
-  if (!hostReady) return show("Premiere host not ready.", "warn");
-  if (!curFmt) return show("Open one of the OCHA formats (9:16, 4:5, 1:1, 16:9) first.", "warn");
-  show("Adding the gradient…", "ok");
-  const res = await addGradient(false);          // bottom
-  if (res.indexOf("OK|") === 0) {
-    show("Added the <strong>bottom gradient</strong> at the playhead. Drag it just below your caption track.", "ok");
-  } else {
-    show(res.replace(/^ERR\|/, "") || "No response from Premiere.", "err");
-  }
-});
+// Captions: both actions are toolbox-style tiles that open an explaining modal.
+$("cap-install").addEventListener("click", () => openTool("capstyles"));
+$("cap-gradient").addEventListener("click", () => openTool("gradientBottom"));
 
 // section tabs
 document.querySelectorAll(".tab").forEach((t) => {
@@ -369,6 +337,47 @@ const TOOLS = {
     countGated: true,
     working: "Copying media + saving a relinked copy… (large projects take a while)",
   },
+  gradient: {
+    title: "Readability gradient",
+    explain: "Drops a soft <strong>black gradient</strong> on its own track so white text stays legible over busy footage. It goes in as a <strong>separate clip</strong> — put it on a track <strong>below</strong> your text, and trim it to cover just the part you need.",
+    settings: "all",                                  // position + fade
+    needsFmt: true,
+    ready: "Ready — the gradient goes in at the playhead, on its own track.",
+    done: (r) => `Gradient added on <strong>${trackOf(r)}</strong>. Move it <strong>below</strong> your text and trim it to length.`,
+    cta: () => "Add gradient",
+    working: "Adding the gradient…",
+    action: () => addGradient(gradPos(), gradOpacity()),
+  },
+  gradientBottom: {
+    title: "Caption gradient",
+    explain: "Adds the <strong>bottom</strong> gradient that the <strong>OCHA Clean</strong> (event) caption style is built to sit on — Clean has no box, so it needs the scrim for contrast. Drop it on a track <strong>below</strong> your caption track and trim it to match.",
+    settings: "fade",                                 // bottom is fixed here
+    needsFmt: true,
+    ready: "Ready — the gradient goes in at the playhead, on its own track.",
+    done: (r) => `Gradient added on <strong>${trackOf(r)}</strong>. Move it <strong>below</strong> your caption track and trim it to length.`,
+    cta: () => "Add gradient",
+    working: "Adding the gradient…",
+    action: () => addGradient("bottom", gradOpacity()),
+  },
+  capstyles: {
+    title: "OCHA captions — how it works",
+    explain:
+      "Premiere makes the captions; these two styles make them on-brand.<br><br>" +
+      "<strong>1.</strong> Install once with the button below — it copies <strong>OCHA Boxed</strong> and " +
+      "<strong>OCHA Clean</strong> into Premiere's own Text Styles.<br>" +
+      "<strong>2.</strong> <strong>Window &gt; Text &gt; Captions</strong> → <strong>Create captions from transcript</strong>.<br>" +
+      "<strong>3.</strong> In that dialog (or later via <strong>Track Style</strong>), pick <strong>OCHA Boxed</strong> " +
+      "for social feeds, or <strong>OCHA Clean</strong> for events.<br>" +
+      "<strong>4.</strong> Clean has <em>no box</em>, so it needs contrast: add the <strong>Caption gradient</strong> " +
+      "and place that clip on a track <strong>below</strong> your captions.<br><br>" +
+      "You only install once — the styles stay in Premiere for every future project.",
+    ready: "Installs into Premiere itself — no project or sequence needed.",
+    cta: () => "Install the styles",
+    working: "Installing the OCHA caption styles…",
+    done: (r) => `Installed <strong>${(r.match(/installed=([^|]*)/) || [])[1] || "the styles"}</strong>. ` +
+                 `They're now in Premiere's Text Styles — pick one under <strong>Track Style</strong> when you make captions.`,
+    action: () => jsx(`ochaInstallCaptionStyles(${lit(EXT_ROOT)})`).then((r) => r || ""),
+  },
   clean: {
     title: "Clean unused MOGRTs",
     explain: "Removes the <strong>OCHA branding templates</strong> (lower third, location, logo, ending) that are sitting in your project but <strong>aren't used in any sequence</strong> — the leftovers from trying a few options. Templates that are actually on a timeline are always kept. This only tidies the Project panel; your sequences and media aren't touched.",
@@ -381,6 +390,8 @@ const TOOLS = {
   },
 };
 let curTool = null;
+
+const trackOf = (r) => (r.match(/track=([^|]*)/) || [])[1] || "its own track";
 
 function modalResult(msg, kind) {
   const r = $("modal-result");
@@ -400,6 +411,9 @@ function openTool(key) {
   curTool = key;
   $("modal-title").textContent = cfg.title;
   $("modal-desc").innerHTML = cfg.explain;          // static explanation — always shown
+  // per-tool settings: "all" = position + fade, "fade" = fade only (position fixed)
+  $("modal-settings").hidden = !cfg.settings;
+  $("grad-pos").hidden = cfg.settings !== "all";
   modalInfo("Checking the project…", false);        // live status line
   $("modal-result").hidden = true;
   const run = $("modal-run");
@@ -413,6 +427,17 @@ async function loadInfo() {
   const cfg = TOOLS[curTool];
   if (!hostReady) { await loadHost(); }
   if (!hostReady) { modalInfo("Premiere host not ready — restart Premiere with a project open.", true); return; }
+  // Tools with no read-only probe (gradient, caption styles): nothing to count.
+  // `needsFmt` = puts a clip on a timeline, so it needs an OCHA-format sequence;
+  // installing caption styles writes to Premiere itself and needs no project.
+  if (!cfg.info) {
+    const ok = !cfg.needsFmt || !!curFmt;
+    modalInfo(ok ? cfg.ready
+                 : "Open a sequence in one of the OCHA formats (9:16, 4:5, 1:1, 16:9) first.", !ok);
+    $("modal-run").textContent = cfg.cta(1);
+    $("modal-run").disabled = !ok;
+    return;
+  }
   const res = await jsx(cfg.info) || "";
   const parts = res.split("|");
   const ok = parts[0] === "OK";
@@ -429,9 +454,16 @@ async function runToolAction() {
   const run = $("modal-run"), cancel = $("modal-cancel");
   run.disabled = true; cancel.disabled = true;
   modalResult(cfg.working, "run");
-  const res = await jsx(cfg.action) || "";
+  // `action` is either a host call string, or a function returning one (tools whose
+  // call depends on the modal's own settings, e.g. the gradient's position/fade)
+  const res = (typeof cfg.action === "function" ? await cfg.action() : await jsx(cfg.action)) || "";
   const ok = res.indexOf("OK|") === 0;
-  modalResult(res.replace(/^(OK|WARN|ERR)\|/, "") || "No response from Premiere.", ok ? "ok" : "err");
+  // `done` turns the host's kv reply (track=V2|set=…) into a sentence; without one
+  // the reply is already prose (the counting tools), so just strip the status prefix.
+  const warn = (res.match(/warn=(.*)$/) || [])[1];
+  let msg = ok && cfg.done ? cfg.done(res) : res.replace(/^(OK|WARN|ERR)\|/, "");
+  if (ok && cfg.done && warn) msg += ` <em>${warn}</em>`;
+  modalResult(msg || "No response from Premiere.", ok ? "ok" : "err");
   cancel.disabled = false;
   cancel.textContent = ok ? "Done" : "Close";
   if (ok) { refresh(); loadInfo(); }   // refresh format chip + re-read counts
@@ -444,6 +476,8 @@ function closeModal() {
   curTool = null;
 }
 $("tool-reel").addEventListener("click", () => openTool("reel"));
+$("tool-gradient").addEventListener("click", () => openTool("gradient"));
+$("text-grad-btn").addEventListener("click", () => openTool("gradient"));
 $("tool-package").addEventListener("click", () => openTool("package"));
 $("tool-clean").addEventListener("click", () => openTool("clean"));
 $("modal-run").addEventListener("click", runToolAction);

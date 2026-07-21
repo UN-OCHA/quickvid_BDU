@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <link rel="stylesheet" href="styles.css?v=0.25" />
+  <link rel="stylesheet" href="styles.css?v=0.26" />
 </head>
 <body>
   <div class="app">
@@ -126,13 +126,16 @@
         <section class="pane" data-pane="text">
           <label class="fld"><span class="fld__label">Text on screen</span>
             <textarea id="text-body" class="fld__area" rows="3" placeholder="Half a million&#10;people are displaced&#10;by insecurity in Mali"></textarea></label>
-          <div class="seg" id="text-grad">
-            <span class="seg__label">Readability gradient</span>
-            <button class="seg__opt is-active" data-grad="none" type="button">None</button>
-            <button class="seg__opt" data-grad="bottom" type="button">Bottom</button>
-            <button class="seg__opt" data-grad="top" type="button">Top</button>
+          <p class="note">White Raleway Bold, revealed line by line. Placed centre-left by default — nudge with <strong>Size &amp; position</strong> below. <strong>Add to timeline</strong> adds the text only.</p>
+          <div class="tool-cards tool-cards--inline">
+            <button id="text-grad-btn" class="tool-tile" type="button" title="Add a black readability gradient on its own track — separate from the text.">
+              <svg class="tool-tile-icon" viewBox="0 0 44 30" aria-hidden="true">
+                <defs><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity="0"/><stop offset="1" stop-color="currentColor" stop-opacity="1"/></linearGradient></defs>
+                <rect width="44" height="30" rx="3" fill="url(#tg)"/>
+              </svg>
+              <span class="tool-tile-name">Readability gradient…</span>
+            </button>
           </div>
-          <p class="note">White Raleway Bold, animated in. Placed centre-left by default — nudge with <strong>Size &amp; position</strong> below. Add a subtle black gradient (top or bottom) if the footage is busy behind the text.</p>
         </section>
 
         <!-- shared Size + Position — collapsed accordion (advanced) -->
@@ -180,13 +183,20 @@
 
       <!-- ===================== CAPTIONS ===================== -->
       <div class="sec" data-sec="captions">
-        <button id="cap-install" class="btn btn-secondary">Install OCHA caption styles</button>
-        <button id="cap-gradient" class="btn btn-secondary" style="margin-top:8px">Add bottom gradient (event captions)</button>
-        <ol class="cap-steps" style="margin-top:10px">
-          <li><strong>Window &gt; Text &gt; Captions</strong> → <strong>Create captions from transcript</strong>.</li>
-          <li>In the create dialog (or Track Style), pick <strong>OCHA Boxed</strong> (social) or <strong>OCHA Clean</strong> (events).</li>
-        </ol>
-        <p class="sec-hint">Install once — the styles then live in Premiere's own Style dropdown. Boxed = grey box (social feeds) · Clean = plain white (events, pairs with the bottom gradient).</p>
+        <p class="sec-hint" style="margin-top:0">Premiere makes the captions; these set them on-brand.</p>
+        <div class="tool-cards">
+          <button id="cap-install" class="tool-tile" type="button" title="Install the OCHA caption styles into Premiere, and see the full captioning steps.">
+            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M320 64C333.3 64 344 74.7 344 88L344 344.1L425 263C434.4 253.6 449.6 253.6 458.9 263C468.2 272.4 468.3 287.6 458.9 296.9L336.9 418.9C327.5 428.3 312.3 428.3 303 418.9L181 296.9C171.6 287.5 171.6 272.3 181 263C190.4 253.7 205.6 253.6 214.9 263L296 344.1L296 88C296 74.7 306.7 64 320 64zM144 416L144 480C144 497.7 158.3 512 176 512L464 512C481.7 512 496 497.7 496 480L496 416C496 402.7 506.7 392 520 392C533.3 392 544 402.7 544 416L544 480C544 524.2 508.2 560 464 560L176 560C131.8 560 96 524.2 96 480L96 416C96 402.7 106.7 392 120 392C133.3 392 144 402.7 144 416z"/></svg>
+            <span class="tool-tile-name">Install caption styles…</span>
+          </button>
+          <button id="cap-gradient" class="tool-tile" type="button" title="Add the bottom readability gradient that the Clean (event) caption style is designed to sit on.">
+            <svg class="tool-tile-icon" viewBox="0 0 44 30" aria-hidden="true">
+              <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity="0"/><stop offset="1" stop-color="currentColor" stop-opacity="1"/></linearGradient></defs>
+              <rect width="44" height="30" rx="3" fill="url(#cg)"/>
+            </svg>
+            <span class="tool-tile-name">Caption gradient…</span>
+          </button>
+        </div>
       </div>
 
       <!-- ===================== TOOLBOX ===================== -->
@@ -204,6 +214,13 @@
           <button id="tool-clean" class="tool-tile" title="Remove OCHA templates that aren't used in any sequence.">
             <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M601 105C610.4 95.6 610.4 80.4 601 71.1C591.6 61.8 576.4 61.7 567 71L367 271L328 232C322.9 226.9 315.9 224 308.6 224C296.4 224 285.6 232.1 282.3 243.9L266.4 299.5L265.8 299.4C219.4 292.3 172.3 307.7 139.1 340.9L129 351C110.6 369.4 99.3 393.4 96.6 419C96.2 422.8 96 426.7 96 430.6C96 440.2 103.8 447.9 113.3 447.9L136 447.9C106.8 475 72.1 507 39.2 537.4C34.6 541.6 32 547.5 32 553.7C32 566 42 576 54.3 576L227 576C266.1 576 303.6 560.5 331.2 532.8C364.4 499.6 379.8 452.6 372.7 406.1L372.6 405.5L428.2 389.6C440 386.2 448.1 375.5 448.1 363.3C448.1 356 445.2 349.1 440.1 343.9L401 305L601 105zM310.8 318.8L318.8 290.7L381.2 353.1L353.1 361.1L310.8 318.8zM258.5 346.8L268.3 348.3L323.7 403.7L325.2 413.5C330 444.8 319.6 476.5 297.2 498.9C278.6 517.5 253.3 528 226.9 528L120.1 528L168.6 483.3C183.1 469.9 187.9 449 180.7 430.6C175.3 416.9 164.1 406.7 150.6 402.3C153.7 395.9 157.9 390.1 163 385L173.2 374.8C195.6 352.4 227.3 342 258.6 346.8z"/></svg>
             <span class="tool-tile-name">Clean MOGRTs</span>
+          </button>
+          <button id="tool-gradient" class="tool-tile" type="button" title="Drop a black readability gradient on its own track — the same one the Text and Captions tabs use.">
+            <svg class="tool-tile-icon" viewBox="0 0 44 30" aria-hidden="true">
+              <defs><linearGradient id="xg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity="0"/><stop offset="1" stop-color="currentColor" stop-opacity="1"/></linearGradient></defs>
+              <rect width="44" height="30" rx="3" fill="url(#xg)"/>
+            </svg>
+            <span class="tool-tile-name">Gradient</span>
           </button>
         </div>
       </div>
@@ -234,6 +251,21 @@
         </button>
       </div>
       <p class="modal-desc" id="modal-desc">…</p>
+      <!-- Optional settings, shown only for tools that declare them (the gradient). -->
+      <div class="modal-settings" id="modal-settings" hidden>
+        <div class="seg" id="grad-pos">
+          <span class="seg__label">Position</span>
+          <button class="seg__opt is-active" data-pos="bottom" type="button">Bottom</button>
+          <button class="seg__opt" data-pos="top" type="button">Top</button>
+          <button class="seg__opt" data-pos="full" type="button">Full screen</button>
+        </div>
+        <div class="adj-row" style="margin-top:10px">
+          <span class="adj-lab">Fade</span>
+          <input id="grad-op"   class="adj-slider" type="range"  min="10" max="100" step="5" value="80" />
+          <input id="grad-op-n" class="adj-num"   type="number" min="10" max="100" step="5" value="80" />
+          <span class="adj-u">%</span>
+        </div>
+      </div>
       <div class="modal-info" id="modal-info">…</div>
       <div class="modal-result" id="modal-result" hidden></div>
       <div class="modal-foot">
