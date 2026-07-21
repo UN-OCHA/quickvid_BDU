@@ -22,6 +22,20 @@ var OCHA_EL_NAME = {
   text: "OCHA Text",
   gradient: "OCHA Gradient"
 };
+// ONE matcher for "is this clip/item an OCHA template?", derived from OCHA_EL_NAME
+// so a newly added element can never be half-recognised. This test was hand-written
+// in FIVE places and every one of them still listed only the original four: Text and
+// Gradient clips were invisible to the selected-clip binder (so Size/position never
+// bound to them), uncounted by the MOGRT cleaner, and - worst - treated as ordinary
+// FOOTAGE by the packager, which would have copied them into a package's media.
+var OCHA_EL_RE = (function () {
+  var parts = [];
+  for (var k in OCHA_EL_NAME) {
+    if (OCHA_EL_NAME.hasOwnProperty(k)) parts.push(OCHA_EL_NAME[k].replace(/^OCHA /, ""));
+  }
+  return new RegExp("^OCHA (" + parts.join("|") + ")");
+})();
+
 var OCHA_FMT = {
   reels:  { folder: "reels",  label: "Reels 9x16" },
   feed45: { folder: "feed45", label: "Feed 4x5" },
@@ -400,7 +414,7 @@ function ochaCleanReport() {
   try {
     ochaEachItem(app.project.rootItem, function (it) {
       var nm = ""; try { nm = it.name; } catch (e) {}
-      if (/^OCHA (Lower Third|Location|Bug|Ending)/.test(nm)) ocha.push(nm);
+      if (OCHA_EL_RE.test(nm)) ocha.push(nm);
     });
     ochaWrite("/tmp/ocha_toolbox.txt", "CLEAN\nOCHA template items=" + ocha.length + "\n" + ocha.join("\n"));
     return "OK|Found " + ocha.length + " OCHA template item(s) in the project bin. (Used/unused check + removal wire next.)";
@@ -419,7 +433,7 @@ function ochaSelectedOchaClip() {
   var n = 0; try { n = sel.length; } catch (e) { n = 0; }
   for (var i = 0; i < n; i++) {
     var it = sel[i], nm = ""; try { nm = it.name; } catch (e) {}
-    if (/^OCHA (Lower Third|Location|Bug|Ending)/.test(nm)) return it;
+    if (OCHA_EL_RE.test(nm)) return it;
   }
   return null;
 }
@@ -490,7 +504,7 @@ function ochaIsSequence(it) { try { return !!(it.isSequence && it.isSequence());
 function ochaIsMedia(it) {
   if (ochaIsBin(it) || ochaIsSequence(it)) return false;
   var nm = ""; try { nm = it.name; } catch (e) {}
-  if (!nm || /^OCHA (Lower Third|Location|Bug|Ending)/.test(nm)) return false;
+  if (!nm || OCHA_EL_RE.test(nm)) return false;
   return true;
 }
 
@@ -511,7 +525,7 @@ function ochaCleanInfo() {
     var used = ochaUsedItemIds(), total = 0, unused = 0, names = [];
     ochaEachItem(app.project.rootItem, function (it) {
       var nm = ""; try { nm = it.name; } catch (e) {}
-      if (/^OCHA (Lower Third|Location|Bug|Ending)/.test(nm)) {
+      if (OCHA_EL_RE.test(nm)) {
         total++;
         var id = null; try { id = it.nodeId; } catch (e) {}
         if (!id || !used["n" + id]) { unused++; if (names.length < 6) names.push(nm); }
@@ -525,7 +539,7 @@ function ochaCleanMogrts() {
     var used = ochaUsedItemIds(), toRemove = [];
     ochaEachItem(app.project.rootItem, function (it) {
       var nm = ""; try { nm = it.name; } catch (e) {}
-      if (/^OCHA (Lower Third|Location|Bug|Ending)/.test(nm)) {
+      if (OCHA_EL_RE.test(nm)) {
         var id = null; try { id = it.nodeId; } catch (e) {}
         if (!id || !used["n" + id]) toRemove.push(it);
       }

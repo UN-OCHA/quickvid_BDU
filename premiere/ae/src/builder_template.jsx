@@ -647,8 +647,13 @@ function buildText(fmt) {
   sizeGroup(comp, layers, "" + px, "" + py);     // scales the block in place
   protectRegions(comp, T.enter + (LINES - 1) * stagger, T.exit + (LINES - 1) * stagger);
   comp.motionGraphicsTemplateName = comp.name;
+  // Essential Graphics lists controls in the REVERSE of the order they are added,
+  // so add them backwards to get Line 1, Line 2, Line 3, Size top-to-bottom in the
+  // panel. (buildLT does the same thing for the same reason: Size first, Name last.)
+  // Adding them 1,2,3 puts them on screen as 3,2,1, which reads as a bug to anyone
+  // opening Essential Graphics.
   addEGP(ctl.effect("Size").property(1), comp, "Size");
-  for (var k = 0; k < LINES; k++) {
+  for (var k = LINES - 1; k >= 0; k--) {
     addEGP(layers[k].property("ADBE Text Properties").property("ADBE Text Document"),
            comp, "Line " + (k + 1));
   }
