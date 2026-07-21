@@ -1,6 +1,6 @@
 {
-  "version": "0.30.0",
+  "version": "0.30.1",
   "date": "2026-07-21",
-  "notes": "Size now scales about the element's own anchor instead of the frame centre; picking a card by hand stops editing the selected clip; another attempt at making Premiere's Properties panel re-read.",
+  "notes": "The Properties-panel refresh now actually fires: after each settled edit and when you click from the panel into Premiere (it previously waited for a field blur that never happens in CEP).",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }

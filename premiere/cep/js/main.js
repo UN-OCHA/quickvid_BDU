@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.30.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.30.1";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -356,7 +356,7 @@ function refreshHostUI() {
     // never re-reads. Split across two calls with a gap and it does.
     await jsx("ochaDeselect()");
     setTimeout(() => jsx("ochaReselect()"), 120);
-  }, 500);
+  }, 900);          // ~1s after the LAST edit — long enough not to blink between words
 }
 
 function textEdited() {
@@ -365,6 +365,7 @@ function textEdited() {
   textWriteTimer = setTimeout(async () => {
     const res = await jsx(`ochaWriteText(${lit(collectValues())})`) || "";
     if (res.indexOf("OK|") !== 0) show(res.replace(/^ERR\|/, "") || "Couldn't update the clip.", "err");
+    else refreshHostUI();               // every settled write also refreshes the panel
   }, 400);
 }
 // Bind to EVERY control in the element panes, not just the text inputs — the first
@@ -376,6 +377,10 @@ document.querySelectorAll('section.pane input, section.pane select').forEach((el
   // a settled edit is the moment to make Premiere's panel re-read the clip
   el.addEventListener("blur", refreshHostUI);
 });
+// Field blur alone missed the COMMON exit: CEP focus is per-webview, so clicking from
+// the panel straight into Premiere never blurs the input — the refresh simply didn't
+// run. The window itself does lose focus then, so refresh on that too.
+window.addEventListener("blur", refreshHostUI);
 
 /* ---------- UI wiring ---------- */
 function selectEl(el, fromClip) {
