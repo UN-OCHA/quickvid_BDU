@@ -159,16 +159,9 @@ async function enginePick() {
 function ftSafeName(s) {
   return (s || "").trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").slice(0, 80);
 }
-/* The job folder is REQUIRED: the finished video lands in <folder>/export/ and the
-   settings autosave there. Rather than fail after a render, block the CTA and mark
-   the block red — error and offending field visible together. */
-function ftFolderMissing(on) {
-  const box = $("#f-folder");
-  if (!box) return;
-  box.classList.toggle("is-missing", !!on);
-  $("#f-folder-err").hidden = !on;
-  $("#f-proj-name").setAttribute("aria-invalid", on ? "true" : "false");
-}
+/* The job folder is REQUIRED on both tabs — the behaviour lives in field.js so
+   the Edit tab and this one can never drift apart. */
+const ftFolderMissing = (on) => OchaFolder.mark($("#f-folder"), on);
 
 const ftPick = document.getElementById("f-folder-pick");
 if (ftPick) ftPick.onclick = async () => {
@@ -370,14 +363,7 @@ function ftCollect() {
 
 $("#run").onclick = async () => {
   if (!state.enginePath) return setStatus("Choose a video first.", "warn");
-  if (!state.jobDir) {
-    ftFolderMissing(true);
-    setStatus("Choose a project folder before adding titles & branding.", "error");
-    $("#f-folder").scrollIntoView({ behavior: "smooth", block: "center" });
-    $("#f-proj-name").focus();
-    return;
-  }
-  ftFolderMissing(false);       // satisfied — clear any red left from an earlier press
+  if (OchaFolder.block($("#f-folder"), state.jobDir, (m) => setStatus(m, "error"))) return;
   const { lowerThirds, ending, subtitles, bug, pins } = ftCollect();
   if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on && !pins.length)
     return setStatus("Add at least one lower third, subtitles, the bug, a location strip, or pick an ending.", "warn");

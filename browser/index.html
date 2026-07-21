@@ -13,9 +13,10 @@
   <link rel="stylesheet" href="vendor/ocha-app-kit.css" />
   <link rel="stylesheet" href="style.css" />
 
+  <script src="field.js?v=1" defer></script>      <!-- shared required project-folder field: BOTH tabs -->
   <script src="location.js?v=1" defer></script>   <!-- shared location strip: BOTH tabs -->
-  <script src="app.js?v=20" defer></script>
-  <script src="statement.js?v=11" defer></script>
+  <script src="app.js?v=21" defer></script>
+  <script src="statement.js?v=12" defer></script>
 </head>
 <body>
   <a class="cd-skip-link" href="#main">Skip to main content</a>
@@ -125,7 +126,7 @@
             <button class="cd-button cd-button--outline cd-button--small" id="f-folder-pick" type="button"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Choose where to save…</span></button>
           </div>
           <!-- shown by ftFolderMissing() when the CTA is pressed with no folder picked -->
-          <p class="field-err" id="f-folder-err" role="alert" hidden>
+          <p class="field-err" role="alert" hidden>
             <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
             Choose a project folder first — name the job, then press <strong>Choose where to save…</strong>
           </p>
@@ -314,13 +315,18 @@
               <span class="end-opt__hint">Coming later.</span>
             </label>
           </div>
-          <div class="st-folder">
-            <span class="cd-form__label">Project name &amp; where it lives</span>
+          <div class="st-folder" id="st-folder">
+            <span class="cd-form__label">Project name &amp; where it lives <em class="req">required</em></span>
             <div class="st-folder-row">
               <input class="cd-form__input st-proj-name" id="st-proj-name" placeholder="e.g. ASG Ukraine Security council" autocomplete="off" />
               <button class="cd-button cd-button--outline cd-button--small" id="st-folder-pick" type="button"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Choose where to save…</span></button>
             </div>
-            <span class="app-hint" id="st-folder-path">Name the project, then pick a location — a folder with that name is created there, and everything lives inside: the download, the finished clip, the thumbnail and the project file (autosaved, so you can resume later). Optional: skip it and files go to a temporary spot.</span>
+            <!-- shown by OchaFolder.block() when an action is attempted with no folder -->
+            <p class="field-err" role="alert" hidden>
+              <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+              Choose a project folder first — name the project, then press <strong>Choose where to save…</strong>
+            </p>
+            <span class="app-hint" id="st-folder-path">Name the project, then pick a location — a folder with that name is created there, and everything lives inside: the download, the finished clip, the thumbnail and the project file (autosaved, so you can resume later).</span>
             <div class="st-open-row">
               <button class="cd-button cd-button--outline cd-button--small" id="st-open-proj" type="button"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Open a saved project…</span></button>
               <span class="app-hint">Continuing an earlier clip? Pick its <code>.ochaquickvid.json</code> file to reload everything and keep editing.</span>

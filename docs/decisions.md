@@ -1143,6 +1143,30 @@ engine actually stopped, the path guard refusing a mangled target, and both
 download-failure paths leaving the existing install intact. The Windows script is
 reviewed but NOT executed — it needs one run on a real PC.
 
+## 2026-07-21 — The project folder is REQUIRED on both tabs
+Both tabs write everything into a job folder (`export/`, `source/`, `info/` + the
+autosaved project file), so neither will start work without one. Pressing an action
+with no folder picked stops, turns the folder block red — input border, picker
+button, a `required` tag on the label — and shows the message **next to the field**,
+not only in the status line further down the page. Focus moves to the name field and
+the block scrolls into view.
+
+- **`browser/field.js`** owns the behaviour (`OchaFolder.mark` / `OchaFolder.block`)
+  and both tabs call it — same rule as the location strip: one implementation, no
+  drift. It derives the input and the `.field-err` message from the block element, so
+  the two tabs need no matching ids.
+- **Titles & branding** gates "Add titles & branding".
+- **Edit a video** gates the UN Web TV **download**, the **local file pick** and the
+  **render**. The folder block is step 1 and the download lands in `<folder>/source/`,
+  so the check belongs BEFORE a multi-minute fetch, not after it.
+- The red clears when a folder is picked, when a saved project is reopened (that
+  sets the folder too), and whenever a guard passes — it can never be left stale.
+- Colours come from the app-kit `--err` token; the status alert uses
+  `cd-alert--error`. Note `ALERT`/`stStatus` key it as **"error"**, not "err" — the
+  wrong key silently renders an unstyled alert.
+- Both hints used to end "Optional: skip it and files go to a temporary spot".
+  Removed — it contradicted the requirement.
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the

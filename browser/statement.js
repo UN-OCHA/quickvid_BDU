@@ -93,6 +93,9 @@ async function stUseSource(path, opts = {}) {
 $st("#st-get").onclick = async () => {
   const url = $st("#st-url").value.trim();
   if (!url) return stStatus("Paste a UN Web TV link first.", "warn");
+  // The folder is step 1 and the download lands in <folder>/source/ — so ask for it
+  // BEFORE the download, not after several minutes of it.
+  if (OchaFolder.block($st("#st-folder"), ST.jobDir, (m) => stStatus(m, "error"))) return;
   if (url.startsWith("/")) return stUseSource(url);            // power users: a local path works too
   try {
     $st("#st-get").disabled = true;
@@ -110,6 +113,7 @@ $st("#st-get").onclick = async () => {
 };
 
 $st("#st-pick").onclick = async () => {
+  if (OchaFolder.block($st("#st-folder"), ST.jobDir, (m) => stStatus(m, "error"))) return;
   try {
     const r = await fetch(`${ENGINE}/api/pick-file`, { method: "POST" });
     if (!r.ok) return;
@@ -146,6 +150,7 @@ $st("#st-folder-pick").onclick = async () => {
     if (!path) return;
     ST.projName = name;
     ST.jobDir = path.replace(/[\/\\]+$/, "") + "/" + stSafeName(name);
+    OchaFolder.mark($st("#st-folder"), false);               // requirement satisfied
     $st("#st-folder-path").innerHTML =
       `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Project folder: <strong>${esc(ST.jobDir)}</strong> — download, final clip, thumbnail and the project file all live here.` + stOpenBtn("st-open-dir1");
     $st("#st-open-dir1").onclick = () => stOpenFolder(ST.jobDir);
@@ -167,6 +172,7 @@ $st("#st-open-proj").onclick = async () => {
     stRestore(project);
     if (dir) {                                               // the file's real location wins over any stored (possibly moved) path
       ST.jobDir = dir;
+      OchaFolder.mark($st("#st-folder"), false);             // reopening a project satisfies it too
       $st("#st-folder-path").innerHTML =
         `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Reopened from <strong>${esc(dir)}</strong> — edits save back here.` + stOpenBtn("st-open-dir2");
       $st("#st-open-dir2").onclick = () => stOpenFolder(ST.jobDir);
@@ -642,6 +648,7 @@ $st("#st-lt-add").onclick = () => { stAddLt(); stSave(); };
 stEnsureLt();
 
 $st("#st-render").onclick = async () => {
+  if (OchaFolder.block($st("#st-folder"), ST.jobDir, (m) => stStatus(m, "error"))) return;
   const sel = ST.segments.filter((s) => s.sel);
   if (!sel.length) return stStatus("Tick at least one sentence.", "warn");
   const body = {
