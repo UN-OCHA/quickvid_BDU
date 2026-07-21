@@ -24,24 +24,22 @@ set "QV_SUPPORT=%LocalAppData%\OCHA QuickVid"
 if not exist "%QV_SUPPORT%" mkdir "%QV_SUPPORT%"
 echo %CD%> "%QV_SUPPORT%\home.txt"
 
-REM Already running? Nothing to do - just open the page.
-curl -s -m 2 "http://127.0.0.1:%PORT%/api/health" 2>nul | findstr /c:"quickvid" >nul
-if not errorlevel 1 (
-  echo OCHA QuickVid is already running - opening it in your browser.
-  if not defined QV_NO_OPEN start "" "http://127.0.0.1:%PORT%"
-  exit /b 0
-)
-
-REM --- Self-update: if GitHub has a newer version, refresh the app code before starting,
-REM     so nobody re-downloads anything. Skipped for developer checkouts (.git) and when
-REM     QV_NO_UPDATE is set; never blocks startup - any failure falls through to the
-REM     current version.
+REM --- Self-update. This runs BEFORE the "already running" check ON PURPOSE. The
+REM     engine is detached (QV_DETACH) and stays up until logout, so checking
+REM     "already running" first meant we exited early and NEVER reached this block -
+REM     which is exactly what stranded installs on an old version even though the
+REM     launcher promised to auto-update. Order matters here; don't move it back.
+REM     Skipped for developer checkouts (.git) and when QV_NO_UPDATE is set; never
+REM     blocks startup - any failure falls through to the current version.
+set "UPDATED=0"
 if defined QV_NO_UPDATE goto :afterupdate
 if exist ".git" goto :afterupdate
 set "LOCAL_V=0.0.0"
 if exist "VERSION" for /f "usebackq delims=" %%v in ("VERSION") do set "LOCAL_V=%%v"
 set "REMOTE_V="
-curl -fsL -m 3 "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION" -o "%TEMP%\qv_remote_ver.txt" 2>nul
+REM 8s, not 3s: on office wifi / VPN the first byte can take a few seconds, and a
+REM timeout here is indistinguishable from "you're already up to date".
+curl -fsL -m 8 "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION" -o "%TEMP%\qv_remote_ver.txt" 2>nul
 if exist "%TEMP%\qv_remote_ver.txt" for /f "usebackq delims=" %%v in ("%TEMP%\qv_remote_ver.txt") do set "REMOTE_V=%%v"
 del "%TEMP%\qv_remote_ver.txt" >nul 2>&1
 echo(%REMOTE_V%| findstr /r "^[0-9][0-9]*\.[0-9]" >nul 2>&1 || goto :afterupdate
@@ -58,9 +56,25 @@ REM replace itself mid-run). /MIR clears anything dropped upstream; /IS re-copie
 REM same-size/time files so VERSION can't be stranded (which would re-update every launch).
 robocopy "%UTMP%\quickvid_BDU-main" "%CD%" /MIR /IS /XD ".venv" ".git" /XF "Start OCHA QuickVid.bat" /NFL /NDL /NJH /NJS /NC /NS /NP >nul
 copy /y "%UTMP%\quickvid_BDU-main\VERSION" "%CD%\VERSION" >nul 2>&1
+set "UPDATED=1"
 echo Updated to %REMOTE_V%.
 rd /s /q "%UTMP%" 2>nul
 :afterupdate
+
+REM Already running? Nothing to do - just open the page. EXCEPT straight after an
+REM update: the live engine still has the OLD Python loaded and would keep serving
+REM the previous version, so stop it and fall through to a fresh start.
+curl -s -m 2 "http://127.0.0.1:%PORT%/api/health" 2>nul | findstr /c:"quickvid" >nul
+if errorlevel 1 goto :notrunning
+if "%UPDATED%"=="1" (
+  echo Restarting the engine so the update takes effect...
+  call :stopengine
+  goto :notrunning
+)
+echo OCHA QuickVid is already running - opening it in your browser.
+if not defined QV_NO_OPEN start "" "http://127.0.0.1:%PORT%"
+exit /b 0
+:notrunning
 
 echo OCHA QuickVid - checking your setup...
 
@@ -185,4 +199,13 @@ exit /b 0
 :trypy
 %* -c "import sys; sys.exit(0 if (3,9)<=sys.version_info[:2]<=(3,13) else 1)" >nul 2>&1
 if not errorlevel 1 set "PY=%*"
+goto :eof
+
+REM Stop the detached engine - only used right after a self-update, because the live
+REM process still has the OLD Python loaded. Kills whatever is LISTENING on our port,
+REM then waits a moment for the port to come free. Failure-tolerant by design: a
+REM missing pid must never abort the launch.
+:stopengine
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr /r /c:":%PORT% .*LISTENING"') do taskkill /f /pid %%p >nul 2>&1
+ping -n 3 127.0.0.1 >nul 2>&1
 goto :eof
