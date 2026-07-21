@@ -21,7 +21,9 @@
 var Analytics = (function () {
   "use strict";
 
-  var ENDPOINT = "";          // <-- paste the QuickVid Apps Script /exec URL here
+  // QuickVid's OWN deployment (sheet: "OCHA QuickVid Plugin Analytics") — deliberately
+  // not the DataViz endpoint, whose dashboard counts every row in its log.
+  var ENDPOINT = "https://script.google.com/macros/s/AKfycbwxIHRGOb5rLeXbL2RtHDNFMPRRNrBg8VvEnHp-mru8u4lTkiRfrmb8ItSN_aTrUQ_2-g/exec";
 
   var _version = "";
   var _location = "unknown";
