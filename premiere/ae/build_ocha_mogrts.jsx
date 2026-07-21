@@ -107,30 +107,6 @@ var DATA = {
    "line2_weight": 500
   }
  },
- "text": {
-  "ratio": {
-   "portrait": 0.052,
-   "square": 0.058,
-   "landscape": 0.062
-  },
-  "color": "#FFFFFF",
-  "line_gap": 1.16,
-  "letter_spacing": 0,
-  "y_frac": 0.56,
-  "enter": 0.5,
-  "exit": 0.4,
-  "rise": 0.045,
-  "stagger": 0.09,        // seconds each line waits behind the one above it
-  "fonts": {
-   "family": "Raleway",
-   "weight": 700
-  }
- },
- "gradient": {
-  "height_frac": 0.45,
-  "opacity": 80,
-  "feather_frac": 0.75
- },
  "safe": {
   "landscape": {
    "top": 0.06,
@@ -181,6 +157,30 @@ var DATA = {
    "orient": "landscape"
   }
  ],
+ "text": {
+  "ratio": {
+   "portrait": 0.052,
+   "square": 0.058,
+   "landscape": 0.062
+  },
+  "color": "#FFFFFF",
+  "line_gap": 1.16,
+  "letter_spacing": 0,
+  "y_frac": 0.56,
+  "enter": 0.5,
+  "exit": 0.4,
+  "rise": 0.045,
+  "stagger": 0.09,
+  "fonts": {
+   "family": "Raleway",
+   "weight": 700
+  }
+ },
+ "gradient": {
+  "height_frac": 0.45,
+  "opacity": 80,
+  "feather_frac": 0.75
+ },
  "bug_height_frac": 0.065,
  "ending": {
   "logo_frac": 0.054,

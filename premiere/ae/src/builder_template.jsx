@@ -575,6 +575,124 @@ function buildEnding(fmt) {
   return comp;
 }
 
+// ---------------------------------------------------------------- text on screen
+// Emphasis text: white Raleway Bold, left-aligned, typed by the editor into the
+// Essential Graphics "Text" field. Rises into place + fades in, holds, fades out.
+// Placement is a sensible default (left safe margin, lower-middle, like the
+// reference clip); the panel's Size & position X/Y nudges it per shot via the
+// clip's native Motion, so no position control is exposed here.
+function buildText(fmt) {
+  var W = fmt.w, H = fmt.h, safe = DATA.safe[fmt.orient], T = DATA.text;
+  var DUR = 5, LINES = 3;
+  var comp = S.proj.items.addComp("OCHA Text - " + fmt.label, W, H, 1, DUR, 30);
+  comp.parentFolder = S.root;
+
+  var size = Math.round(H * T.ratio[fmt.orient]);
+  var px = Math.round(safe.left * W);
+  var py = Math.round(H * T.y_frac);
+  var lineH = Math.round(size * T.line_gap);
+  var rise = Math.round(H * T.rise);
+  var stagger = T.stagger;
+  var DEFAULTS = ["YOUR TEXT HERE", "", ""];
+
+  // THREE INDEPENDENT LINES, not one multi-line layer.
+  // The previous build animated a single layer with a Range Selector "based on
+  // Lines". That worked, but it made the whole template hostage to one obscure
+  // property path (ADBE Text Range Type2, which lives in the selector's Advanced
+  // group) — when that lookup failed the builder silently dropped to a whole-block
+  // reveal whose exit was a plain fade. Three layers need no selector at all: each
+  // line owns its keyframes, so the stagger is explicit and the exit is guaranteed
+  // to be the entrance reversed. It also gives the panel one field per line.
+  var layers = [];
+  for (var i = 0; i < LINES; i++) {
+    var name = "Line " + (i + 1);
+    // AE will not create an empty text layer, so seed a space and let the editor
+    // clear it; a lone space renders as nothing.
+    var seed = DEFAULTS[i] || " ";
+    var L = comp.layers.addText(seed);
+    L.name = name;
+    setText(L, seed, T.fonts.family + "-Bold", size, hex2rgb(T.color), T.letter_spacing * size);
+    L.transform.position.setValue([px, py + i * lineH]);
+
+    // In: rise + fade. Out: the exact reverse — fall back down by the same amount
+    // and fade, which is what "reversed" has to mean and what the old fallback
+    // never did. Each line is offset by `stagger`, so they cascade.
+    var t0 = i * stagger;
+    key2(L.transform.position, t0, [px, py + i * lineH + rise], t0 + T.enter, [px, py + i * lineH]);
+    key2(L.transform.opacity, t0, 0, t0 + T.enter, 100);
+    var tOut = DUR - T.exit - (LINES - 1 - i) * stagger;   // last line leaves first
+    key2(L.transform.position, tOut, [px, py + i * lineH], tOut + T.exit, [px, py + i * lineH + rise]);
+    key2(L.transform.opacity, tOut, 100, tOut + T.exit, 0);
+
+    // Close the gap left by an empty line above, so "line 1 + line 3" doesn't
+    // render with a hole in it. Reads the layers above and shifts up one line
+    // height for each blank; `value` keeps the keyframed animation intact.
+    if (i > 0) {
+      var checks = [];
+      for (var j = 1; j <= i; j++) {
+        checks.push('if (thisComp.layer("Line ' + j + '").text.sourceText.toString().replace(/\\s/g,"").length == 0) blank++;');
+      }
+      L.transform.position.expression =
+        'var blank = 0; ' + checks.join(" ") + ' value - [0, blank * ' + lineH + '];';
+    }
+    layers.push(L);
+  }
+
+  var ctl = ctlNull(comp);
+  addSlider(ctl, "Size", 100);
+  sizeGroup(comp, layers, "" + px, "" + py);     // scales the block in place
+  protectRegions(comp, T.enter + (LINES - 1) * stagger, T.exit + (LINES - 1) * stagger);
+  comp.motionGraphicsTemplateName = comp.name;
+  addEGP(ctl.effect("Size").property(1), comp, "Size");
+  for (var k = 0; k < LINES; k++) {
+    addEGP(layers[k].property("ADBE Text Properties").property("ADBE Text Document"),
+           comp, "Line " + (k + 1));
+  }
+  return comp;
+}
+
+// ---------------------------------------------------------------- readability gradient
+// A soft black scrim that keeps white text / event captions legible over busy
+// footage. Built as a full-frame black solid cut by a FEATHERED LINEAR WIPE: the
+// wipe clears the far end and the feather does the fade. Far more script-robust
+// than assembling gradient-fill colour stops, and it scales to any format because
+// completion is a percentage and the feather is derived from comp height.
+function buildGradient(fmt) {
+  var W = fmt.w, H = fmt.h, G = DATA.gradient;
+  var DUR = 5;
+  var comp = S.proj.items.addComp("OCHA Gradient - " + fmt.label, W, H, 1, DUR, 30);
+  comp.parentFolder = S.root;
+
+  var sol = comp.layers.addSolid([0, 0, 0], "Scrim", W, H, 1, DUR);
+  var wipe = sol.property("ADBE Effect Parade").addProperty("ADBE Linear Wipe");
+  // Linear Wipe CLEARS the side the angle points away from. Measured in Premiere:
+  // angle 0 left the scrim at the TOP, not the bottom - the opposite of what the
+  // first cut assumed - so the mapping is inverted here. Angle 180 = scrim at the
+  // BOTTOM (the default), angle 0 = scrim at the TOP.
+  wipe.property("Transition Completion").setValue(Math.round((1 - G.height_frac) * 100));
+  wipe.property("Feather").setValue(Math.round(H * G.height_frac * G.feather_frac));
+  wipe.property("Wipe Angle").expression =
+    "thisComp.layer('Controls').effect('Top')('Checkbox') > 0 ? 0 : 180;";
+  // "Full screen" bypasses the wipe entirely: an even scrim over the whole frame,
+  // for text that sits anywhere. Completion 0 = nothing cleared.
+  wipe.property("Transition Completion").expression =
+    "thisComp.layer('Controls').effect('Full screen')('Checkbox') > 0 ? 0 : value;";
+  sol.transform.opacity.expression =
+    "thisComp.layer('Controls').effect('Opacity')('Slider');";
+
+  var ctl = ctlNull(comp);
+  addCheckbox(ctl, "Top", false);
+  addCheckbox(ctl, "Full screen", false);
+  addSlider(ctl, "Opacity", G.opacity);
+  var mv = new MarkerValue("gradient"); mv.duration = DUR; mv.protectedRegion = true;
+  comp.markerProperty.setValueAtTime(0, mv);     // fixed piece - protect it all
+  comp.motionGraphicsTemplateName = comp.name;
+  addEGP(ctl.effect("Opacity").property(1), comp, "Opacity");   // display: Top, Full screen, Opacity
+  addEGP(ctl.effect("Full screen").property(1), comp, "Full screen");
+  addEGP(ctl.effect("Top").property(1), comp, "Top");
+  return comp;
+}
+
 // ---------------------------------------------------------------- build + export
 function exportComp(comp, cname, fmtKey) {
   var dir = new Folder(MOGRT_ROOT + "/" + fmtKey);
@@ -593,8 +711,8 @@ function exportComp(comp, cname, fmtKey) {
   }
 }
 
-var builders = [buildLT, buildPin, buildBug, buildEnding];
-var builderNames = ["LT", "Pin", "Bug", "Ending"];
+var builders = [buildLT, buildPin, buildBug, buildEnding, buildText, buildGradient];
+var builderNames = ["LT", "Pin", "Bug", "Ending", "Text", "Gradient"];
 try {
   for (var f = 0; f < DATA.formats.length; f++) {
     var fmt = DATA.formats[f];

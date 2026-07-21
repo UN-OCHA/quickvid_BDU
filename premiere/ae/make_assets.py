@@ -215,6 +215,33 @@ def main():
             {"key": "square", "label": "Square 1x1", "w": 1080, "h": 1080, "orient": "square"},
             {"key": "event", "label": "Event 16x9", "w": 1920, "h": 1080, "orient": "landscape"},
         ],
+        # Text on screen + the readability gradient. These were added straight to
+        # the GENERATED jsx once, which meant a regeneration would have wiped both
+        # builders AND crashed on the missing config. Keep them here.
+        "text": {
+                    "ratio": {
+                                "portrait": 0.052,
+                                "square": 0.058,
+                                "landscape": 0.062
+                    },
+                    "color": "#FFFFFF",
+                    "line_gap": 1.16,
+                    "letter_spacing": 0,
+                    "y_frac": 0.56,
+                    "enter": 0.5,
+                    "exit": 0.4,
+                    "rise": 0.045,
+                    "stagger": 0.09,
+                    "fonts": {
+                                "family": "Raleway",
+                                "weight": 700
+                    }
+        },
+        "gradient": {
+                    "height_frac": 0.45,
+                    "opacity": 80,
+                    "feather_frac": 0.75
+        },
         "bug_height_frac": 0.065,      # mirrors finish.py BUG_HEIGHT_FRAC
         "ending": {"logo_frac": 0.054, "lead_in": 0.30, "hold": 1.5},  # click peak @0.30s → snap
         "pin_path": {"w": vb[2], "h": vb[3], "subs": subs},
