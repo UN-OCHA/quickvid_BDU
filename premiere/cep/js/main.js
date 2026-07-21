@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.36.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.37.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -136,12 +136,9 @@ function collectValues() {
     // deliberately NOT part of this CTA, which adds the text only
   }
   // shared Size + Position → Motion (all four elements; skip values at default)
-  const size = clampNum($("adj-size-n").value, 100);
-  const px = clampNum($("adj-x-n").value, 0);
-  const py = clampNum($("adj-y-n").value, 0);
-  if (size !== 100) push("@scale", size);
-  if (px !== 0) push("@posX", px);
-  if (py !== 0) push("@posY", py);
+  // adjust disabled (0.37.0): Size & position is hidden pending a rewrite, so no
+  // Motion overrides are sent and every element lands exactly as the template
+  // designed it. Restore these three pushes when the section comes back.
   return kv.join(RS);
 }
 
@@ -755,5 +752,6 @@ try { Analytics.init(PANEL_VERSION); } catch (e) { /* analytics must never break
 reportUpdateResult();           // did an update land while we were away?
 checkForUpdate();               // once on load; a new release surfaces on next panel open
 setInterval(refresh, 2500);
-setInterval(syncAdjust, 900);   // bind Adjust sliders to a selected OCHA clip
+// adjust disabled (0.37.0): no Motion polling while Size & position is hidden.
+// setInterval(syncAdjust, 900);
 setInterval(syncText, 900);     // bind the text fields to a selected OCHA clip

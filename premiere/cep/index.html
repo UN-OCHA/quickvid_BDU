@@ -104,7 +104,7 @@
           <label class="fld"><span class="fld__label">2nd line <em>optional</em></span>
             <input id="lt-title2" type="text" placeholder="Additional info" /></label>
           <label class="opt-check"><input id="lt-centre" type="checkbox" /><span>Centre align</span></label>
-          <p class="note">Editing an existing one? <strong>Select the clip</strong> and these fields fill with its text — change them here and the clip updates as you type.</p>
+          <p class="note">Editing an existing one? <strong>Select the clip</strong> and these fields fill with its text — change them here and the clip updates as you type. Premiere's <em>Properties</em> panel may keep showing the old text; the video itself is always right.</p>
         </section>
 
         <section class="pane" data-pane="loc">
@@ -136,8 +136,8 @@
             <input id="text-l2" type="text" placeholder="people are displaced" /></label>
           <label class="fld"><span class="fld__label">Line 3 <em>optional</em></span>
             <input id="text-l3" type="text" placeholder="by insecurity in Mali" /></label>
-          <p class="note">Leave a line empty and the ones below close the gap. Nudge with <strong>Size &amp; position</strong> below. <strong>Add to timeline</strong> adds the text only — the gradient is its own button.</p>
-          <p class="note">Editing an existing one? <strong>Select the clip</strong> and these fields fill with its text — change them here and the clip updates as you type.</p>
+          <p class="note">Leave a line empty and the ones below close the gap. <strong>Add to timeline</strong> adds the text only — the gradient is its own button.</p>
+          <p class="note">Editing an existing one? <strong>Select the clip</strong> and these fields fill with its text — change them here and the clip updates as you type. Premiere's <em>Properties</em> panel may keep showing the old text; the video itself is always right.</p>
           <div class="tool-cards">
             <button id="text-grad-btn" class="tool-tile" type="button" title="Drop a black readability gradient on its own track — the same one on the Text and Captions tabs.">
               <svg class="tool-tile-icon" viewBox="0 0 576 512" fill="currentColor" aria-hidden="true"><path d="M264.5 5.2c14.9-6.9 32.1-6.9 47 0l218.6 101c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 149.8C37.4 145.8 32 137.3 32 128s5.4-17.9 13.9-21.8L264.5 5.2zM476.9 209.6l53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 277.8C37.4 273.8 32 265.3 32 256s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0l152-70.2zm-152 198.2l152-70.2 53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 405.8C37.4 401.8 32 393.3 32 384s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0z"/></svg>
@@ -147,7 +147,12 @@
         </section>
 
         <!-- shared Size + Position — collapsed accordion (advanced) -->
-        <section class="adjust" id="adjust">
+        <!-- HIDDEN in 0.37.0 pending a rewrite: Size drove the template's own Size
+             control while X/Y drove Premiere's Motion, so the two disagreed about what
+             the anchor was, and the live binding to a selected clip added polling we
+             were chasing crashes through. Markup and JS are intact - unhide this
+             section and restore the two lines marked "adjust disabled" in main.js. -->
+        <section class="adjust" id="adjust" hidden>
           <button class="adj-toggle" id="adj-toggle" aria-expanded="false">
             <svg class="adj-chev" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span class="adj-toggle__label">Size &amp; position</span>

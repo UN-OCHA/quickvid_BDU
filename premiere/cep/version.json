@@ -1,7 +1,7 @@
 {
-  "version": "0.36.0",
+  "version": "0.37.0",
   "date": "2026-07-21",
-  "notes": "Stability: removes the risky text-write path that crashed Premiere while editing. Empty lines now stay empty instead of showing placeholder text.",
+  "notes": "Size & position is hidden for now \u2014 elements land exactly as their template designs them. It will come back rebuilt.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
   "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/premiere/cep/dist/ocha-quickvid-panel.zxp"
 }
