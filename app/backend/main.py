@@ -8,7 +8,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -64,15 +64,6 @@ def health():
         "version": settings.VERSION,
         "modes": ["titles", "edit"],
         "ffmpeg": bool(settings.FFMPEG),
-    }
-
-
-@app.get("/api/config")
-def config():
-    return {
-        "formats": list(settings.brand().get("formats", {}).keys()),
-        "ffmpeg": settings.FFMPEG,
-        "default_model": settings.DEFAULT_MODEL,
     }
 
 
@@ -136,55 +127,6 @@ def open_folder(req: OpenFolderReq):
     opener = {"darwin": ["open"], "win32": ["explorer"]}.get(sys.platform, ["xdg-open"])
     subprocess.Popen(opener + [str(p)])
     return {"ok": True}
-
-
-class TranscribeReq(BaseModel):
-    folder: str
-    model: Optional[str] = None
-
-
-@app.post("/api/transcribe")
-def transcribe(req: TranscribeReq):
-    folder = req.folder.strip()
-    if not Path(folder).is_dir():
-        raise HTTPException(400, f"Not a folder: {folder}")
-    job = jobs.create("transcribe", {"folder": folder, "model": req.model})
-    jobs.run_async(job, engine_bridge.transcribe)
-    return {"job_id": job.id}
-
-
-def _extract_instruction(raw: Union[str, dict]) -> dict:
-    """Tolerate the LLM wrapping the JSON in prose / code fences (same contract
-    as engine/run.py), and validate it before we launch a render."""
-    if isinstance(raw, dict):
-        inst = raw
-    else:
-        match = re.search(r"\{.*\}", str(raw), re.S)
-        if not match:
-            raise HTTPException(400, "Couldn't find a JSON object in the instruction.")
-        try:
-            inst = json.loads(match.group(0))
-        except json.JSONDecodeError as exc:
-            raise HTTPException(400, f"Instruction isn't valid JSON: {exc}")
-    if not inst.get("keep"):
-        raise HTTPException(400, "Instruction has no 'keep' segments.")
-    return inst
-
-
-class RenderReq(BaseModel):
-    source_job_id: str
-    instruction: Union[str, dict]
-
-
-@app.post("/api/render")
-def render(req: RenderReq):
-    src = jobs.get(req.source_job_id)
-    if not src or src.kind != "transcribe" or src.status != "done":
-        raise HTTPException(400, "Transcribe first — no finished transcript for that id.")
-    inst = _extract_instruction(req.instruction)
-    job = jobs.create("render", {"source_job": src, "instruction": inst})
-    jobs.run_async(job, engine_bridge.render)
-    return {"job_id": job.id}
 
 
 class LowerThirdReq(BaseModel):
@@ -277,18 +219,9 @@ def job_status(jid: str):
     }
 
 
-@app.get("/api/jobs/{jid}/transcript")
-def job_transcript(jid: str):
-    job = jobs.get(jid)
-    if not job or job.kind != "transcribe" or job.status != "done":
-        raise HTTPException(404, "No transcript ready for that id.")
-    return {"transcript": job.result.get("transcript", ""),
-            "segments": job.result.get("segments", [])}
-
-
 def _rendered_mp4(jid: str) -> str:
     job = jobs.get(jid)
-    if not job or job.kind not in ("render", "finish", "statement") or job.status != "done":
+    if not job or job.kind not in ("finish", "statement") or job.status != "done":
         raise HTTPException(404, "No rendered video for that id.")
     return job.result["mp4"]
 
