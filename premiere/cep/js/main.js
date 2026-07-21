@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.34.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.34.1";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -154,13 +154,15 @@ const EL_LABEL = { lt: "Lower third", loc: "Location", bug: "OCHA logo", ending:
    Toolbox all reach the same one. `pos` is bottom | top | full. */
 function addGradient(pos, opacity) {
   try { Analytics.ping("gradient:" + pos); } catch (e) {}
-  // NOTE THE INVERSION. The AE template's checkbox is NAMED "Top" but produces a
-  // gradient at the BOTTOM when ticked — Linear Wipe clears the side its angle
-  // points away from, and the built templates went out that way round. Rather than
-  // mislabel the buttons (a user picking "Top" must get a scrim at the top), the
-  // panel keeps honest labels and flips the value HERE, in one place. If the AE
-  // templates are ever rebuilt with the expression corrected, drop the inversion.
-  const kv = ["Top" + US + (pos === "bottom" ? "true" : "false"),
+  // NO INVERSION HERE — send "Top" to mean top. This flipped twice, so the
+  // arithmetic, once: the template's expression is
+  //     Top > 0 ? 0 : 180        (Linear Wipe clears the side the angle points AWAY from)
+  // so Top=true -> angle 0 -> scrim at the TOP, Top=false -> 180 -> BOTTOM.
+  // The panel briefly inverted this to compensate for templates built BEFORE that
+  // expression was fixed; once they were rebuilt the inversion became a double
+  // negative and "Top" started producing a bottom gradient. If it ever looks swapped
+  // again, the templates are stale — rebuild them, don't flip this.
+  const kv = ["Top" + US + (pos === "top" ? "true" : "false"),
               "Full screen" + US + (pos === "full" ? "true" : "false"),
               "Opacity" + US + (opacity == null ? 80 : opacity)].join(RS);
   return jsx(`ochaAdd("gradient",${lit(curFmt)},${lit(EXT_ROOT)},${lit(kv)})`).then((r) => r || "");
@@ -510,6 +512,11 @@ function openTool(key) {
   // per-tool settings: "all" = position + fade, "fade" = fade only (position fixed)
   $("modal-settings").hidden = !cfg.settings;
   $("grad-pos").hidden = cfg.settings !== "all";
+  // Reset the position to Bottom on every open. It's the common case (text and
+  // captions both sit low), and a choice left over from last time is a quiet way
+  // to end up with the scrim on the wrong edge.
+  document.querySelectorAll("#grad-pos .seg__opt").forEach((b) =>
+    b.classList.toggle("is-active", b.dataset.pos === "bottom"));
   modalInfo("Checking the project…", false);        // live status line
   $("modal-result").hidden = true;
   const run = $("modal-run");

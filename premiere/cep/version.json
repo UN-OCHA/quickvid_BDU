@@ -1,7 +1,7 @@
 {
-  "version": "0.34.0",
+  "version": "0.34.1",
   "date": "2026-07-21",
-  "notes": "One-click updates: the panel now downloads and installs new versions itself, like the DataViz plugin.",
+  "notes": "Fix: the readability gradient's Top and Bottom were reversed. Bottom is also selected again every time you open it.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
   "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/premiere/cep/dist/ocha-quickvid-panel.zxp"
 }
