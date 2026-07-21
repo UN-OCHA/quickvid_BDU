@@ -248,6 +248,21 @@ function ochaUnwrapText(v) {
   });
 }
 
+// Cheap "what is selected?" probe - name and element only. The panel polls this
+// often; reading every text property that frequently means a getMGTComponent() plus
+// a getValue() per control several times a second, which is exactly the load that
+// was in flight when Premiere crashed during editing. Full values are fetched only
+// when the selection changes, or on a slow tick.
+function ochaSelectedName() {
+  try {
+    var clip = ochaSelectedOchaClip();
+    if (!clip) return "none";
+    var nm = ""; try { nm = clip.name; } catch (e) { return "none"; }
+    var el = ochaElOfClip(nm);
+    return el ? (nm + "|" + el) : "none";
+  } catch (e) { return "none"; }
+}
+
 // "<clipName>|<el>|Name<US>value<RS>Title<US>value..." or "none".
 // Only text-ish controls are returned; the panel matches them to its own fields.
 function ochaReadText() {
@@ -273,72 +288,17 @@ function ochaReadText() {
   } catch (e) { return "none"; }
 }
 
-// --- writing text the way Premiere's Properties panel expects ---------------
-// Evidence: deselect/reselect DID make that panel re-read (the selection visibly
-// blinked) and it still showed template defaults - so it is not caching, it re-read
-// and could not display what it found. Its own edits store a JSON text-run blob
-// ({"...","fontSizeEditValue":[63],"textEditValue":"..."}), while we were writing a
-// bare string. Effect Controls and the renderer accept both; that panel appears to
-// speak only the blob. So write the blob.
+// TEXT IS WRITTEN AS A PLAIN STRING. NOTHING CLEVER HERE ON PURPOSE.
 //
-// Font attributes are NEVER invented: if the property already holds a blob we keep
-// every one of its font fields and swap only the text and its run length. Getting
-// this wrong would change brand typography, which matters far more than a panel.
-
-function ochaJsonStr(s) {                       // ES3: no JSON.stringify
-  var out = "", i, c;
-  for (i = 0; i < s.length; i++) {
-    c = s.charAt(i);
-    if (c === '"' || c === "\\") out += "\\" + c;
-    else if (c === "\n") out += "\\n";
-    else if (c === "\r") out += "\\r";
-    else if (c === "\t") out += "\\t";
-    else if (c < " ") {
-      var h = s.charCodeAt(i).toString(16);
-      out += "\\u" + "0000".substring(h.length) + h;
-    } else out += c;
-  }
-  return '"' + out + '"';
-}
-
-function ochaTextBlob(existing, str) {
-  var len = str.length;
-  if (existing && existing.charAt(0) === "{" && existing.indexOf("textEditValue") >= 0) {
-    // Mixed formatting inside one field would need per-run lengths we cannot infer -
-    // leave those to a plain write rather than corrupt the runs.
-    var rc = existing.match(/"capPropTextRunCount"\s*:\s*(\d+)/);
-    if (rc && parseInt(rc[1], 10) !== 1) return null;
-    var patched = existing
-      .replace(/"textEditValue"\s*:\s*"(?:[^"\\]|\\.)*"/, '"textEditValue":' + ochaJsonStr(str))
-      .replace(/"fontTextRunLength"\s*:\s*\[\s*\d+\s*\]/, '"fontTextRunLength":[' + len + "]");
-    return patched;
-  }
-  // No blob yet: the minimum shape, with NO font values, so the template's own
-  // typography stays in charge (capPropFontEdit false = not user-overridable).
-  return '{"capPropFontEdit":false,"capPropFontFauxStyleEdit":false,' +
-         '"capPropFontSizeEdit":false,"capPropTextRunCount":1,' +
-         '"fontTextRunLength":[' + len + '],"textEditValue":' + ochaJsonStr(str) + '}';
-}
-
-// Set a text property, preferring the blob shape, and VERIFY. If the blob does not
-// read back as the intended text, put the plain string back: a control that stored
-// the JSON literally would render raw JSON on screen, which is far worse than a
-// stale panel. Self-correcting, so a wrong guess about the format cannot ship.
-function ochaSetTextProp(pr, str) {
-  var before = null;
-  try { before = pr.getValue(); } catch (e0) { before = null; }
-  if (typeof before !== "string") before = null;
-  var blob = ochaTextBlob(before, str);
-  if (blob) {
-    try {
-      pr.setValue(blob, true);
-      var after = pr.getValue();
-      if (typeof after === "string" && ochaUnwrapText(after) === str) return "blob";
-    } catch (e1) { /* fall through */ }
-  }
-  pr.setValue(str, true);                       // plain: always renders correctly
-  return "plain";
-}
+// 0.32.0 tried writing Premiere's JSON text-run blob instead, to coax the Properties
+// panel into displaying script-set values. It was never confirmed to work, and it
+// turned one setValue into read + patch + write + read-back + possible second write,
+// on every field, on every edit. Premiere then began crashing while editing a bound
+// clip. Reverted: an unproven cosmetic fix is not worth a crash, and the panel
+// already tells the user the Properties panel lags.
+//
+// Reading still UNWRAPS the blob (ochaUnwrapText), because Premiere itself writes
+// that shape when text is edited in its own panel - that part is real and needed.
 
 // Write text values back to the SELECTED clip. Same kv blob shape as ochaAdd, so
 // the panel builds it with the one collectValues() it already has.
@@ -359,7 +319,7 @@ function ochaWriteText(kvBlob) {
       try {
         if (OCHA_BOOL[key]) pr.setValue(raw === "true", true);
         else if (OCHA_NUM[key]) pr.setValue(parseFloat(raw), true);
-        else ochaSetTextProp(pr, raw);          // blob-preferred, verified, self-correcting
+        else pr.setValue(raw, true);            // plain string - see the note above
         set.push(key);
       } catch (e2) { fail.push(key); }
     }

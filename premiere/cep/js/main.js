@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.35.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.36.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -107,16 +107,20 @@ const RS = "\u001E", US = "\u001F";      // record / unit separators (untypeable
 function collectValues() {
   const kv = [];
   const push = (key, val) => kv.push(key + US + val);
+  // EMPTY FIELDS ARE SENT AS EMPTY, never skipped. Skipping them left the template's
+  // baked-in placeholder on screen ("Job title, Duty station") when you filled only
+  // one line — and, once the panel could edit a selected clip, made it impossible to
+  // CLEAR a line: the field was never written, so the 900ms mirror read the old value
+  // straight back into the box. Delete, refill, delete, refill. Both templates hide
+  // and reflow around an empty line, so "" is the correct instruction, not silence.
   if (curEl === "lt") {
-    const n = $("lt-name").value.trim(), t1 = $("lt-title").value.trim(), t2 = $("lt-title2").value.trim();
-    if (n)  push("Name", n);
-    if (t1) push("Title", t1);
-    if (t2) push("Title line 2 (optional)", t2);
+    push("Name", $("lt-name").value.trim());
+    push("Title", $("lt-title").value.trim());
+    push("Title line 2 (optional)", $("lt-title2").value.trim());
     push("Centre align", $("lt-centre").checked);
   } else if (curEl === "loc") {
-    const p = $("loc-place").value.trim(), d = $("loc-date").value.trim();
-    if (p) push("Place", p);
-    if (d) push("Date", d);
+    push("Place", $("loc-place").value.trim());
+    push("Date", $("loc-date").value.trim());
     const blue = document.querySelector("#pin-colour .seg__opt.is-active");
     push("Pin colour", (blue && blue.dataset.col === "blue") ? 1 : 0);   // 0-based: Red=0, Blue=1
     push("Show pin icon", $("loc-icon").checked);
@@ -126,8 +130,7 @@ function collectValues() {
     // one control per line — matches the template's "Line 1/2/3" EGP fields.
     // Empty lines are skipped: the template's expressions close the gap.
     ["text-l1", "text-l2", "text-l3"].forEach((id, i) => {
-      const v = $(id).value.trim();
-      if (v) push("Line " + (i + 1), v);
+      push("Line " + (i + 1), $(id).value.trim());   // empty included — see above
     });
     // the readability gradient is its OWN template with its own button + modal —
     // deliberately NOT part of this CTA, which adds the text only
@@ -338,29 +341,33 @@ function fillFields(blob) {
   });
 }
 
+let mirrorTick = 0;
 async function syncText() {
   if (!hostReady) return;
   if (document.activeElement && document.activeElement.closest("section.pane")) return;  // don't fight the typist
-  const res = await jsx("ochaReadText()") || "none";
-  if (res === "none" || res.indexOf("|") < 0) {
+  if (textWriteBusy) return;                 // our own edit is in flight — fields lead the clip
+
+  // Fast path: ask only WHICH clip is selected. Reading every text property on every
+  // tick meant a getMGTComponent() plus a getValue() per control a few times a second
+  // — the load in flight when Premiere crashed while editing. Full values are read on
+  // a selection change, and otherwise only every 4th tick (~4s) to pick up edits made
+  // in Premiere's own panel.
+  const head = await jsx("ochaSelectedName()") || "none";
+  if (head === "none") {
     if (boundClip !== null) setBound(null, null);
     return;
   }
-  // name|el|blob — slice, don't split("|"): a "|" typed INSIDE a value would
-  // truncate the blob at the next pipe.
+  const i = head.indexOf("|");
+  const name = head.slice(0, i), el = head.slice(i + 1);
+  const changed = name !== boundClip;
+  if (!changed && (++mirrorTick % 4) !== 0) return;
+
+  const res = await jsx("ochaReadText()") || "none";
+  if (res === "none" || res.indexOf("|") < 0) return;
   const i1 = res.indexOf("|"), i2 = res.indexOf("|", i1 + 1);
-  const name = res.slice(0, i1), el = res.slice(i1 + 1, i2), blob = res.slice(i2 + 1);
-  if (name === boundClip) {
-    // Same clip: MIRROR the clip while idle. This used to return without reading,
-    // which made the panel one-way — an edit typed into Premiere's Properties panel
-    // changed the clip but never appeared here, so the two showed different text
-    // forever. The typist guard above keeps this from fighting live typing, and a
-    // pending write means the fields are AHEAD of the clip, not behind it.
-    if (!textWriteBusy) fillFields(blob);
-    return;
-  }
-  setBound(name, el);
-  fillFields(blob);
+  const blob = res.slice(i2 + 1);
+  if (changed) setBound(name, el);
+  if (!textWriteBusy) fillFields(blob);      // re-check: a write may have started
 }
 
 // Typing while bound writes straight to that clip, debounced so every keystroke
