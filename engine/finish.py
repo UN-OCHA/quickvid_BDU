@@ -37,6 +37,7 @@ from svgpng import svg2png as _svg2png   # cairosvg, or portable resvg on Macs w
 from PIL import Image
 import lower_third
 import pin_locator
+import ending as ending_mod   # THE ending — shared with social_brand.py
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BRAND = os.path.join(ROOT, "brand", "brand.json")
@@ -76,34 +77,7 @@ FF = _ffmpeg()
 FP = FF.replace("ffmpeg", "ffprobe") if FF.endswith("ffmpeg") else "ffprobe"
 
 
-def ff_progress(cmd, total_dur, lo=0, hi=100):
-    """Run an ffmpeg command and translate its `-progress` stream into our own
-    `PROGRESS n` tokens (mapped into the [lo,hi] slice of the overall job) so
-    the UI shows a live % bar. `total_dur` = the OUTPUT duration in seconds.
-    On failure, ffmpeg's real stderr is echoed (so it lands in the job log) and
-    CalledProcessError is raised — main()'s handler then surfaces a clean reason
-    instead of the useless 'exited 1'. Replaces subprocess.run(..., check=True)."""
-    full = [str(c) for c in cmd] + ["-progress", "pipe:1", "-nostats"]
-    proc = subprocess.Popen(full, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    err = []
-    et = threading.Thread(target=lambda: err.append(proc.stderr.read()), daemon=True)
-    et.start()
-    last = -1
-    for line in proc.stdout:                          # ffmpeg emits out_time_us roughly every frame
-        k, _, v = line.strip().partition("=")
-        if k in ("out_time_us", "out_time_ms") and v.isdigit():   # both keys are µs (ffmpeg quirk)
-            p = int(lo + (hi - lo) * min(1.0, (int(v) / 1e6) / total_dur)) if total_dur > 0 else lo
-            if p != last:
-                last = p
-                print(f"PROGRESS {p}", flush=True)
-    proc.wait()
-    et.join(timeout=1)
-    if proc.returncode != 0:
-        sys.stderr.write("".join(err))                # keep ffmpeg's own message visible in the log
-        sys.stderr.flush()
-        raise subprocess.CalledProcessError(proc.returncode, full)
-    if hi > last:
-        print(f"PROGRESS {hi}", flush=True)           # snap to the stage ceiling on a clean finish
+ff_progress = ending_mod.ff_progress      # one implementation, in ending.py
 
 
 def _rotation(s):
@@ -210,17 +184,6 @@ def place(g, W, H, prof, align):
     return x, y
 
 
-def render_logo(W, H, tmp):
-    """The OCHA horizontal white lockup, rendered CRISP from the SVG. Sized by
-    frame HEIGHT (~5.4%), so it looks the same weight in every format — that keeps
-    the approved portrait size but shrinks it on the wider square/landscape frames."""
-    logo_h = round(H * 0.054)
-    png = os.path.join(tmp, "logo.png")
-    _svg2png(url=LOGO_SVG, write_to=png, output_height=logo_h)
-    im = Image.open(png)
-    return png, im.size[0], im.size[1]
-
-
 def render_bug(H, tmp):
     """The persistent corner watermark: the OCHA VERTICAL white lockup (distinct
     from the horizontal ending logo), small, rasterized crisp from its own SVG."""
@@ -237,61 +200,6 @@ def bug_pos(W, H, prof, bw, bh):
     x = round(W - prof["safe"]["right"] * W - bw)
     y = round(prof["safe"]["top"] * H)
     return x, y
-
-
-def add_ending(FF_, video, brand, style, darken, bitrate, tmp, out, p_lo=0, p_hi=100):
-    """style 'over_black' | 'over_footage'. The logo is the crisp SVG; it SNAPS on
-    (no fade — a rough cut) and HOLDS to the end. The darken (over_footage) and the
-    cut to black (over_black) are hard too. Click SOUND from the logo-click .mov."""
-    info = probe(video)
-    dur, W, H = info["dur"], info["W"], info["H"]
-    silent = not has_audio(video)                    # e.g. a screen recording
-    logo, lw, lh = render_logo(W, H, tmp)
-    lx, ly = (W - lw) // 2, (H - lh) // 2
-    mov = os.path.join(ROOT, brand["ending"]["asset"])
-    click = os.path.exists(mov)
-
-    inputs = ["-i", video, "-loop", "1", "-i", logo]
-    if click:
-        inputs += ["-i", mov]                        # input 2 — for the click sound only
-
-    HOLD = 1.5                                        # video cuts 1.5s after the logo appears
-    if style == "over_footage":
-        at = max(0.0, dur - HOLD)                     # logo snaps in over the last 1.5s of footage
-        out_dur = dur
-        dk = (f"color=black:s={W}x{H}:r=30:d={dur:.2f},format=rgba,"
-              f"colorchannelmixer=aa={darken}[dk];"                     # hard darken (no fade)
-              f"[0:v][dk]overlay=enable='gte(t,{at:.2f})'[bg];") if darken > 0 else "[0:v]null[bg];"
-        vfilt = (dk +
-                 f"[1:v]format=rgba[lg];"
-                 f"[bg][lg]overlay={lx}:{ly}:enable='gte(t,{at:.2f})',format=yuv420p[v]")
-        aud_main = (f"anullsrc=r=48000:cl=stereo:d={out_dur:.2f}[va];" if silent
-                    else "[0:a]anull[va];")
-        adur = "first"
-    else:                                            # over_black — hard cut to black, logo snaps on
-        at = dur                                       # logo on the first black frame
-        out_dur = at + HOLD                            # cuts 1.5s after the logo appears
-        vfilt = (f"[0:v]tpad=stop_duration=3:color=black[bv];"          # footage → hard cut to black
-                 f"[1:v]format=rgba[lg];"
-                 f"[bv][lg]overlay={lx}:{ly}:enable='gte(t,{at:.2f})',format=yuv420p[v]")
-        aud_main = (f"anullsrc=r=48000:cl=stereo:d={out_dur:.2f}[va];" if silent
-                    else f"[0:a]afade=t=out:st={dur - 0.06:.2f}:d=0.06[va];")  # tiny fade only to avoid a pop
-        adur = "longest"
-
-    if click:
-        delay = int(max(0, at - 0.30) * 1000)          # .mov click (@0.3s) lands as the logo snaps on
-        fc = (vfilt + ";" + aud_main +
-              f"[2:a]atrim=0:0.7,asetpts=PTS-STARTPTS,adelay={delay}|{delay}[ca];"
-              f"[va][ca]amix=inputs=2:duration={adur}:normalize=0[a]")
-    else:
-        fc = vfilt + ";" + aud_main.replace("[va]", "[a]")
-
-    ff_progress([FF_, "-y", "-v", "error"] + inputs + [
-        "-filter_complex", fc, "-map", "[v]", "-map", "[a]",
-        "-t", f"{out_dur:.2f}",
-        "-c:v", "h264_videotoolbox", "-b:v", f"{bitrate}M"] + COLOR
-        + ["-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
-           "-pix_fmt", "yuv420p", "-r", "30", out], out_dur, p_lo, p_hi)
 
 
 def run(spec, bitrate=12.0):
@@ -374,7 +282,7 @@ def run(spec, bitrate=12.0):
         ff_progress([FF, "-y", "-v", "error"] + inputs + [
             "-filter_complex", ";".join(filt), "-map", "[vout]", "-map", "0:a?",
             "-t", f"{info['dur']:.3f}",
-            "-c:v", "h264_videotoolbox", "-b:v", f"{bitrate}M"] + COLOR
+            ] + ending_mod.vcodec_args(bitrate) + COLOR
             + ["-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
                "-pix_fmt", "yuv420p", "-r", str(fps), body], info["dur"], 0, body_hi)
     else:
@@ -384,8 +292,8 @@ def run(spec, bitrate=12.0):
     ending = spec.get("ending", {"style": "none"})
     if has_ending:
         print(f"  ending: {style}")
-        add_ending(FF, body, brand, style, float(ending.get("darken", 0.0)),
-                   bitrate, tmp, out, p_lo=(body_hi if filt else 0), p_hi=100)
+        ending_mod.add_ending(FF, body, style, float(ending.get("darken", 0.0)),
+                              bitrate, tmp, out, p_lo=(body_hi if filt else 0), p_hi=100)
     else:
         subprocess.run([FF, "-y", "-v", "error", "-i", body, "-c", "copy",
                         "-movflags", "+faststart", out], check=True)

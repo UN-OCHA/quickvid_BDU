@@ -142,6 +142,7 @@ def _mw(text, weight, size): return ImageFont.truetype(FONTS[weight], size).getb
 # logic: engine/lower_third.py. Do NOT re-implement the lower third here.
 import lower_third as LT
 import pin_locator as PIN
+import ending as ending_mod   # THE ending — shared with finish.py
 
 # ---------------- captions ----------------
 def _wrap_lines(text, f, maxw):
@@ -231,29 +232,6 @@ def probe(src):
     return w, h, round(float(num) / float(den)) or 30, float(j["format"]["duration"])
 
 
-def _ff_progress(cmd, total_dur):
-    """Run the composite and translate ffmpeg's `-progress` stream into
-    `PROGRESS n` (0–100) tokens so the UI shows a live % bar. `total_dur` = the
-    output duration in seconds. Returns (returncode, stderr_text) — the caller
-    keeps its own error handling. Drop-in for subprocess.run(capture_output)."""
-    full = [str(c) for c in cmd] + ["-progress", "pipe:1", "-nostats"]
-    proc = subprocess.Popen(full, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    err = []
-    et = threading.Thread(target=lambda: err.append(proc.stderr.read()), daemon=True)
-    et.start()
-    last = -1
-    for line in proc.stdout:                          # out_time_us ticks ~every frame
-        k, _, v = line.strip().partition("=")
-        if k in ("out_time_us", "out_time_ms") and v.isdigit():   # both are µs (ffmpeg quirk)
-            p = int(100 * min(1.0, (int(v) / 1e6) / total_dur)) if total_dur > 0 else 0
-            if p != last:
-                last = p
-                print(f"PROGRESS {p}", flush=True)
-    proc.wait()
-    et.join(timeout=1)
-    return proc.returncode, "".join(err)
-
-
 SUB_DEFAULTS = dict(size=44, max_w=800, box=True, box_color="#3F3F3F", opacity=0.75, radius=16,
                     pad=[22, 14], line_h=1.28, weight=500, bottom_hi=806, bottom_lo=900,
                     gradient_h_frac=0.42, gradient_opacity=0.80)
@@ -310,17 +288,14 @@ def render(spec: dict, log=print) -> str:
     # location strips, top-left (animated). PIN.specs() is the single reader of the
     # spec — finish.py calls the same one, so both tabs stay in step.
     pin_specs = PIN.specs(spec)
-    # KNOWN LIMIT — refuse rather than ship a short video. This one graph composites
-    # everything in a single ffmpeg pass, and the over_black ending needs a `trim`
-    # (see the ending branch: every trim-free variant deadlocks). That trim drops
-    # frames once two or more time-shifted overlays sit upstream of it — a 12s clip
-    # came out 7.9s. finish.py doesn't have the problem because it renders the ending
-    # in a SECOND pass; doing the same here is the proper fix, and would let this
-    # guard go. Every other ending is fine with any number of strips.
-    if style == "over_black" and len(pin_specs) > 1:
-        raise SystemExit("Two or more location strips can't be combined with the "
-                         "'logo over black' ending yet — use 'logo over footage', "
-                         "or keep a single location strip.")
+    # over_black runs as TWO passes: this graph renders the BODY (captions, LTs,
+    # strips, gradient, bug) cut at `at`, then ending_mod.add_ending() appends the
+    # black card + logo + click — the same second pass finish.py has always used.
+    # That is what lifted the old "no over_black with 2+ location strips" refusal:
+    # the single-graph version needed a trim, and a trim upstream of 2+ time-shifted
+    # overlays drops frames (12s came out 7.9s) while every trim-free variant
+    # deadlocks. Don't fold the ending back into this graph.
+    two_pass = style == "over_black"
     pin_gs = []
     for i, p in enumerate(pin_specs):
         g = PIN.build({"place": p["place"], "date": p["date"], "icon": p["icon"],
@@ -353,7 +328,7 @@ def render(spec: dict, log=print) -> str:
         bx, by = round(W - safe["right"] * W - bw), round(safe["top"] * H)
 
     logo_png = None; lw = lh_ = 0; click_mov = None
-    if style != "none":
+    if style == "over_footage":                   # over_black's logo+click live in pass 2
         logo_png = os.path.join(work, "logo.png")     # always rasterized fresh from the SVG
         _svg2png(url=LOGO_SVG, write_to=logo_png,
                          output_height=round(H * float(end.get("logo_ratio", 0.055))))
@@ -365,7 +340,8 @@ def render(spec: dict, log=print) -> str:
             if cm and os.path.exists(cm):
                 click_mov = cm
 
-    out_dur = dur if style == "over_footage" else (at + hold if style == "over_black" else footage_end)
+    cut = at if two_pass else footage_end          # where the body ends
+    out_dur = dur if style == "over_footage" else cut
 
     # Screen recordings and some exports carry NO audio stream — a graph that
     # references [0:a] then aborts ffmpeg with AVERROR(EINVAL) (exit 234), so
@@ -440,28 +416,16 @@ def render(spec: dict, log=print) -> str:
         fc.append(f"[{prev}][{i + 1}:v]overlay={(W - w) // 2}:{yb - h}:enable='gte(t,{s})*lt(t,{e})'[v{i}]")
         prev = f"v{i}"
 
-    if style == "over_black":                          # footage cuts to black; logo snaps on
-        # The `trim` here is LOAD-BEARING and must stay: it is what makes this graph
-        # terminate. Removing it (black-plate overlay, demuxer `-t`, front trim were
-        # all tried) deadlocks ffmpeg at ~50% whenever two or more time-shifted
-        # overlays sit upstream. It also costs frames in that same case, which is why
-        # `render()` refuses over_black + 2 strips outright rather than shipping a
-        # short video — see the guard at the top.
-        fc.append(f"[{prev}]trim=0:{at},setpts=PTS-STARTPTS,tpad=stop_duration={hold}:color=black[vend]")
-        fc.append(f"[{logo_idx}:v]format=rgba[lg]")
-        fc.append(f"[vend][lg]overlay={(W - lw) // 2}:{(H - lh_) // 2}:eof_action=pass:enable='gte(t,{at})',format=yuv420p[vout]")
-        if has_aud:
-            fc.append(f"[0:a]atrim=0:{at},asetpts=PTS-STARTPTS,afade=t=out:st={at - 0.06:.2f}:d=0.06,apad=pad_dur={hold}[amain]")
-    elif style == "over_footage":                      # logo snaps on over the running footage — no scrim, ever
+    if style == "over_footage":                        # logo snaps on over the running footage — no scrim, ever
         fc.append(f"[{logo_idx}:v]format=rgba[lg]")
         logo_y = round(H * float(end.get("logo_y_frac", 0.58)) - lh_ / 2)   # below the face, above the caption zone
         fc.append(f"[{prev}][lg]overlay={(W - lw) // 2}:{logo_y}:eof_action=pass:enable='gte(t,{at})',format=yuv420p[vout]")
         if has_aud:
             fc.append("[0:a]anull[amain]")
-    else:
-        fc.append(f"[{prev}]format=yuv420p[vout]")                          # already cut to footage_end up top
+    else:                                              # "none", and the over_black BODY
+        fc.append(f"[{prev}]format=yuv420p[vout]")     # video length set by -t out_dur
         if has_aud:
-            fc.append(f"[0:a]atrim=0:{footage_end},asetpts=PTS-STARTPTS[amain]")
+            fc.append(f"[0:a]atrim=0:{cut},asetpts=PTS-STARTPTS[amain]")
 
     if not has_aud:                                    # no source audio → silent bed (see note above)
         fc.append(f"anullsrc=r=48000:cl=stereo:d={out_dur:.2f}[amain]")
@@ -479,9 +443,14 @@ def render(spec: dict, log=print) -> str:
         "-t", f"{out_dur:.2f}", "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
         "-b:v", spec.get("bitrate", "6M"), "-c:a", "aac", "-b:a", "160k", "-r", str(fps)]
         + COLOR + ["-movflags", "+faststart", out])
-    rc, err = _ff_progress(cmd, out_dur)
-    if rc != 0:
-        raise RuntimeError("branding ffmpeg failed: " + (err or "")[-500:])
+    body_out = os.path.join(work, "_body.mp4") if two_pass else out
+    cmd[-1] = body_out
+    ending_mod.ff_progress(cmd, out_dur, 0, 70 if two_pass else 100)
+    if two_pass:
+        log("OCHA ending…")
+        ending_mod.add_ending(FF, body_out, "over_black", 0.0,
+                              (spec.get("bitrate", "6M").rstrip("M") or "6"),
+                              work, out, p_lo=70, p_hi=100)
     print("PROGRESS 100", flush=True)                  # snap the bar to full before "done"
     shutil.rmtree(work, ignore_errors=True)
     log(f"Branded: {out}")

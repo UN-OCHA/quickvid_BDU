@@ -571,19 +571,9 @@ stSetSubStyle("box");
    The Titles & branding tab mounts the same one — one implementation, both tabs. */
 const stLoc = OchaLocation.mount({
   rows: $st("#st-loc-rows"), add: $st("#st-loc-add"),
-  onChange: () => { stSave(); stEndClash(); },
+  onChange: () => stSave(),
 });
 
-/* This tab composites in a single ffmpeg pass, and the "over black" ending needs a
-   trim that loses frames once two or more strips are on the timeline — the engine
-   refuses that combination outright (social_brand.render). Say so here first, so
-   nobody hits it only after waiting for a render. */
-function stEndClash() {
-  const style = (document.querySelector('input[name="st-ending"]:checked') || {}).value;
-  $st("#st-end-clash").hidden = !(style === "over_black" && stLoc.collect().length > 1);
-}
-document.querySelectorAll('input[name="st-ending"]').forEach((r) =>
-  r.addEventListener("change", stEndClash));
 
 // ---------- E7: lower thirds (same multi-row component as the Titles tab) ----------
 const stFmtMMSS = (sec) => { sec = Math.max(0, Math.round(sec || 0)); return `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };

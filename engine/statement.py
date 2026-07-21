@@ -29,7 +29,8 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import social_brand  # noqa: E402  (same engine dir; shares fonts/logo/click plumbing)
+import social_brand
+import ending as ending_mod  # noqa: E402  (same engine dir; shares fonts/logo/click plumbing)
 import lower_third   # noqa: E402  (shared LT animation timing constants — same brand-lt.json spec)
 
 FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
@@ -355,7 +356,7 @@ def do_render(spec):
     social_brand.render(bspec, log=lambda m: print(m, flush=True))
     print("RESULT " + json.dumps({"path": out, "base": base, "footage_end": round(footage_end, 2),
                                   "duration": round(footage_end + (bed_len if style == 'over_footage' else
-                                                                   (float(ending.get("hold", 2.0)) if style == "over_black" else 0.0)), 2)}),
+                                                                   (ending_mod.HOLD if style == "over_black" else 0.0)), 2)}),
           flush=True)
 
 
