@@ -175,8 +175,22 @@ if (ftPick) ftPick.onclick = async () => {
     if (!path) return;
     state.jobDir = path.replace(/[\/\\]+$/, "") + "/" + ftSafeName(name);
     $("#f-folder-path").innerHTML =
-      `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Job folder: <strong>${state.jobDir}</strong> — the finished video lands in its <code>export/</code> folder.`;
+      `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Job folder: <strong>${esc(state.jobDir)}</strong> — the finished video lands in its <code>export/</code> folder, and your settings autosave here.`;
     setStatus("");
+    // Same-named job already there? Offer to pick up where it left off.
+    try {
+      const lr = await fetch(`${ENGINE}/api/statement/load-project?dir=${encodeURIComponent(state.jobDir)}`);
+      if (lr.ok) {
+        const project = await lr.json();          // this endpoint returns the project ITSELF
+        if (project && project.mode === "titles" &&
+            confirm(`"${name}" already exists here. Reload its saved settings?`)) {
+          ftRestore(project);
+          setStatus("Reloaded the saved settings for this job.", "ok");
+          return;                                     // don't overwrite what we just read
+        }
+      }
+    } catch (e) { /* no project there yet — fine */ }
+    ftSaveNow();                                      // first autosave creates the file
   } catch (e) { setStatus("Couldn't open the folder picker.", "warn"); }
 };
 
@@ -260,20 +274,99 @@ drop.addEventListener("click", enginePick);
 drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); enginePick(); } });
 
 // ---- run ----
+/* ---------- Titles & branding: project autosave ----------
+   Same contract as the Edit tab, reusing its (mode-agnostic) endpoints: the form
+   state is written to <job folder>/<name>.ochaquickvid.json so a job can be
+   reopened later. Only runs once a folder has been picked — without one there's
+   nowhere durable to put it. Debounced, and suppressed while restoring so
+   repopulating the form doesn't save over the file it just read. */
+let ftSaveTimer = null, ftRestoring = false;
+
+function ftSnapshot() {
+  const f = ftCollect();
+  return {
+    v: 1, mode: "titles", name: ($("#f-proj-name").value || "").trim(),
+    video: state.enginePath || null,
+    lower_thirds: f.lowerThirds, ending: f.ending,
+    subtitles: f.subtitles, bug: f.bug, pin: f.pin,
+    saved_at: new Date().toISOString(),
+  };
+}
+
+async function ftSaveNow() {
+  if (!state.jobDir || ftRestoring) return;
+  const snap = ftSnapshot();
+  try {
+    await fetch(`${ENGINE}/api/statement/save-project`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dir: state.jobDir, project: snap, name: snap.name || undefined }),
+    });
+  } catch (e) { /* autosave is best-effort — never interrupt the user */ }
+}
+function ftSave() { if (ftRestoring) return; clearTimeout(ftSaveTimer); ftSaveTimer = setTimeout(ftSaveNow, 700); }
+
+function ftRestore(p) {
+  if (!p) return;
+  ftRestoring = true;
+  try {
+    if (p.name) $("#f-proj-name").value = p.name;
+    // lower thirds: rebuild the rows, then fill each one
+    $("#lt-rows").innerHTML = "";
+    (p.lower_thirds || []).forEach((lt) => {
+      addLtRow();
+      const r = $("#lt-rows").lastElementChild;
+      r.querySelector(".lt-name").value = lt.name || "";
+      r.querySelector(".lt-org").value = lt.org || "";
+      r.querySelector(".lt-org2").value = lt.org2 || "";
+      r.querySelector(".timefield__input").value = fmtMMSS(lt.start || 0);
+      r.querySelector(".durfield__input").value = lt.duration || 4;
+      r.querySelector(".lt-align").value = lt.align || "left";
+    });
+    if (!$("#lt-rows").children.length) addLtRow();      // always leave one empty row
+    const end = document.querySelector(`input[name="ending"][value="${(p.ending || {}).style || "none"}"]`);
+    if (end) end.checked = true;
+    if (p.subtitles) { $("#t-subs-on").checked = !!p.subtitles.on; tSetSubStyle(p.subtitles.style || "box"); }
+    if (p.bug) $("#t-bug-on").checked = !!p.bug.on;
+    if (p.pin) {
+      $("#t-pin-on").checked = !!p.pin.on;
+      $("#t-pin-place").value = p.pin.place || "";
+      $("#t-pin-date").value = p.pin.date || "";
+      $("#t-pin-icon").checked = p.pin.icon !== false;
+      tSetPinColor(p.pin.color || "red");
+      $("#t-pin-start").value = fmtMMSS(p.pin.start || 0);
+      $("#t-pin-dur").value = p.pin.duration || 5;
+    }
+    document.querySelectorAll("#panel-titles input, #panel-titles select")
+      .forEach((el) => el.dispatchEvent(new Event("change", { bubbles: true })));
+  } finally { ftRestoring = false; }
+}
+
+// any edit in the Titles panel schedules a save (no-op until a folder is picked)
+["input", "change"].forEach((ev) =>
+  document.addEventListener(ev, (e) => { if (e.target.closest && e.target.closest("#panel-titles")) ftSave(); }));
+
+// One reader for the whole Titles form — used by both "Add titles & branding" and
+// the autosave, so the saved project can never drift from what gets rendered.
+function ftCollect() {
+  return {
+    lowerThirds: [...document.querySelectorAll("#lt-rows .lt-row")].map((r) => ({
+      name: r.querySelector(".lt-name").value.trim(),
+      org: r.querySelector(".lt-org").value.trim(),
+      org2: r.querySelector(".lt-org2").value.trim(),
+      start: parseTime(r.querySelector(".timefield__input").value),
+      duration: parseFloat(r.querySelector(".durfield__input").value) || 4,
+      align: r.querySelector(".lt-align").value,
+    })).filter((lt) => lt.name),
+    ending: { style: document.querySelector('input[name="ending"]:checked').value },
+    subtitles: { on: $("#t-subs-on").checked, style: tSubsStyle },
+    bug: { on: $("#t-bug-on").checked },
+    pin: tCollectPin(),
+  };
+}
+
 $("#run").onclick = async () => {
   if (!state.enginePath) return setStatus("Choose a video first.", "warn");
-  const lowerThirds = [...document.querySelectorAll("#lt-rows .lt-row")].map((r) => ({
-    name: r.querySelector(".lt-name").value.trim(),
-    org: r.querySelector(".lt-org").value.trim(),
-    org2: r.querySelector(".lt-org2").value.trim(),
-    start: parseTime(r.querySelector(".timefield__input").value),
-    duration: parseFloat(r.querySelector(".durfield__input").value) || 4,
-    align: r.querySelector(".lt-align").value,
-  })).filter((lt) => lt.name);
-  const ending = { style: document.querySelector('input[name="ending"]:checked').value };
-  const subtitles = { on: $("#t-subs-on").checked, style: tSubsStyle };
-  const bug = { on: $("#t-bug-on").checked };
-  const pin = tCollectPin();
+  const { lowerThirds, ending, subtitles, bug, pin } = ftCollect();
   if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on && !pin.on)
     return setStatus("Add at least one lower third, subtitles, the bug, a location strip, or pick an ending.", "warn");
 
