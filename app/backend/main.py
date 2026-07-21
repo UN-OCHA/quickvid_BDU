@@ -212,8 +212,17 @@ class PinReq(BaseModel):
     date: str = ""                            # bottom line (Raleway Medium)
     icon: bool = True                         # the map-pin icon; off -> text shifts left
     color: str = "red"                        # red (#ED1847) | blue (#004987)
-    start: float = 1.2
+    start: float = 4.0                        # default matches the UI (engine: pin_locator.DEFAULT_START)
     duration: float = 5.0
+
+
+def _pins(pins, pin):
+    """Both tabs may send a LIST of location strips (`pins`) or, from a project
+    saved before Jul 2026, a single `pin` object. Normalise to a list here so the
+    engine spec has one shape; pin_locator.specs() does the filtering."""
+    if pins is not None:
+        return [p.model_dump() for p in pins]
+    return [pin.model_dump()] if (pin and pin.on) else []
 
 
 class BugReq(BaseModel):
@@ -224,7 +233,8 @@ class FinishReq(BaseModel):
     video: str
     lower_thirds: list[LowerThirdReq] = []
     bug: BugReq = BugReq()
-    pin: PinReq = PinReq()                     # top-left location strip (animated)
+    pins: Optional[list[PinReq]] = None        # top-left location strips (animated), in order
+    pin: PinReq = PinReq()                     # legacy single strip — see _pins()
     ending: EndingReq = EndingReq()
     subtitles: SubtitlesReq = SubtitlesReq()  # engine-only: transcribe + burn captions
     dir: Optional[str] = None                 # job folder → final lands in <dir>/export/
@@ -235,14 +245,15 @@ def finish(req: FinishReq):
     """Titles & branding: add lower thirds + an ending to an already-edited video."""
     if not Path(req.video).is_file():
         raise HTTPException(400, f"Not a video file: {req.video}")
+    pins = _pins(req.pins, req.pin)
     if (not req.lower_thirds and req.ending.style == "none" and not req.subtitles.on
-            and not req.bug.on and not req.pin.on):
+            and not req.bug.on and not any(p.get("on") for p in pins)):
         raise HTTPException(400, "Nothing to add — set a lower third, subtitles, the bug, a location strip, or an ending.")
     job = jobs.create("finish", {
         "video": req.video,
         "lower_thirds": [lt.model_dump() for lt in req.lower_thirds],
         "bug": req.bug.model_dump(),
-        "pin": req.pin.model_dump(),
+        "pins": pins,
         "ending": req.ending.model_dump(),
         "subtitles": req.subtitles.model_dump(),
         "dir": req.dir,                        # same job-folder contract as the Edit tab
@@ -455,7 +466,8 @@ class StRenderReq(BaseModel):
     captions: bool = True
     subtitles: Optional[dict] = None                   # {"on": bool, "style": "box"|"gradient"}
     bug: Optional[dict] = None                         # {"on": bool} — off by default, top-right vertical logo
-    pin: Optional[dict] = None                         # {"on","place","date","icon","color","start","duration"} — location strip
+    pins: Optional[list] = None                        # [{"on","place","date","icon","color","start","duration"}] — location strips
+    pin: Optional[dict] = None                         # legacy single strip (old projects) — see _pins()
     dir: Optional[str] = None                          # job folder → final lands in <dir>/export/
 
 

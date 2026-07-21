@@ -307,16 +307,17 @@ def render(spec: dict, log=print) -> str:
         g["dir"] = os.path.join(work, f"lt{i}")
         LT.render_seq(g, fps, g["dir"])
 
-    pin_spec = spec.get("pin") or {}                   # location strip, top-left (animated)
-    pin_g = None
-    if pin_spec.get("on") and (pin_spec.get("place") or pin_spec.get("date")):
-        phold = max(0.4, float(pin_spec.get("duration", 5.0)) - PIN.ENTER_END - PIN.EXIT_DUR)
-        pin_g = PIN.build({"place": pin_spec.get("place", ""), "date": pin_spec.get("date", ""),
-                           "icon": pin_spec.get("icon", True), "color": pin_spec.get("color", "red"),
-                           "hold": phold, "in": float(pin_spec.get("start", 1.2))},
-                          canvas_h=H, orient=LT.orient_of(W, H))
-        pin_g["dir"] = os.path.join(work, "pin")
-        PIN.render_seq(pin_g, fps, pin_g["dir"])
+    # location strips, top-left (animated). PIN.specs() is the single reader of the
+    # spec — finish.py calls the same one, so both tabs stay in step.
+    pin_gs = []
+    for i, p in enumerate(PIN.specs(spec)):
+        g = PIN.build({"place": p["place"], "date": p["date"], "icon": p["icon"],
+                       "color": p["color"], "hold": PIN.hold_for(p["duration"]),
+                       "in": p["start"]},
+                      canvas_h=H, orient=LT.orient_of(W, H))
+        g["dir"] = os.path.join(work, f"pin{i}")
+        PIN.render_seq(g, fps, g["dir"])
+        pin_gs.append(g)
 
     grad_png = None
     grad_h = round(H * sub["gradient_h_frac"])
@@ -362,17 +363,24 @@ def render(spec: dict, log=print) -> str:
          "-show_entries", "stream=codec_type", "-of", "csv=p=0", src],
         capture_output=True, text=True).stdout.strip())
 
-    inputs = ["-i", src]
+    # Cut the footage at the DEMUXER (`-t` before `-i`), not with a `trim` filter:
+    # over_black needs the video to stop at `at` so tpad can extend it with black,
+    # and "none" stops at footage_end. Doing it here keeps `trim` out of the filter
+    # graph entirely — see the note above the chain for what trim did to the frames.
+    # Input-level `-t` cuts this input's audio at the same point, which is exactly
+    # what the atrim on [0:a] does anyway.
+    src_cut = at if style == "over_black" else (footage_end if style == "none" else None)
+    inputs = ([] if src_cut is None else ["-t", f"{float(src_cut):.3f}"]) + ["-i", src]
     for _, _, p, _, _ in subs:
         inputs += ["-i", p]
     idx = 1 + len(subs); lt_idx = []
     for g in lts:
         inputs += ["-framerate", str(fps), "-start_number", "0", "-i", os.path.join(g["dir"], "%04d.png")]
         lt_idx.append(idx); idx += 1
-    pin_idx = None
-    if pin_g:
-        inputs += ["-framerate", str(fps), "-start_number", "0", "-i", os.path.join(pin_g["dir"], "%04d.png")]
-        pin_idx = idx; idx += 1
+    pin_idx = []
+    for g in pin_gs:
+        inputs += ["-framerate", str(fps), "-start_number", "0", "-i", os.path.join(g["dir"], "%04d.png")]
+        pin_idx.append(idx); idx += 1
     grad_idx = logo_idx = click_idx = bug_idx = None
     if grad_png:
         inputs += ["-loop", "1", "-i", grad_png]; grad_idx = idx; idx += 1
@@ -386,6 +394,13 @@ def render(spec: dict, log=print) -> str:
     needs_scale = (W, H) != (pw, ph)
     fc = []
     prev = "0:v"
+    # NO `trim` ANYWHERE IN THE VIDEO CHAIN — see the `-t` on the src input above.
+    # A `trim` filter combined with two or more time-shifted overlays (i.e. two
+    # location strips) silently ate frames: a 12s clip came out 7.9s, 233 of 360
+    # frames surviving. It happened whether the trim sat before or after the overlay
+    # chain, and one strip never triggered it — which is why it hid here until
+    # strips became a list. The footage is cut at the demuxer instead, which the
+    # filter graph never sees. Don't reintroduce a trim to shorten the video.
     if needs_scale:
         fc.append(f"[0:v]scale={W}:{H},setsar=1[v0]"); prev = "v0"
     if bug_png:                                         # base layer — everything else stacks above it
@@ -401,21 +416,21 @@ def render(spec: dict, log=print) -> str:
         fc.append(f"[{lt_idx[k]}:v]setpts=PTS+{g['t_in']}/TB[ltv{k}]")
         fc.append(f"[{prev}][ltv{k}]overlay={x}:{y}:eof_action=pass:enable='gte(t,{g['t_in']})'[lb{k}]")
         prev = f"lb{k}"
-    if pin_g:                                          # top-left location strip
+    for k, g in enumerate(pin_gs):                     # top-left location strips
         so = SAFE_AREA[LT.orient_of(W, H)]
-        pad = pin_g.get("pad", 0)                       # undo the anti-crop headroom (bleeds into the safe margin)
+        pad = g.get("pad", 0)                           # undo the anti-crop headroom (bleeds into the safe margin)
         px, py = max(0, round(W * so["left"]) - pad), max(0, round(H * so["top"]) - pad)
-        t_in = pin_g["t_in"]
-        fc.append(f"[{pin_idx}:v]setpts=PTS+{t_in}/TB[pnv]")
-        fc.append(f"[{prev}][pnv]overlay={px}:{py}:eof_action=pass:enable='gte(t,{t_in})'[pnb]")
-        prev = "pnb"
+        t_in = g["t_in"]
+        fc.append(f"[{pin_idx[k]}:v]setpts=PTS+{t_in}/TB[pnv{k}]")
+        fc.append(f"[{prev}][pnv{k}]overlay={px}:{py}:eof_action=pass:enable='gte(t,{t_in})'[pnb{k}]")
+        prev = f"pnb{k}"
     for i, (s, e, p, w, h) in enumerate(subs):        # captions HARD-CUT, half-open [s,e)
         yb = cue_bottom(s, e)
         fc.append(f"[{prev}][{i + 1}:v]overlay={(W - w) // 2}:{yb - h}:enable='gte(t,{s})*lt(t,{e})'[v{i}]")
         prev = f"v{i}"
 
     if style == "over_black":                          # footage cuts to black; logo snaps on
-        fc.append(f"[{prev}]trim=0:{at},setpts=PTS-STARTPTS,tpad=stop_duration={hold}:color=black[vend]")
+        fc.append(f"[{prev}]tpad=stop_duration={hold}:color=black[vend]")   # already cut to `at` up top
         fc.append(f"[{logo_idx}:v]format=rgba[lg]")
         fc.append(f"[vend][lg]overlay={(W - lw) // 2}:{(H - lh_) // 2}:eof_action=pass:enable='gte(t,{at})',format=yuv420p[vout]")
         if has_aud:
@@ -427,7 +442,7 @@ def render(spec: dict, log=print) -> str:
         if has_aud:
             fc.append("[0:a]anull[amain]")
     else:
-        fc.append(f"[{prev}]trim=0:{footage_end},setpts=PTS-STARTPTS,format=yuv420p[vout]")
+        fc.append(f"[{prev}]format=yuv420p[vout]")                          # already cut to footage_end up top
         if has_aud:
             fc.append(f"[0:a]atrim=0:{footage_end},asetpts=PTS-STARTPTS[amain]")
 

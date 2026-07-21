@@ -209,6 +209,52 @@ def render(place, date, canvas_h, fps, hold, outdir, icon=True, color="red", ori
             "pad": g["pad"]}         # compositor shifts the overlay up-left by this to undo the headroom
 
 
+DEFAULT_START = 4.0                  # matches the panel default; see specs() below
+DEFAULT_DURATION = 5.0
+
+
+def specs(spec):
+    """The ONE reader of a render spec's location strips — shared by finish.py and
+    social_brand.py so the two tabs can never drift apart.
+
+    Accepts either shape and always returns a clean list:
+      {"pins": [ {...}, {...} ]}   the multi-strip UI
+      {"pin":  {...} }             a single strip — projects saved before Jul 2026,
+                                   and any old engine copy still posting one object
+    Strips that are off, or have neither a place nor a date, are dropped here, so
+    callers can just iterate. Defaults live here and nowhere else.
+    """
+    raw = spec.get("pins")
+    if raw is None:
+        one = spec.get("pin")
+        raw = [one] if one else []
+    elif isinstance(raw, dict):                      # a lone object under the new key
+        raw = [raw]
+    out = []
+    for p in raw:
+        if not isinstance(p, dict) or not p.get("on"):
+            continue
+        place, date = (p.get("place") or "").strip(), (p.get("date") or "").strip()
+        if not (place or date):
+            continue
+        out.append({
+            "on": True,                              # keeps the result idempotent: feeding
+            "place": place, "date": date,            # specs() its own output returns the same list
+
+            "icon": p.get("icon", True),
+            "color": p.get("color", "red"),
+            "start": max(0.0, float(p.get("start", DEFAULT_START))),
+            "duration": max(2.0, float(p.get("duration", DEFAULT_DURATION))),
+        })
+    return out
+
+
+def hold_for(duration):
+    """Seconds the strip sits still, given the total on-screen time the user asked
+    for. The in/out animations are fixed-length, so they come out of the total."""
+    return max(0.4, float(duration) - ENTER_END - EXIT_DUR)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--place", required=True)

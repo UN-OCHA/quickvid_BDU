@@ -561,47 +561,11 @@ document.querySelectorAll('input[name="st-preset"]').forEach((r) =>
   r.addEventListener("change", () => stSetSubStyle(r.value === "event" ? "gradient" : "box")));
 stSetSubStyle("box");
 
-// ---- Edit location strip (pin locator): opts toggle + colour + collect/restore ----
-ST.pinColor = "red";
-function stSetPinColor(c) {
-  ST.pinColor = c;
-  $st("#st-pin-red").classList.toggle("cd-button--outline", c !== "red");
-  $st("#st-pin-blue").classList.toggle("cd-button--outline", c === "red");
-}
-$st("#st-pin-red").onclick = () => { stSetPinColor("red"); stSave(); };
-$st("#st-pin-blue").onclick = () => { stSetPinColor("blue"); stSave(); };
-$st("#st-pin-on").addEventListener("change", () => { $st("#st-pin-opts").hidden = !$st("#st-pin-on").checked; stSave(); });
-// Start (mm:ss) + Duration (sec) steppers — identical behaviour to the lower-third fields
-(function () {
-  const tf = $st("#st-pin-start"), setTf = (s) => { tf.value = stFmtMMSS(s); stSave(); };
-  tf.addEventListener("blur", () => setTf(parseT(tf.value) || 0));
-  $st("#st-pin-start-up").onclick = () => setTf((parseT(tf.value) || 0) + 1);
-  $st("#st-pin-start-down").onclick = () => setTf((parseT(tf.value) || 0) - 1);
-  const df = $st("#st-pin-dur"), setDf = (n) => { df.value = String(Math.max(2, Math.round(n || 2))); stSave(); };
-  df.addEventListener("blur", () => setDf(parseFloat(df.value)));
-  $st("#st-pin-dur-up").onclick = () => setDf((parseFloat(df.value) || 0) + 1);
-  $st("#st-pin-dur-down").onclick = () => setDf((parseFloat(df.value) || 0) - 1);
-})();
-function stCollectPin() {
-  return {
-    on: $st("#st-pin-on").checked,
-    place: $st("#st-pin-place").value.trim(), date: $st("#st-pin-date").value.trim(),
-    icon: $st("#st-pin-icon").checked, color: ST.pinColor,
-    start: parseT($st("#st-pin-start").value) ?? 1,
-    duration: parseFloat($st("#st-pin-dur").value) || 5,
-  };
-}
-function stRestorePin(p) {
-  p = p || {};
-  $st("#st-pin-on").checked = !!p.on;
-  $st("#st-pin-opts").hidden = !p.on;
-  $st("#st-pin-place").value = p.place || "";
-  $st("#st-pin-date").value = p.date || "";
-  $st("#st-pin-icon").checked = p.icon !== false;      // icon on by default
-  if (Number.isFinite(p.start)) $st("#st-pin-start").value = stFmtMMSS(p.start);
-  if (Number.isFinite(p.duration)) $st("#st-pin-dur").value = p.duration;
-  stSetPinColor(p.color === "blue" ? "blue" : "red");
-}
+/* ---- location strips: the SHARED component (browser/location.js) ----
+   The Titles & branding tab mounts the same one — one implementation, both tabs. */
+const stLoc = OchaLocation.mount({
+  rows: $st("#st-loc-rows"), add: $st("#st-loc-add"), onChange: () => stSave(),
+});
 
 // ---------- E7: lower thirds (same multi-row component as the Titles tab) ----------
 const stFmtMMSS = (sec) => { sec = Math.max(0, Math.round(sec || 0)); return `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
@@ -680,7 +644,7 @@ $st("#st-render").onclick = async () => {
     captions: $st("#st-captions").checked,
     subtitles: { on: $st("#st-captions").checked, style: ST.subsStyle || "box" },
     bug: { on: $st("#st-bug-on").checked },
-    pin: stCollectPin(),
+    pins: stLoc.collect(),
     dir: ST.jobDir,
   };
   try {
@@ -860,7 +824,7 @@ function stSnapshot() {
     captions: $st("#st-captions").checked,
     subsStyle: ST.subsStyle || "box",
     bug: $st("#st-bug-on").checked,
-    pin: stCollectPin(),
+    pins: stLoc.collect(),
     tail: parseFloat(($st("#st-tail") || {}).value),
     lts: stCollectLts(),
   };
@@ -930,7 +894,7 @@ function stRestore(p) {
     stSetSubStyle(p.subsStyle || ((p.preset === "event") ? "gradient" : "box"));
     $st("#st-subs-opts").hidden = !$st("#st-captions").checked;
     $st("#st-bug-on").checked = !!p.bug;                       // off by default — including for older saved projects
-    stRestorePin(p.pin);
+    stLoc.restore(p.pins || p.pin);      // `pin` = a project saved before Jul 2026
     $st("#st-zoom-general").value = Math.round((ST.framing.general.zoom || 1) * 100);
     $st("#st-zoom-close").value = Math.round((ST.framing.close.zoom || 1.5) * 100);
     if (ST.src && ST.probe) {

@@ -325,24 +325,24 @@ def run(spec, bitrate=12.0):
         idx += 1
         print(f"  bug: OCHA vertical logo → {bx},{by}")
 
-    pin = spec.get("pin") or {}                          # location strip, top-left (animated)
-    if pin.get("on") and (pin.get("place") or pin.get("date")):
-        pdur = float(pin.get("duration", 5.0))
-        phold = max(0.4, pdur - pin_locator.ENTER_END - pin_locator.EXIT_DUR)
-        seqdir = os.path.join(tmp, "pin")
-        r = pin_locator.render(pin.get("place", ""), pin.get("date", ""), H, fps, phold, seqdir,
-                               icon=pin.get("icon", True), color=pin.get("color", "red"),
-                               orient=prof["orient"])
+    # location strips, top-left (animated). pin_locator.specs() is the single reader
+    # of the spec — social_brand.py calls the same one, so both tabs stay in step.
+    for i, pin in enumerate(pin_locator.specs(spec)):
+        seqdir = os.path.join(tmp, f"pin{i}")
+        r = pin_locator.render(pin["place"], pin["date"], H, fps,
+                               pin_locator.hold_for(pin["duration"]), seqdir,
+                               icon=pin["icon"], color=pin["color"], orient=prof["orient"])
         pad = r.get("pad", 0)                             # undo the anti-crop headroom (bleeds into the safe margin)
         px = max(0, round(prof["safe"]["left"] * W) - pad)
         py = max(0, round(prof["safe"]["top"] * H) - pad)
-        pstart = float(pin.get("start", 1.2))
+        pstart = pin["start"]
         inputs += ["-framerate", str(fps), "-start_number", "0", "-i", os.path.join(seqdir, "%04d.png")]
         filt.append(f"[{idx}:v]setpts=PTS+{pstart}/TB[pn{idx}]")
         filt.append(f"[{prev}][pn{idx}]overlay={px}:{py}:eof_action=pass:enable='gte(t,{pstart})'[v{idx}]")
         prev = f"v{idx}"
         idx += 1
-        print(f"  pin: '{pin.get('place')}' / '{pin.get('date')}' ({pin.get('color', 'red')}, icon={pin.get('icon', True)}) → {px},{py}")
+        print(f"  pin {i}: '{pin['place']}' / '{pin['date']}' @ {pstart:.1f}s "
+              f"({pin['color']}, icon={pin['icon']}) → {px},{py}")
 
     for i, lt in enumerate(spec.get("lower_thirds", [])):
         align = lt.get("align", "left")   # left is the OCHA default

@@ -344,7 +344,9 @@ def do_render(spec):
                 if (spec.get("subtitles") or {}).get("on", spec.get("captions", True)) else [],
         "lower_thirds": lts,
         "bug": spec.get("bug") or {},
-        "pin": spec.get("pin") or {},
+        # forwarded RAW (both shapes) — social_brand hands them to pin_locator.specs(),
+        # the one place that normalizes them. Normalizing here too would just risk drift.
+        "pins": spec.get("pins"), "pin": spec.get("pin") or {},
         "ending": {"style": style, "at": round(footage_end + (LOGO_LEAD if style == "over_footage" else 0), 2),
                    "hold": float(ending.get("hold", 2.0)), "click": ending.get("click", True)},
     }

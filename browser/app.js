@@ -195,10 +195,10 @@ if (ftPick) ftPick.onclick = async () => {
 };
 
 // full mode: hand the job to the engine (real ffmpeg) and stream the result back over localhost
-async function renderViaEngine(lowerThirds, ending, subtitles, bug, pin) {
+async function renderViaEngine(lowerThirds, ending, subtitles, bug, pins) {
   const body = { video: state.enginePath, lower_thirds: lowerThirds, ending: { style: ending.style },
                  subtitles: subtitles || { on: false, style: "box" }, bug: bug || { on: false },
-                 pin: pin || { on: false }, dir: state.jobDir };
+                 pins: pins || [], dir: state.jobDir };
   const r = await fetch(ENGINE + "/api/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) { let m = "Engine error"; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
   const { job_id } = await r.json();
@@ -288,7 +288,7 @@ function ftSnapshot() {
     v: 1, mode: "titles", name: ($("#f-proj-name").value || "").trim(),
     video: state.enginePath || null,
     lower_thirds: f.lowerThirds, ending: f.ending,
-    subtitles: f.subtitles, bug: f.bug, pin: f.pin,
+    subtitles: f.subtitles, bug: f.bug, pins: f.pins,
     saved_at: new Date().toISOString(),
   };
 }
@@ -327,15 +327,7 @@ function ftRestore(p) {
     if (end) end.checked = true;
     if (p.subtitles) { $("#t-subs-on").checked = !!p.subtitles.on; tSetSubStyle(p.subtitles.style || "box"); }
     if (p.bug) $("#t-bug-on").checked = !!p.bug.on;
-    if (p.pin) {
-      $("#t-pin-on").checked = !!p.pin.on;
-      $("#t-pin-place").value = p.pin.place || "";
-      $("#t-pin-date").value = p.pin.date || "";
-      $("#t-pin-icon").checked = p.pin.icon !== false;
-      tSetPinColor(p.pin.color || "red");
-      $("#t-pin-start").value = fmtMMSS(p.pin.start || 0);
-      $("#t-pin-dur").value = p.pin.duration || 5;
-    }
+    tLoc.restore(p.pins || p.pin);        // `pin` = a project saved before Jul 2026
     document.querySelectorAll("#panel-titles input, #panel-titles select")
       .forEach((el) => el.dispatchEvent(new Event("change", { bubbles: true })));
   } finally { ftRestoring = false; }
@@ -360,21 +352,21 @@ function ftCollect() {
     ending: { style: document.querySelector('input[name="ending"]:checked').value },
     subtitles: { on: $("#t-subs-on").checked, style: tSubsStyle },
     bug: { on: $("#t-bug-on").checked },
-    pin: tCollectPin(),
+    pins: tLoc.collect(),
   };
 }
 
 $("#run").onclick = async () => {
   if (!state.enginePath) return setStatus("Choose a video first.", "warn");
-  const { lowerThirds, ending, subtitles, bug, pin } = ftCollect();
-  if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on && !pin.on)
+  const { lowerThirds, ending, subtitles, bug, pins } = ftCollect();
+  if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on && !pins.length)
     return setStatus("Add at least one lower third, subtitles, the bug, a location strip, or pick an ending.", "warn");
 
   $("#run").disabled = true;
   const t0 = performance.now();
   try {
     setStatus("Rendering with the OCHA engine…", "busy");
-    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug, pin);  // real ffmpeg, no limits
+    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug, pins);  // real ffmpeg, no limits
     if (state.url) URL.revokeObjectURL(state.url);
     state.url = URL.createObjectURL(blob);
     $("#player").src = state.url;
@@ -408,36 +400,12 @@ function tSetSubStyle(style) {
 }
 $("#t-substyle-box").onclick = () => tSetSubStyle("box");
 $("#t-substyle-event").onclick = () => tSetSubStyle("gradient");
-// ---- Titles location strip (pin locator): opts toggle + colour + collector ----
-let tPinColor = "red";
-function tSetPinColor(c) {
-  tPinColor = c;
-  $("#t-pin-red").classList.toggle("cd-button--outline", c !== "red");
-  $("#t-pin-blue").classList.toggle("cd-button--outline", c === "red");
-}
-$("#t-pin-red").onclick = () => tSetPinColor("red");
-$("#t-pin-blue").onclick = () => tSetPinColor("blue");
-$("#t-pin-on").addEventListener("change", () => { $("#t-pin-opts").hidden = !$("#t-pin-on").checked; });
-// Start (mm:ss) + Duration (sec) steppers — identical behaviour to the lower-third fields
-(function () {
-  const tf = $("#t-pin-start"), setTf = (s) => { tf.value = fmtMMSS(Math.max(0, s)); };
-  tf.addEventListener("blur", () => setTf(parseTime(tf.value)));
-  $("#t-pin-start-up").onclick = () => setTf(parseTime(tf.value) + 1);
-  $("#t-pin-start-down").onclick = () => setTf(parseTime(tf.value) - 1);
-  const df = $("#t-pin-dur"), setDf = (n) => { df.value = String(Math.max(2, Math.round(n || 2))); };
-  df.addEventListener("blur", () => setDf(parseFloat(df.value)));
-  $("#t-pin-dur-up").onclick = () => setDf((parseFloat(df.value) || 0) + 1);
-  $("#t-pin-dur-down").onclick = () => setDf((parseFloat(df.value) || 0) - 1);
-})();
-function tCollectPin() {
-  const on = $("#t-pin-on").checked;
-  return {
-    on, place: $("#t-pin-place").value.trim(), date: $("#t-pin-date").value.trim(),
-    icon: $("#t-pin-icon").checked, color: tPinColor,
-    start: parseTime($("#t-pin-start").value),
-    duration: parseFloat($("#t-pin-dur").value) || 5,
-  };
-}
+/* ---- location strips: the SHARED component (browser/location.js) ----
+   The Edit tab mounts the same one. Change the strip's fields, defaults or
+   behaviour in location.js and BOTH tabs move together. */
+const tLoc = OchaLocation.mount({
+  rows: $("#t-loc-rows"), add: $("#t-loc-add"), onChange: () => ftSave(),
+});
 
 $("#t-subs-on").addEventListener("change", () => { $("#t-subs-opts").hidden = !$("#t-subs-on").checked; });
 

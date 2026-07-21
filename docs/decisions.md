@@ -1057,6 +1057,37 @@ the Text CTA and became its own thing, reachable from three places:
   must NOT be gated on having an OCHA-format sequence open. `done` turns the host's
   `track=V2|set=...` reply into a sentence.
 
+## 2026-07-21 — Location strips: one shared component, many strips per video
+"More than one location" turned out to be the smaller half of the job. The location
+strip existed **three times over** — the markup twice in `browser/index.html`
+(`t-pin-*` / `st-pin-*`), the colour toggle + steppers + collector twice in
+`app.js` and `statement.js`, and the spec reader twice in the engine. A fix on one
+tab left the other behind. So the feature landed as a de-duplication:
+
+- **`browser/location.js`** — the ONE component. `OchaLocation.mount({rows, add,
+  onChange})` returns `{addRow, collect, restore}`. Both tabs mount it; the card is
+  the same enclosed, auto-numbered `.loc-row` as a lower third (a CSS counter, so
+  removing the middle card renumbers the rest for free). Loaded before app.js and
+  statement.js.
+- **`pin_locator.specs(spec)`** — the ONE reader. `finish.py` (Titles tab) and
+  `social_brand.py` (Edit tab) both call it and loop; defaults live only there.
+  `hold_for(duration)` likewise owns the in/out-animation arithmetic.
+- **Both shapes accepted, forever**: `pins: [...]` from the new UI, and a lone
+  `pin: {...}` from any project saved before today. `_pins()` in `main.py` does the
+  same at the API edge, and `specs()` is idempotent so double-normalising is safe.
+- **Default start is 0:04** (`pin_locator.DEFAULT_START`, mirrored by
+  `OchaLocation.START_DEFAULT` and `PinReq.start`) — was 1.2s.
+
+**The bug this uncovered — no `trim` filter in social_brand's video chain.**
+A second strip made `social_brand.py` output a 12s clip as **7.9s** (233 of 360
+frames). Cause: a `trim` filter anywhere in a chain that also has two or more
+time-shifted `overlay`s loses frames — it happened with the trim after the overlay
+chain AND after moving it before, and `over_footage` (the only style with no trim)
+was never affected. One strip never triggered it, which is why it sat there
+unnoticed. The footage is now cut at the **demuxer** (`-t` before `-i src`), which
+the filter graph never sees. Verified across {0,1,2,3 strips} x {none, over_black,
+over_footage}. Don't reintroduce a trim to shorten the video.
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the

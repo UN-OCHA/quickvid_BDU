@@ -233,22 +233,58 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
 .st-tail-input { width: 5rem; flex: 0 0 auto; }
 #st-tail-row { align-items: center; gap: 0.6rem; }
 
-/* ---- Location strip (pin locator) controls — Titles & Edit ---- */
-.pin-fields label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; font-weight: 700; color: var(--muted); flex: 1 1 14rem; }
-.pin-fields .cd-form__input { font-weight: 400; }
-.pin-row2 { align-items: center; gap: 1rem 1.25rem; flex-wrap: wrap; }
-/* keep the icon toggle a single [box] label row in BOTH tabs — .pin-row2 descendant
-   beats `.field-row label` (column) and #st-card-brand's flex:1 1 11rem by specificity */
-.pin-row2 .pin-icon-check, #st-card-brand .pin-row2 .pin-icon-check { display: flex; flex-direction: row; align-items: center; gap: 0.5rem; flex: 0 0 auto; }
-.pin-color { display: inline-flex; align-items: center; gap: 0.4rem; }
-.pin-color__label { font-size: 0.8rem; font-weight: 700; color: var(--muted); }
-/* Start + Duration row — reuses the lower-third .timefield/.durfield components and their sizing */
-.pin-timing { gap: 1rem; }
-/* id-scoped variant overrides #st-card-brand's flex:1 1 11rem (line ~126) in the Edit tab */
-.pin-timing label, #st-card-brand .pin-timing label { flex: 0 0 auto; }
-.pin-timing .timefield { width: 5.75rem; }               /* matches .lt-start */
-.pin-timing label:last-child .timefield { width: 6rem; } /* Duration needs room for the "sec" unit (matches .lt-dur) */
-.pin-timing .cd-form__input { width: 100%; font-weight: 400; }
+/* ---- Location strips (pin locator) — ONE component, both tabs (location.js) ----
+   Same enclosed-card treatment as the lower thirds, so a video with two locations
+   reads as two cards rather than one long row of fields. */
+#t-loc-rows, #st-loc-rows { counter-reset: loc; margin-top: 0.3rem; }
+.loc-row {
+  display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;
+  counter-increment: loc;
+  border: 1px solid var(--input-border); border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ocha-cyan) 3%, var(--card));
+  padding: 0.7rem 0.75rem;
+}
+/* auto-numbered header — a CSS counter, so removing a card renumbers by itself */
+.loc-row::before {
+  content: "Location " counter(loc);
+  flex: 1 1 100%;
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--ocha-blue-dark); margin-bottom: 0.1rem;
+}
+.loc-row + .loc-row { margin-top: 0.6rem; }
+#t-loc-rows:not(:empty) + #t-loc-add, #st-loc-rows:not(:empty) + #st-loc-add { margin-top: 0.6rem; }
+
+.loc-fields { flex: 1 1 100%; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+/* id-scoped twin overrides #st-card-brand's `flex: 1 1 11rem` on labels in the Edit tab */
+.loc-fields label, #st-card-brand .loc-fields label {
+  display: flex; flex-direction: column; gap: 0.25rem;
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--muted); flex: 1 1 14rem;
+}
+.loc-fields label em { font-weight: 400; text-transform: none; letter-spacing: 0; font-style: normal; opacity: 0.75; }
+.loc-fields .cd-form__input { font-weight: 400; }
+
+/* flex-start so the CAPTIONS share a baseline (matches .lt-meta) */
+.loc-meta { flex: 1 1 100%; display: flex; gap: 0.5rem; align-items: flex-start; flex-wrap: wrap; }
+.loc-cell { display: block; }                       /* block, so the caption sits above its control */
+.loc-cell--start  { width: 5.75rem; }               /* mm:ss + spinner (matches .lt-cell--start) */
+.loc-cell--dur    { width: 6rem; }                  /* secs + unit + spinner */
+.loc-cell--colour { width: auto; }
+.loc-cell > .timefield { width: 100%; }
+.loc-cell .cd-form__input { width: 100%; font-weight: 400; }
+.loc-colour { display: inline-flex; gap: 0.3rem; }
+/* the icon toggle stays a single [box] label row in BOTH tabs — the id-scoped twin
+   beats #st-card-brand's flex:1 1 11rem, which would otherwise stack it */
+.loc-meta .loc-icon-check, #st-card-brand .loc-meta .loc-icon-check {
+  display: flex; flex-direction: row; align-items: center; gap: 0.5rem;
+  flex: 0 0 auto; align-self: flex-end; padding-bottom: 0.35rem;
+}
+/* Remove: labelled (not a bare ×) and reads as destructive on hover — as .lt-remove */
+.loc-remove { flex: none; width: auto; align-self: flex-end; margin-inline-start: auto; }
+.loc-remove:hover, .loc-remove:focus-visible {
+  color: var(--err); border-color: var(--err);
+  background: color-mix(in srgb, var(--err) 8%, var(--card));
+}
 
 /* ---------- Beta banner (full-width strip below the header) ----------
    Slim "still in beta, tell us" strip. Colours derive from the app-kit --warn
