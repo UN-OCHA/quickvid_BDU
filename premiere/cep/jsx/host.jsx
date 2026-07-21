@@ -152,16 +152,47 @@ function ochaFindComp(clip, matchName) {
 // current centre) to the clip's intrinsic Motion. Full range, no MOGRT rebuild,
 // same transform an editor nudges by hand. Returns a self-report string so the
 // first live test reveals the coordinate space (pixels vs normalized).
+// The panel's Size slider must drive the TEMPLATE's own "Size" control, not Premiere's
+// Motion > Scale. Every OCHA template (except the gradient, which is full-frame) builds
+// Size with sizeGroup() so it scales about the ELEMENT's anchor - its own left edge and
+// baseline. Motion > Scale scales about the CLIP's anchor, which is the comp centre, so
+// a left-aligned lower third or text drifted sideways as it was resized. Falls back to
+// Motion when a template has no Size control.
+function ochaSetSize(clip, pct) {
+  var mgt = null;
+  try { mgt = clip.getMGTComponent(); } catch (e) { mgt = null; }
+  if (mgt) {
+    var sp = ochaFindParam(mgt.properties, "Size");
+    if (sp) {
+      try { sp.setValue(parseFloat(pct), true); return "size"; } catch (e1) {}
+    }
+  }
+  return null;                                  // caller falls back to Motion > Scale
+}
+
+function ochaGetSize(clip) {
+  var mgt = null;
+  try { mgt = clip.getMGTComponent(); } catch (e) { return null; }
+  if (!mgt) return null;
+  var sp = ochaFindParam(mgt.properties, "Size");
+  if (!sp) return null;
+  try { var v = sp.getValue(); return (typeof v === "number") ? v : null; } catch (e2) { return null; }
+}
+
 function ochaApplyMotion(seq, clip, m) {
   if (m.scale == null && m.posX == null && m.posY == null) return "";
   var mo = ochaFindComp(clip, "AE.ADBE Motion");
   if (!mo) return "motion=Motion component not found";
   var parts = [];
   if (m.scale != null) {
-    var sp = ochaFindParam(mo.properties, "Scale");
-    if (!sp) parts.push("no Scale prop");
-    else { try { sp.setValue(m.scale, true); parts.push("scale=" + m.scale); }
-           catch (e1) { parts.push("scale ERR " + e1.toString()); } }
+    if (ochaSetSize(clip, m.scale)) {
+      parts.push("size=" + m.scale);            // template's own anchor
+    } else {
+      var sp = ochaFindParam(mo.properties, "Scale");
+      if (!sp) parts.push("no Scale prop");
+      else { try { sp.setValue(m.scale, true); parts.push("scale=" + m.scale); }
+             catch (e1) { parts.push("scale ERR " + e1.toString()); } }
+    }
   }
   if (m.posX != null || m.posY != null) {
     var pp = ochaFindParam(mo.properties, "Position");
@@ -255,14 +286,29 @@ function ochaWriteText(kvBlob) {
 // no "reload this clip's parameters" call; deselecting and reselecting is what makes
 // the panel re-read. Called once the user stops typing, never on every keystroke, or
 // the selection would flicker while they work.
-function ochaRefreshUI() {
+// Doing setSelected(false) and setSelected(true) in ONE script run doesn't work -
+// Premiere coalesces them and the panel never sees a selection change. So this is
+// split: the panel calls ochaDeselect(), waits a beat so Premiere processes it, then
+// calls ochaReselect(). The clip is remembered here between the two calls.
+var OCHA_RESELECT = null;
+
+function ochaDeselect() {
   try {
     var clip = ochaSelectedOchaClip();
     if (!clip) return "none";
+    OCHA_RESELECT = clip;
     clip.setSelected(false, true);
-    clip.setSelected(true, true);
-    return "OK|refreshed";
+    return "OK|deselected";
   } catch (e) { return "ERR|" + e.toString(); }
+}
+
+function ochaReselect() {
+  try {
+    if (!OCHA_RESELECT) return "none";
+    OCHA_RESELECT.setSelected(true, true);
+    OCHA_RESELECT = null;
+    return "OK|reselected";
+  } catch (e) { OCHA_RESELECT = null; return "ERR|" + e.toString(); }
 }
 
 function ochaAdd(el, fmtKey, extRoot, kvBlob) {
@@ -528,10 +574,14 @@ function ochaReadMotion() {
     var seq = app.project.activeSequence;
     var w = seq.frameSizeHorizontal, h = seq.frameSizeVertical;
     var scale = 100, offX = 0, offY = 0;
+    var tSize = ochaGetSize(clip);             // the template's own Size wins
+    if (tSize != null) scale = tSize;
     var mo = ochaFindComp(clip, "AE.ADBE Motion");
     if (mo) {
-      var sp = ochaFindParam(mo.properties, "Scale");
-      if (sp) { try { var s = sp.getValue(); if (typeof s === "number") scale = s; } catch (e) {} }
+      if (tSize == null) {
+        var sp = ochaFindParam(mo.properties, "Scale");
+        if (sp) { try { var s = sp.getValue(); if (typeof s === "number") scale = s; } catch (e) {} }
+      }
       var pp = ochaFindParam(mo.properties, "Position");
       if (pp) { try { var p = pp.getValue(); if (p && p.length >= 2) { offX = Math.round(p[0] - w / 2); offY = Math.round(-(p[1] - h / 2)); } } catch (e) {} }
     }
@@ -549,8 +599,12 @@ function ochaWriteMotion(scale, offX, offY) {
     var mo = ochaFindComp(clip, "AE.ADBE Motion");
     if (!mo) return "ERR|no Motion";
     var out = [];
-    var sp = ochaFindParam(mo.properties, "Scale");
-    if (sp) { try { sp.setValue(parseFloat(scale), true); out.push("scale"); } catch (e) { out.push("scaleERR"); } }
+    if (ochaSetSize(clip, scale)) {
+      out.push("size");                         // template's own anchor, not the comp centre
+    } else {
+      var sp = ochaFindParam(mo.properties, "Scale");
+      if (sp) { try { sp.setValue(parseFloat(scale), true); out.push("scale"); } catch (e) { out.push("scaleERR"); } }
+    }
     var pp = ochaFindParam(mo.properties, "Position");
     if (pp) { try { pp.setValue([w / 2 + parseFloat(offX), h / 2 - parseFloat(offY)], true); out.push("pos"); } catch (e) { out.push("posERR"); } }
     return "OK|" + out.join(",");

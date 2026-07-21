@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.29.1";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.30.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -320,7 +320,7 @@ function setBound(clipName, el) {
   const btn = $("add");
   btn.textContent = clipName ? "Update selected" : "Add to timeline";
   btn.classList.toggle("is-editing", !!clipName);
-  if (clipName && el && el !== curEl) selectEl(el);      // show the matching pane
+  if (clipName && el && el !== curEl) selectEl(el, true);   // show the matching pane
 }
 
 async function syncText() {
@@ -351,7 +351,12 @@ let refreshTimer = null;
 function refreshHostUI() {
   if (!boundClip) return;
   clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(() => { jsx("ochaRefreshUI()"); }, 500);
+  refreshTimer = setTimeout(async () => {
+    // Premiere coalesces a deselect+reselect issued in one script run, so the panel
+    // never re-reads. Split across two calls with a gap and it does.
+    await jsx("ochaDeselect()");
+    setTimeout(() => jsx("ochaReselect()"), 120);
+  }, 500);
 }
 
 function textEdited() {
@@ -373,7 +378,11 @@ document.querySelectorAll('section.pane input, section.pane select').forEach((el
 });
 
 /* ---------- UI wiring ---------- */
-function selectEl(el) {
+function selectEl(el, fromClip) {
+  // Clicking a card by hand = "I want to make a NEW one of these", so drop any
+  // binding to a selected clip. Otherwise the panel stays bound to, say, a Text clip
+  // while showing the Lower third fields, and the CTA edits the wrong element.
+  if (!fromClip && boundClip) setBound(null, null);
   curEl = el;
   document.querySelectorAll(".card").forEach((c) => c.classList.toggle("is-active", c.dataset.el === el));
   document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("is-open", p.dataset.pane === el));

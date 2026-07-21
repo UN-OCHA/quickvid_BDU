@@ -1,6 +1,6 @@
 {
-  "version": "0.29.1",
+  "version": "0.30.0",
   "date": "2026-07-21",
-  "notes": "Checkboxes and the pin colour now update the selected clip too, and Premiere's Properties panel refreshes to show what you typed.",
+  "notes": "Size now scales about the element's own anchor instead of the frame centre; picking a card by hand stops editing the selected clip; another attempt at making Premiere's Properties panel re-read.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }
