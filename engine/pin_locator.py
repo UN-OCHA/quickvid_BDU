@@ -120,10 +120,19 @@ def build(lt, canvas_h=None, orient="portrait"):
     padx, pady = round(s1 * _G["pad_x"]), round(s1 * _G["pad_y"])
     gap = round(s1 * _G["line_gap"])
 
+    if not place:
+        date = ""                                  # a date can't stand alone (defensive:
+                                                   # specs() already drops date-only rows)
+    two = bool(place and date)
     w1 = _mw(place, 800, s1) if place else 0
-    w2 = _mw(date, 500, s2) if date else 0
+    w2 = _mw(date, 500, s2) if two else 0
     box_w = max(w1, w2) + 2 * padx
-    box_h = 2 * pady + s1 + gap + s2
+    # Single-line height = the visible top band of the two-line layout (pady above,
+    # half the line gap below) — the SAME visible band the Premiere template shows
+    # for place-only, so both surfaces render the element identically. The pin then
+    # scales from box_h, so place-only gets a proportionally smaller pin that spans
+    # the single line with the usual 5% overlap.
+    box_h = (2 * pady + s1 + gap + s2) if two else (pady + s1 + round(gap / 2))
 
     pin_h = round(box_h * _G["pin_scale"]) if icon_on else 0
     pin_w = round(pin_h * _PIN_W / _PIN_H) if icon_on else 0
@@ -137,7 +146,8 @@ def build(lt, canvas_h=None, orient="portrait"):
     pad = (math.ceil(pin_h * (_peak_scale(_T["pin_overshoot"]) - 1)) + max(4, round(pin_h * 0.03))) if icon_on else 0
     box_x = pad + pin_w + pin_gap                 # 0 when the icon is off → text shifts left
     box_y = pad + round((core_h - box_h) / 2)
-    split_y = box_y + pady + s1 + round(gap / 2)   # where the top band meets the bottom band
+    # where the top band meets the bottom band; with no date the bottom band is empty
+    split_y = (box_y + pady + s1 + round(gap / 2)) if two else (box_y + box_h)
 
     return dict(place=place, date=date, icon_on=icon_on,
                 color=_C["pin_blue"] if lt.get("color") == "blue" else _C["pin_red"],
@@ -235,8 +245,8 @@ def specs(spec):
         if not isinstance(p, dict) or not p.get("on"):
             continue
         place, date = (p.get("place") or "").strip(), (p.get("date") or "").strip()
-        if not (place or date):
-            continue
+        if not place:
+            continue                             # place-only or place+date — never date-only
         out.append({
             "on": True,                              # keeps the result idempotent: feeding
             "place": place, "date": date,            # specs() its own output returns the same list

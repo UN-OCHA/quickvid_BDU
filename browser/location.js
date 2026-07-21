@@ -93,6 +93,16 @@ const OchaLocation = (() => {
 
       q(".loc-place").value = v.place || "";
       q(".loc-date").value = v.date || "";
+      // The date can't stand alone — the strip is place-only or place+date. The
+      // engine enforces it too (pin_locator.specs drops date-only rows); disabling
+      // the field is just the honest UI for the same rule.
+      const gateDate = () => {
+        const ok = !!q(".loc-place").value.trim();
+        q(".loc-date").disabled = !ok;
+        q(".loc-date").title = ok ? "" : "Add a place first — the date can't stand alone";
+      };
+      q(".loc-place").addEventListener("input", gateDate);
+      gateDate();
       q(".loc-icon").checked = v.icon !== false;                  // icon on by default
       const tf = q(".loc-start"), df = q(".loc-dur");
       tf.value = mmss(Number.isFinite(v.start) ? v.start : START_DEFAULT);
@@ -135,7 +145,7 @@ const OchaLocation = (() => {
         color: r.dataset.colour === "blue" ? "blue" : "red",
         start: secs(r.querySelector(".loc-start").value),
         duration: parseFloat(r.querySelector(".loc-dur").value) || DUR_DEFAULT,
-      })).filter((p) => p.place || p.date);        // a blank card renders nothing
+      })).filter((p) => p.place);                  // place-only or place+date — never date-only
     }
 
     /* Accepts the new list, a legacy single {on,…} object (projects saved before
