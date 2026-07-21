@@ -20,17 +20,26 @@ def _slug(s: str) -> str:
 
 
 def _job_dirs(dir_path):
-    """The standard 4-folder job structure under the user's chosen folder (created on
-    demand), or None when no folder was picked — then callers fall back to the hidden
-    workspace. Matches the OCHA video-job folder rule: source/export/info/assets."""
+    """The standard job structure under the user's chosen folder, or None when no
+    folder was picked — then callers fall back to the hidden workspace. Matches the
+    OCHA video-job folder rule: source/export/info/assets.
+
+    Only the ROOT is created here. The sub-folders are made lazily by `_ensure()` at
+    the moment something is written into them, so a job never ships empty folders —
+    a Titles & branding job, for instance, has no `source/` to collect."""
     if not dir_path:
         return None
     root = Path(dir_path)
+    root.mkdir(parents=True, exist_ok=True)
     dirs = {n: root / n for n in ("source", "export", "info", "assets")}
-    for p in (root, *dirs.values()):
-        p.mkdir(parents=True, exist_ok=True)
     dirs["root"] = root
     return dirs
+
+
+def _ensure(p: Path) -> Path:
+    """Create a job sub-folder at the moment it's first written to (see _job_dirs)."""
+    p.mkdir(parents=True, exist_ok=True)
+    return p
 
 
 def save_still_to_export(still_path, dir_path):
@@ -38,7 +47,7 @@ def save_still_to_export(still_path, dir_path):
     dirs = _job_dirs(dir_path)
     if not dirs:
         return None
-    dest = dirs["export"] / "thumbnail.jpg"
+    dest = _ensure(dirs["export"]) / "thumbnail.jpg"
     shutil.copy2(still_path, dest)
     return str(dest)
 
@@ -48,25 +57,45 @@ def _write_job_info(dirs, job, final_path):
     (per the OCHA video-job structure rule)."""
     segs = job.meta.get("segments", [])
     script = "\n".join((s.get("text") or "").strip() for s in segs if s.get("text")).strip()
-    (dirs["info"] / "script.txt").write_text(script + "\n")
-    (dirs["info"] / "segments_selected.json").write_text(json.dumps(segs, indent=2))
+    info = _ensure(dirs["info"])
+    (info / "script.txt").write_text(script + "\n")
+    (info / "segments_selected.json").write_text(json.dumps(segs, indent=2))
+    _write_readme(dirs, final_path,
+                  "OCHA statement clip, made with **OCHA QuickVid** (Edit -> Statement clip).",
+                  "UN Web TV download -> optional lip-sync -> transcribe -> pick the sentences -> "
+                  "punch-in cut -> OCHA branding (captions + lower third + logo-click ending).")
+
+
+# What each folder is for — only the ones that actually exist get listed, since
+# folders are created lazily (see _job_dirs).
+_FOLDER_BLURB = {
+    "source": "the material this was built from.",
+    "export": "the finished video{extra}. **The deliverable.**",
+    "info":   "the script and timings behind the edit.",
+    "assets": "extra material for this job.",
+}
+
+
+def _write_readme(dirs, final_path, what: str, how: str) -> None:
+    """Root README describing the job. Lists ONLY the folders present, so a job that
+    never needed `source/` doesn't advertise one."""
     readme = dirs["root"] / "README.md"
-    if not readme.exists():
-        readme.write_text(
-            f"# {dirs['root'].name}\n\n"
-            "OCHA statement clip, made with **OCHA QuickVid** (Edit -> Statement clip).\n\n"
-            "## Folders\n"
-            "- `source/` - the original UN Web TV download (floor audio).\n"
-            f"- `export/` - the finished clip (`{final_path.name}`) + `thumbnail.jpg`. **The deliverable.**\n"
-            "- `info/` - the kept sentences (`script.txt`) and their timings (`segments_selected.json`).\n"
-            "- `assets/` - spare room for extra material.\n\n"
-            "## How it was made\n"
-            "UN Web TV download -> optional lip-sync -> transcribe -> pick the sentences -> punch-in "
-            "cut -> OCHA branding (captions + lower third + logo-click ending).\n\n"
-            "## To re-edit\n"
-            "Re-open OCHA QuickVid, pick this same folder, and load `source/` - or hand this folder to "
-            "Claude Code with the `ocha-statement-clip` skill.\n"
-        )
+    if readme.exists():
+        return
+    lines = [f"# {dirs['root'].name}", "", what, "", "## Folders"]
+    for name in ("source", "export", "info", "assets"):
+        d = dirs[name]
+        if not d.exists():
+            continue
+        extra = ""
+        if name == "export" and final_path is not None:
+            extra = f" (`{Path(final_path).name}`)"
+        lines.append(f"- `{name}/` - " + _FOLDER_BLURB[name].format(extra=extra))
+    lines += ["", "## How it was made", how, "",
+              "## To re-edit",
+              "Re-open OCHA QuickVid and pick this same folder - the project file "
+              "(`*.ochaquickvid.json`) restores your settings.", ""]
+    readme.write_text("\n".join(lines))
 
 
 def _run(cmd: list[str], job) -> None:
@@ -221,7 +250,7 @@ def statement_render(job) -> None:
     if dirs:
         canvas = CANVAS.get(job.meta.get("preset", "reels"), "")
         name = _slug(dirs["root"].name) or "statement"
-        final = dirs["export"] / (f"{name}_{canvas}.mp4" if canvas else f"{name}.mp4")
+        final = _ensure(dirs["export"]) / (f"{name}_{canvas}.mp4" if canvas else f"{name}.mp4")
         shutil.copy2(out, final)
         _write_job_info(dirs, job, final)
         result["export"] = str(final)
@@ -251,7 +280,25 @@ def finish(job) -> None:
         spec_path.write_text(json.dumps(spec, indent=2))
         job.progress = "Adding titles & branding…"
         _run([sys.executable, settings.ENGINE_DIR / "finish.py", "--spec", spec_path], job)
-    job.result = {"workdir": str(workdir), "mp4": str(out)}
+
+    result = {"workdir": str(workdir), "mp4": str(out)}
+    # Same deal as the Edit tab: when a job folder was chosen, the deliverable lands
+    # in export/ under the project's name instead of "branded.mp4" in the hidden
+    # workspace (which a reinstall would wipe). Folders are made only as needed, so a
+    # Titles job doesn't ship an empty source/.
+    dirs = _job_dirs(job.meta.get("dir"))
+    if dirs:
+        name = _slug(dirs["root"].name) or "branded"
+        final = _ensure(dirs["export"]) / f"{name}.mp4"
+        shutil.copy2(out, final)
+        _write_readme(dirs, final,
+                      "OCHA titles & branding, made with **OCHA QuickVid** "
+                      "(Titles & branding).",
+                      "An already-edited video -> OCHA branding (lower thirds"
+                      + (", subtitles" if (job.meta.get("subtitles") or {}).get("on") else "")
+                      + ", optional location pin and logo bug, logo-click ending).")
+        result["export"] = str(final)
+    job.result = result
 
 
 def _finish_with_subtitles(job, workdir, out) -> None:

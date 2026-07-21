@@ -114,6 +114,17 @@
           <i class="fa-solid fa-film" aria-hidden="true"></i>
           <span id="drop-text">Choose a video — any size, any codec, kept full-resolution.</span>
         </div>
+
+        <!-- Same job-folder contract as the Edit tab: name it, pick where it lives,
+             and the finished video lands in <folder>/export/ instead of a temporary spot. -->
+        <div class="st-folder">
+          <span class="cd-form__label">Project name &amp; where it lives</span>
+          <div class="st-folder-row">
+            <input class="cd-form__input st-proj-name" id="f-proj-name" placeholder="e.g. HC mission Bentiu — titles" autocomplete="off" />
+            <button class="cd-button cd-button--outline cd-button--small" id="f-folder-pick" type="button"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Choose where to save…</span></button>
+          </div>
+          <span class="app-hint" id="f-folder-path">Name the job, then pick a location — a folder with that name is created there and the finished video lands in its <code>export/</code> folder, with a README explaining how it was made. Optional: skip it and the file goes to a temporary spot you download from.</span>
+        </div>
       </div>
     </section>
 

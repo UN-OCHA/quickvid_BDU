@@ -6,7 +6,7 @@ if (location.hostname === "localhost") location.replace(location.href.replace("/
 const $ = (s) => document.querySelector(s);
 const ENGINE = 'http://127.0.0.1:17870';                 // the local companion engine
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const state = { url: null, engineUp: false, engine: null, enginePath: null };
+const state = { url: null, engineUp: false, engine: null, enginePath: null, jobDir: null };
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
 const ALERT = { busy: "", ok: "cd-alert--status", warn: "cd-alert--warning", error: "cd-alert--error" };
@@ -152,11 +152,39 @@ async function enginePick() {
   } catch (e) { setStatus("Couldn't open the file picker.", "warn"); }
 }
 
+// Job folder for Titles & branding — same contract as the Edit tab: the finished
+// video lands in <chosen folder>/<project name>/export/ with a README, instead of a
+// temporary spot inside the app (which a reinstall would wipe). Optional: skip it and
+// the old download-from-temp flow still works.
+function ftSafeName(s) {
+  return (s || "").trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").slice(0, 80);
+}
+const ftPick = document.getElementById("f-folder-pick");
+if (ftPick) ftPick.onclick = async () => {
+  const name = ($("#f-proj-name").value || "").trim();
+  if (!name) {
+    setStatus("Give the job a name first — the folder is created with that name.", "warn");
+    $("#f-proj-name").focus();
+    return;
+  }
+  try {
+    const q = encodeURIComponent(`Choose WHERE to create the "${name}" job folder`);
+    const r = await fetch(`${ENGINE}/api/pick-folder?prompt=${q}`, { method: "POST" });
+    if (!r.ok) return;
+    const { path } = await r.json();
+    if (!path) return;
+    state.jobDir = path.replace(/[\/\\]+$/, "") + "/" + ftSafeName(name);
+    $("#f-folder-path").innerHTML =
+      `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Job folder: <strong>${state.jobDir}</strong> — the finished video lands in its <code>export/</code> folder.`;
+    setStatus("");
+  } catch (e) { setStatus("Couldn't open the folder picker.", "warn"); }
+};
+
 // full mode: hand the job to the engine (real ffmpeg) and stream the result back over localhost
 async function renderViaEngine(lowerThirds, ending, subtitles, bug, pin) {
   const body = { video: state.enginePath, lower_thirds: lowerThirds, ending: { style: ending.style },
                  subtitles: subtitles || { on: false, style: "box" }, bug: bug || { on: false },
-                 pin: pin || { on: false } };
+                 pin: pin || { on: false }, dir: state.jobDir };
   const r = await fetch(ENGINE + "/api/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) { let m = "Engine error"; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
   const { job_id } = await r.json();

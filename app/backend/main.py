@@ -227,6 +227,7 @@ class FinishReq(BaseModel):
     pin: PinReq = PinReq()                     # top-left location strip (animated)
     ending: EndingReq = EndingReq()
     subtitles: SubtitlesReq = SubtitlesReq()  # engine-only: transcribe + burn captions
+    dir: Optional[str] = None                 # job folder → final lands in <dir>/export/
 
 
 @app.post("/api/finish")
@@ -244,6 +245,7 @@ def finish(req: FinishReq):
         "pin": req.pin.model_dump(),
         "ending": req.ending.model_dump(),
         "subtitles": req.subtitles.model_dump(),
+        "dir": req.dir,                        # same job-folder contract as the Edit tab
     })
     jobs.run_async(job, engine_bridge.finish)
     return {"job_id": job.id}
