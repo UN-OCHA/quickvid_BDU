@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtensionManifest Version="7.0" ExtensionBundleId="org.unocha.branding"
-                   ExtensionBundleVersion="0.33.0" ExtensionBundleName="OCHA QuickVid"
+                   ExtensionBundleVersion="0.34.0" ExtensionBundleName="OCHA QuickVid"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ExtensionList>
-    <Extension Id="org.unocha.branding.panel" Version="0.33.0"/>
+    <Extension Id="org.unocha.branding.panel" Version="0.34.0"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
@@ -24,6 +24,11 @@
             <Parameter>--allow-file-access</Parameter>
             <Parameter>--allow-file-access-from-files</Parameter>
             <Parameter>--disable-application-cache</Parameter>
+            <!-- Node inside the panel. Required by the auto-updater: it needs
+                 https to fetch the package and child_process to spawn the detached
+                 helper that installs it after Premiere quits. Same flag the DataViz
+                 plugin uses. Removing it silently reduces the updater to notify-only. -->
+            <Parameter>--enable-nodejs</Parameter>
           </CEFCommandLine>
         </Resources>
         <Lifecycle><AutoVisible>true</AutoVisible></Lifecycle>

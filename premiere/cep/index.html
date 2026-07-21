@@ -5,6 +5,8 @@
   <link rel="stylesheet" href="styles.css?v=0.33" />
   <!-- anonymous usage pings; a NO-OP until an endpoint is configured -->
   <script src="js/analytics.js?v=0.33"></script>
+  <!-- downloads + installs updates; needs --enable-nodejs (see the manifest) -->
+  <script src="js/auto-updater.js?v=0.34"></script>
 </head>
 <body>
   <div class="app">
@@ -24,8 +26,9 @@
     <div id="update-banner" hidden>
       <span id="update-link" class="update-link">
         <svg width="12" height="12" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M488 576C501.3 576 512 565.3 512 552C512 538.7 501.3 528 488 528L152 528C138.7 528 128 538.7 128 552C128 565.3 138.7 576 152 576L488 576zM303 441C312.4 450.4 327.6 450.4 336.9 441L473 305C482.4 295.6 482.4 280.4 473 271.1C463.6 261.8 448.4 261.7 439.1 271.1L344.1 366.1L344.1 88C344.1 74.7 333.4 64 320.1 64C306.8 64 296.1 74.7 296.1 88L296.1 366.1L201.1 271.1C191.7 261.7 176.5 261.7 167.2 271.1C157.9 280.5 157.8 295.7 167.2 305L303 441z"/></svg>
-        New version <strong id="update-version"></strong> — <u>how to update</u>
+        <span id="update-msg"></span>
       </span>
+      <button id="update-now" class="update-now" type="button">Update now</button>
       <button id="update-dismiss" class="update-dismiss" type="button" aria-label="Dismiss">&times;</button>
     </div>
 

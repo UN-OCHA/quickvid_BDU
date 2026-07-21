@@ -1,9 +1,12 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.33.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.34.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
+// Version strings land in the banner via innerHTML — escape them. Everything here
+// comes from our own version.json, but that is fetched over the network.
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // theme — default dark, persisted; parity with the DataViz plugin's toggle.
 // Set before first paint to avoid a flash.
@@ -634,17 +637,58 @@ function checkForUpdate() {
   };
   try { xhr.send(); } catch (e) { /* silent */ }
 }
+function bannerMsg(html) { const m = $("update-msg"); if (m) m.innerHTML = html; }
+
 function showUpdateBanner(info) {
   const bar = $("update-banner");
   if (!bar) return;
-  $("update-version").textContent = "v" + info.version;
   const url = info.downloadUrl || "https://github.com/UN-OCHA/quickvid_BDU";
-  $("update-link").onclick = () => {
-    try {
-      if (window.cep && window.cep.util) window.cep.util.openURLInDefaultBrowser(url);
-      else window.open(url);
-    } catch (e) { try { window.open(url); } catch (e2) {} }
-  };
+  const btn = $("update-now");
+  const canInstall = AutoUpdater.available() && info.packageUrl;
+
+  bannerMsg("New version <strong>v" + esc(info.version) + "</strong>");
+  if (canInstall) {
+    // One click: download, then the helper installs it once Premiere quits.
+    btn.hidden = false;
+    // Always re-enable on render. The handler disables the button while working and
+    // the success path leaves it that way (it hides it instead), so a later re-render
+    // would otherwise show a permanently dead button.
+    btn.disabled = false;
+    btn.textContent = "Update now";
+    btn.onclick = () => {
+      btn.disabled = true;
+      bannerMsg("Downloading v" + esc(info.version) + "\u2026");
+      Analytics.ping("update:start");
+      AutoUpdater.download(info.packageUrl, info.version, EXT_ROOT, {
+        onProgress: (pct) => bannerMsg("Downloading v" + esc(info.version) + " \u2014 " + pct + "%"),
+        onError: (msg) => {
+          btn.disabled = false;
+          bannerMsg("Update failed: " + esc(msg) + ". ");
+          linkOut(url, "Download it manually");
+          Analytics.ping("update:failed");
+        },
+        onDone: () => {
+          const res = AutoUpdater.apply(info.version);
+          if (!res.ok) {
+            btn.disabled = false;
+            bannerMsg("Couldn't start the installer: " + esc(res.error) + ". ");
+            linkOut(url, "Download it manually");
+            Analytics.ping("update:failed");
+            return;
+          }
+          btn.hidden = true;
+          bannerMsg("v" + esc(info.version) + " is ready \u2014 <strong>quit Premiere</strong> to finish installing.");
+          Analytics.ping("update:staged");
+        },
+      });
+    };
+  } else {
+    // No Node (old manifest) or no package published: the original notify-only path.
+    btn.hidden = true;
+    bannerMsg("New version <strong>v" + esc(info.version) + "</strong> \u2014 ");
+    linkOut(url, "how to update");        // no installer: the original notify-only path
+  }
+
   $("update-dismiss").onclick = () => {
     try { localStorage.setItem(UPD_DISMISS_KEY, info.version); } catch (e) {}
     bar.hidden = true;
@@ -652,10 +696,49 @@ function showUpdateBanner(info) {
   bar.hidden = false;
 }
 
+// Append a clickable link that opens in the real browser, not inside the panel.
+function linkOut(url, label) {
+  const m = $("update-msg");
+  if (!m) return;
+  const a = document.createElement("u");
+  a.className = "update-link-out";
+  a.textContent = label;
+  a.onclick = () => {
+    try {
+      if (window.cep && window.cep.util) window.cep.util.openURLInDefaultBrowser(url);
+      else window.open(url);
+    } catch (e) { try { window.open(url); } catch (e2) {} }
+  };
+  m.appendChild(a);
+}
+
+/* What happened while the panel was closed? An update installs after Premiere
+   quits, so the result can only be reported on the next launch. */
+function reportUpdateResult() {
+  if (!AutoUpdater.available()) return;
+  const st = AutoUpdater.checkMarkers(EXT_ROOT);
+  const bar = $("update-banner");
+  if (st.kind === "applied") {
+    $("update-now").hidden = true;
+    bannerMsg("Updated to <strong>v" + esc(st.version || PANEL_VERSION) + "</strong> \u2713");
+    bar.hidden = false;
+    Analytics.ping("update:applied");
+  } else if (st.kind === "error") {
+    $("update-now").hidden = true;
+    bannerMsg("The last update didn't install: " + esc(st.message));
+    bar.hidden = false;
+  } else if (st.kind === "staged") {
+    $("update-now").hidden = true;
+    bannerMsg("v" + esc(st.version) + " is downloaded \u2014 <strong>quit Premiere</strong> to finish installing.");
+    bar.hidden = false;
+  }
+}
+
 loadHost().then(refresh);
 // anonymous usage pings (version / event / approximate city) — see js/analytics.js.
 // Never sends typed text, project names or paths. No-op until configured.
 try { Analytics.init(PANEL_VERSION); } catch (e) { /* analytics must never break the panel */ }
+reportUpdateResult();           // did an update land while we were away?
 checkForUpdate();               // once on load; a new release surfaces on next panel open
 setInterval(refresh, 2500);
 setInterval(syncAdjust, 900);   // bind Adjust sliders to a selected OCHA clip

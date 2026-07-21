@@ -360,3 +360,13 @@ body {
 }
 .cap-steps li { margin-bottom: var(--sp-100); }
 .cap-steps li::marker { color: var(--accent); font-weight: var(--fw-medium); }
+
+/* Update banner action — the one thing in the banner you can click. */
+.update-now {
+  flex: 0 0 auto; margin-left: auto; padding: 2px 10px;
+  background: var(--accent); color: #fff; border: 0; border-radius: var(--r-sm);
+  font: inherit; font-size: var(--fs-xs); font-weight: var(--fw-medium); cursor: pointer;
+}
+.update-now:hover { filter: brightness(1.1); }
+.update-now:disabled { opacity: 0.6; cursor: default; }
+.update-link-out { cursor: pointer; }
