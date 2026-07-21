@@ -146,6 +146,7 @@ const EL_LABEL = { lt: "Lower third", loc: "Location", bug: "OCHA logo", ending:
    button + modal rather than riding along with the Text CTA — Text, Captions and the
    Toolbox all reach the same one. `pos` is bottom | top | full. */
 function addGradient(pos, opacity) {
+  try { Analytics.ping("gradient:" + pos); } catch (e) {}
   // NOTE THE INVERSION. The AE template's checkbox is NAMED "Top" but produces a
   // gradient at the BOTTOM when ticked — Linear Wipe clears the side its angle
   // points away from, and the built templates went out that way round. Rather than
@@ -173,6 +174,7 @@ async function addElement() {
     const call = `ochaAdd(${lit(curEl)},${lit(curFmt)},${lit(EXT_ROOT)},${lit(collectValues())})`;
     const res = await jsx(call) || "";
     if (res.indexOf("OK|") === 0) {
+      try { Analytics.ping("add:" + curEl + ":" + (curFmt || "?")); } catch (e) {}
       const track = (res.match(/track=([^|]*)/) || [])[1] || "";
       const set = ((res.match(/set=([^|]*)/) || [])[1] || "").split(",").filter(Boolean);
       const warn = (res.match(/warn=(.*)$/) || [])[1];
@@ -464,6 +466,7 @@ async function runToolAction() {
   // call depends on the modal's own settings, e.g. the gradient's position/fade)
   const res = (typeof cfg.action === "function" ? await cfg.action() : await jsx(cfg.action)) || "";
   const ok = res.indexOf("OK|") === 0;
+  try { Analytics.ping("tool:" + curTool + (ok ? "" : ":failed")); } catch (e) {}
   // `done` turns the host's kv reply (track=V2|set=…) into a sentence; without one
   // the reply is already prose (the counting tools), so just strip the status prefix.
   const warn = (res.match(/warn=(.*)$/) || [])[1];
@@ -565,6 +568,9 @@ function showUpdateBanner(info) {
 }
 
 loadHost().then(refresh);
+// anonymous usage pings (version / event / approximate city) — see js/analytics.js.
+// Never sends typed text, project names or paths. No-op until configured.
+try { Analytics.init(PANEL_VERSION); } catch (e) { /* analytics must never break the panel */ }
 checkForUpdate();               // once on load; a new release surfaces on next panel open
 setInterval(refresh, 2500);
 setInterval(syncAdjust, 900);   // bind Adjust sliders to a selected OCHA clip
