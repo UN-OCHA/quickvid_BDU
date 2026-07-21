@@ -228,6 +228,26 @@ function ochaElOfClip(nm) {
   return "";
 }
 
+// Text values come back in TWO shapes. Set by script (us), getValue() returns the
+// plain string. Edited in Premiere's Properties panel, the SAME property returns a
+// JSON blob of the text run - {"capPropFontEdit":false,...,"textEditValue":"..."} -
+// which, passed through raw, is exactly what landed in the panel's fields. Unwrap
+// textEditValue (string or single-run array form); anything unrecognised passes
+// through untouched. No JSON.parse in ExtendScript (ES3), hence regex + unescape.
+function ochaUnwrapText(v) {
+  if (!v || v.charAt(0) !== "{" || v.indexOf("textEditValue") < 0) return v;
+  var m = v.match(/"textEditValue"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (!m) m = v.match(/"textEditValue"\s*:\s*\[\s*"((?:[^"\\]|\\.)*)"/);
+  if (!m) return v;
+  return m[1].replace(/\\u([0-9a-fA-F]{4})|\\(.)/g, function (all, u, c) {
+    if (u) return String.fromCharCode(parseInt(u, 16));
+    if (c === "n") return "\n";
+    if (c === "t") return "\t";
+    if (c === "r") return "\r";
+    return c;                                  // \" \\ \/ and friends
+  });
+}
+
 // "<clipName>|<el>|Name<US>value<RS>Title<US>value..." or "none".
 // Only text-ish controls are returned; the panel matches them to its own fields.
 function ochaReadText() {
@@ -247,7 +267,7 @@ function ochaReadText() {
       var v = "";
       try { v = pr.getValue(); } catch (e3) { continue; }
       if (typeof v !== "string") continue;
-      out.push(dn + "\u001F" + v);
+      out.push(dn + "\u001F" + ochaUnwrapText(v));
     }
     return nm + "|" + el + "|" + out.join("\u001E");
   } catch (e) { return "none"; }

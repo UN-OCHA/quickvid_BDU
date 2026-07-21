@@ -1,6 +1,6 @@
 {
-  "version": "0.31.1",
+  "version": "0.31.2",
   "date": "2026-07-21",
-  "notes": "The plugin now mirrors the selected clip: text typed into Premiere's Properties panel appears in the plugin within a second, so the plugin always shows what is really on the clip.",
+  "notes": "Fix: text edited in Premiere's Properties panel came back into the plugin as a raw JSON blob instead of the words you typed.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }
