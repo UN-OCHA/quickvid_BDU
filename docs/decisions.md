@@ -1078,15 +1078,30 @@ tab left the other behind. So the feature landed as a de-duplication:
 - **Default start is 0:04** (`pin_locator.DEFAULT_START`, mirrored by
   `OchaLocation.START_DEFAULT` and `PinReq.start`) — was 1.2s.
 
-**The bug this uncovered — no `trim` filter in social_brand's video chain.**
+**The engine bug this uncovered — and the one combination still not supported.**
 A second strip made `social_brand.py` output a 12s clip as **7.9s** (233 of 360
-frames). Cause: a `trim` filter anywhere in a chain that also has two or more
-time-shifted `overlay`s loses frames — it happened with the trim after the overlay
-chain AND after moving it before, and `over_footage` (the only style with no trim)
-was never affected. One strip never triggered it, which is why it sat there
-unnoticed. The footage is now cut at the **demuxer** (`-t` before `-i src`), which
-the filter graph never sees. Verified across {0,1,2,3 strips} x {none, over_black,
-over_footage}. Don't reintroduce a trim to shorten the video.
+frames). Cause: a `trim` filter in a chain that also carries two or more
+time-shifted `overlay`s loses frames. `over_footage`, the only ending with no trim,
+was never affected; one strip never triggered it either, which is why it sat here
+unnoticed.
+
+- **"No ending" is fixed**: that branch's `trim` was only shortening the video to
+  `footage_end`, which the `-t out_dur` on the OUTPUT already does. Trim dropped,
+  verified for 0/1/2/3 strips.
+- **`over_black` keeps its trim, and 2+ strips are REFUSED.** That branch needs a
+  cut before `tpad` can add the black tail, and every trim-free variant tried —
+  demuxer `-t` on the source, a front trim on `[0:v]`, an opaque black-plate overlay
+  from `at`, bounded `-loop 1` stills, capped PNG-sequence inputs — **deadlocks
+  ffmpeg** (0% CPU at ~50%, parent still reading the progress pipe). The trim is
+  what makes that graph terminate. So `render()` raises a clear error instead of
+  shipping a short video, and the Edit tab warns before you press render.
+- **The proper fix is a second pass.** `finish.py` composites the body and then the
+  ending in *two* ffmpeg runs, and it handles two strips with every ending (verified).
+  Giving `social_brand.py` the same two-pass shape would remove the limit and the
+  guard together. Left as the next job — it touches the caption/LT/logo timing that
+  the statement pipeline depends on, so it wants its own change, not a rider on this one.
+
+Verified across {0,1,2,3 strips} x {none, over_black, over_footage} on both renderers.
 
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.

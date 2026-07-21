@@ -309,8 +309,20 @@ def render(spec: dict, log=print) -> str:
 
     # location strips, top-left (animated). PIN.specs() is the single reader of the
     # spec — finish.py calls the same one, so both tabs stay in step.
+    pin_specs = PIN.specs(spec)
+    # KNOWN LIMIT — refuse rather than ship a short video. This one graph composites
+    # everything in a single ffmpeg pass, and the over_black ending needs a `trim`
+    # (see the ending branch: every trim-free variant deadlocks). That trim drops
+    # frames once two or more time-shifted overlays sit upstream of it — a 12s clip
+    # came out 7.9s. finish.py doesn't have the problem because it renders the ending
+    # in a SECOND pass; doing the same here is the proper fix, and would let this
+    # guard go. Every other ending is fine with any number of strips.
+    if style == "over_black" and len(pin_specs) > 1:
+        raise SystemExit("Two or more location strips can't be combined with the "
+                         "'logo over black' ending yet — use 'logo over footage', "
+                         "or keep a single location strip.")
     pin_gs = []
-    for i, p in enumerate(PIN.specs(spec)):
+    for i, p in enumerate(pin_specs):
         g = PIN.build({"place": p["place"], "date": p["date"], "icon": p["icon"],
                        "color": p["color"], "hold": PIN.hold_for(p["duration"]),
                        "in": p["start"]},
@@ -363,14 +375,13 @@ def render(spec: dict, log=print) -> str:
          "-show_entries", "stream=codec_type", "-of", "csv=p=0", src],
         capture_output=True, text=True).stdout.strip())
 
-    # Cut the footage at the DEMUXER (`-t` before `-i`), not with a `trim` filter:
-    # over_black needs the video to stop at `at` so tpad can extend it with black,
-    # and "none" stops at footage_end. Doing it here keeps `trim` out of the filter
-    # graph entirely — see the note above the chain for what trim did to the frames.
-    # Input-level `-t` cuts this input's audio at the same point, which is exactly
-    # what the atrim on [0:a] does anyway.
-    src_cut = at if style == "over_black" else (footage_end if style == "none" else None)
-    inputs = ([] if src_cut is None else ["-t", f"{float(src_cut):.3f}"]) + ["-i", src]
+    # NO cut on the src input, and NO `trim` in the video chain — both were tried
+    # and both fail once there are two or more time-shifted overlays (two location
+    # strips): `trim` silently drops frames (a 12s clip came out 7.9s), and a
+    # demuxer `-t` deadlocks the graph outright. The output length is set by the
+    # `-t out_dur` on the OUTPUT instead, and over_black cuts to black with a
+    # full-frame black overlay (see the ending branch) rather than a trim.
+    inputs = ["-i", src]
     for _, _, p, _, _ in subs:
         inputs += ["-i", p]
     idx = 1 + len(subs); lt_idx = []
@@ -430,7 +441,13 @@ def render(spec: dict, log=print) -> str:
         prev = f"v{i}"
 
     if style == "over_black":                          # footage cuts to black; logo snaps on
-        fc.append(f"[{prev}]tpad=stop_duration={hold}:color=black[vend]")   # already cut to `at` up top
+        # The `trim` here is LOAD-BEARING and must stay: it is what makes this graph
+        # terminate. Removing it (black-plate overlay, demuxer `-t`, front trim were
+        # all tried) deadlocks ffmpeg at ~50% whenever two or more time-shifted
+        # overlays sit upstream. It also costs frames in that same case, which is why
+        # `render()` refuses over_black + 2 strips outright rather than shipping a
+        # short video — see the guard at the top.
+        fc.append(f"[{prev}]trim=0:{at},setpts=PTS-STARTPTS,tpad=stop_duration={hold}:color=black[vend]")
         fc.append(f"[{logo_idx}:v]format=rgba[lg]")
         fc.append(f"[vend][lg]overlay={(W - lw) // 2}:{(H - lh_) // 2}:eof_action=pass:enable='gte(t,{at})',format=yuv420p[vout]")
         if has_aud:
