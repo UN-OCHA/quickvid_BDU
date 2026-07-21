@@ -1,6 +1,6 @@
 {
-  "version": "0.31.2",
+  "version": "0.32.0",
   "date": "2026-07-21",
-  "notes": "Fix: text edited in Premiere's Properties panel came back into the plugin as a raw JSON blob instead of the words you typed.",
+  "notes": "Text is written in the format Premiere's Properties panel speaks, so plugin edits should now show there too. Falls back automatically if the clip rejects it.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }
