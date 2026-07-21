@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.32.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.33.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -411,7 +411,7 @@ $("add").addEventListener("click", addElement);
 // Text Styles folder so they appear in the native Style dropdown
 // Captions: both actions are toolbox-style tiles that open an explaining modal.
 $("cap-install").addEventListener("click", () => openTool("capstyles"));
-$("cap-gradient").addEventListener("click", () => openTool("gradientBottom"));
+$("cap-gradient").addEventListener("click", () => openTool("gradient"));
 
 // section tabs
 document.querySelectorAll(".tab").forEach((t) => {
@@ -448,7 +448,7 @@ const TOOLS = {
   },
   gradient: {
     title: "Readability gradient",
-    explain: "Drops a soft <strong>black gradient</strong> on its own track so white text stays legible over busy footage. It goes in as a <strong>separate clip</strong> — put it on a track <strong>below</strong> your text, and trim it to cover just the part you need.",
+    explain: "Drops a soft <strong>black gradient</strong> on its own track so white text stays legible over busy footage. It goes in as a <strong>separate clip</strong> — put it on a track <strong>below</strong> your text or captions, and trim it to cover just the part you need.<br><br>Same button on the <strong>Text</strong>, <strong>Captions</strong> and <strong>Toolbox</strong> tabs — for captions in the <strong>OCHA Clean</strong> style, keep the default <strong>Bottom</strong>.",
     settings: "all",                                  // position + fade
     needsFmt: true,
     ready: "Ready — the gradient goes in at the playhead, on its own track.",
@@ -457,30 +457,14 @@ const TOOLS = {
     working: "Adding the gradient…",
     action: () => addGradient(gradPos(), gradOpacity()),
   },
-  gradientBottom: {
-    title: "Caption gradient",
-    explain: "Adds the <strong>bottom</strong> gradient that the <strong>OCHA Clean</strong> (event) caption style is built to sit on — Clean has no box, so it needs the scrim for contrast. Drop it on a track <strong>below</strong> your caption track and trim it to match.",
-    settings: "fade",                                 // bottom is fixed here
-    needsFmt: true,
-    ready: "Ready — the gradient goes in at the playhead, on its own track.",
-    done: (r) => `Gradient added on <strong>${trackOf(r)}</strong>. Move it <strong>below</strong> your caption track and trim it to length.`,
-    cta: () => "Add gradient",
-    working: "Adding the gradient…",
-    action: () => addGradient("bottom", gradOpacity()),
-  },
   capstyles: {
-    title: "OCHA captions — how it works",
+    title: "Install the OCHA caption styles",
     explain:
-      "Premiere makes the captions; these two styles make them on-brand.<br><br>" +
-      "<strong>1.</strong> Install once with the button below — it copies <strong>OCHA Boxed</strong> and " +
-      "<strong>OCHA Clean</strong> into Premiere's own Text Styles.<br>" +
-      "<strong>2.</strong> <strong>Window &gt; Text &gt; Captions</strong> → <strong>Create captions from transcript</strong>.<br>" +
-      "<strong>3.</strong> In that dialog (or later via <strong>Track Style</strong>), pick <strong>OCHA Boxed</strong> " +
-      "for social feeds, or <strong>OCHA Clean</strong> for events.<br>" +
-      "<strong>4.</strong> Clean has <em>no box</em>, so it needs contrast: add the <strong>Caption gradient</strong> " +
-      "and place that clip on a track <strong>below</strong> your captions.<br><br>" +
-      "You only install once — the styles stay in Premiere for every future project.",
-    ready: "Installs into Premiere itself — no project or sequence needed.",
+      "Copies <strong>OCHA Boxed</strong> and <strong>OCHA Clean</strong> into Premiere's own "
+      + "Text Styles, so they appear in the <strong>Track Style</strong> list when you make "
+      + "captions.<br><br>Once per computer — they stay there for every future project, and "
+      + "running it again just refreshes them with any brand updates.<br><br>"
+      + "The steps for actually generating captions are on the Captions tab behind this dialog.",
     cta: () => "Install the styles",
     working: "Installing the OCHA caption styles…",
     done: (r) => `Installed <strong>${(r.match(/installed=([^|]*)/) || [])[1] || "the styles"}</strong>. ` +

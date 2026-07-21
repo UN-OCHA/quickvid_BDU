@@ -1,6 +1,6 @@
 {
-  "version": "0.32.0",
+  "version": "0.33.0",
   "date": "2026-07-21",
-  "notes": "Text is written in the format Premiere's Properties panel speaks, so plugin edits should now show there too. Falls back automatically if the clip rejects it.",
+  "notes": "How to generate captions is now on the Captions tab itself, and the readability gradient is one identical button on Text, Captions and Toolbox.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }

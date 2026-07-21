@@ -350,3 +350,13 @@ body {
   background: var(--bg-layer-1); color: var(--accent);
   border: 1px solid var(--accent);
 }
+
+/* Captioning steps, on the Captions tab itself — the walkthrough used to be buried
+   in the install dialog, where you only saw it if you opened the thing you'd already
+   done once. */
+.cap-steps {
+  margin: 0 0 var(--sp-200); padding-left: 1.2rem;
+  color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.5;
+}
+.cap-steps li { margin-bottom: var(--sp-100); }
+.cap-steps li::marker { color: var(--accent); font-weight: var(--fw-medium); }
