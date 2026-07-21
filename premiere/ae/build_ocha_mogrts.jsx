@@ -930,17 +930,37 @@ function buildText(fmt) {
   // and fade, bottom-to-top). Works for any number of typed lines, which a
   // whole-block keyframe pair could never do.
   var rise = Math.round(H * T.rise);
-  var anim = txt.property("ADBE Text Properties")
-                .property("ADBE Text Animators").addProperty("ADBE Text Animator");
-  anim.name = "Line reveal";
-  var aprops = anim.property("ADBE Text Animator Properties");
-  aprops.addProperty("ADBE Text Position 3D").setValue([0, rise, 0]);
-  aprops.addProperty("ADBE Text Opacity").setValue(0);
-  var sel = anim.property("ADBE Text Selectors").addProperty("ADBE Text Selector");
-  sel.property("ADBE Text Range Type2").setValue(4);        // Based On: LINES
-  var selStart = sel.property("ADBE Text Percent Start");
-  key2(selStart, 0, 0, T.enter, 100);                       // in:  lines appear top -> bottom
-  key2(selStart, DUR - T.exit, 100, DUR, 0);                // out: the same move, reversed
+  var perLine = false;
+  try {
+    var anim = txt.property("ADBE Text Properties")
+                  .property("ADBE Text Animators").addProperty("ADBE Text Animator");
+    anim.name = "Line reveal";
+    var aprops = anim.property("ADBE Text Animator Properties");
+    aprops.addProperty("ADBE Text Position 3D").setValue([0, rise, 0]);
+    aprops.addProperty("ADBE Text Opacity").setValue(0);
+    var sel = anim.property("ADBE Text Selectors").addProperty("ADBE Text Selector");
+    // "Based On" is NOT on the selector - it lives in the selector's ADVANCED group.
+    // Reading it straight off `sel` returns null, which is what killed the Text build
+    // on every format (20 MOGRTs instead of 24).
+    var adv = sel.property("ADBE Text Range Advanced");
+    var basedOn = adv ? adv.property("ADBE Text Range Type2") : null;
+    if (basedOn) basedOn.setValue(4);                       // Based On: LINES
+    var selStart = sel.property("ADBE Text Percent Start");
+    if (!selStart) throw new Error("no 'Start' on the range selector");
+    key2(selStart, 0, 0, T.enter, 100);                     // in:  lines appear top -> bottom
+    key2(selStart, DUR - T.exit, 100, DUR, 0);              // out: the same move, reversed
+    perLine = true;
+  } catch (eAnim) {
+    // A property-name mismatch must degrade, not destroy the template: fall back to
+    // the whole-block reveal so there is always a usable Text MOGRT.
+    log("Text " + fmt.key + ": per-line animator unavailable (" + eAnim.toString() +
+        ") - falling back to a whole-block reveal");
+  }
+  if (!perLine) {
+    key2(txt.transform.position, 0, [px, py + rise], T.enter, [px, py]);
+    key2(txt.transform.opacity, 0, 0, T.enter, 100);
+    key2(txt.transform.opacity, DUR - T.exit, 100, DUR, 0);
+  }
 
   var ctl = ctlNull(comp);
   addSlider(ctl, "Size", 100);
