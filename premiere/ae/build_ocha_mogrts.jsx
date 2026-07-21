@@ -922,11 +922,25 @@ function buildText(fmt) {
   } catch (eLead) {}
   txt.transform.position.setValue([px, py]);
 
-  // reveal: rise + fade in; fade out on the tail so it can sit mid-clip
+  // Reveal LINE BY LINE (not the whole block): a text animator that offsets the line
+  // down and hides it, driven by a Range Selector "based on LINES". The selector's
+  // Start sweeps 0 -> 100 during the entrance, so lines settle top-to-bottom; on the
+  // way out it sweeps 100 -> 0, which re-selects them from the LAST line backwards -
+  // i.e. the exit is literally the entrance played in reverse (lines slide back down
+  // and fade, bottom-to-top). Works for any number of typed lines, which a
+  // whole-block keyframe pair could never do.
   var rise = Math.round(H * T.rise);
-  key2(txt.transform.position, 0, [px, py + rise], T.enter, [px, py]);
-  key2(txt.transform.opacity, 0, 0, T.enter, 100);
-  key2(txt.transform.opacity, DUR - T.exit, 100, DUR, 0);
+  var anim = txt.property("ADBE Text Properties")
+                .property("ADBE Text Animators").addProperty("ADBE Text Animator");
+  anim.name = "Line reveal";
+  var aprops = anim.property("ADBE Text Animator Properties");
+  aprops.addProperty("ADBE Text Position 3D").setValue([0, rise, 0]);
+  aprops.addProperty("ADBE Text Opacity").setValue(0);
+  var sel = anim.property("ADBE Text Selectors").addProperty("ADBE Text Selector");
+  sel.property("ADBE Text Range Type2").setValue(4);        // Based On: LINES
+  var selStart = sel.property("ADBE Text Percent Start");
+  key2(selStart, 0, 0, T.enter, 100);                       // in:  lines appear top -> bottom
+  key2(selStart, DUR - T.exit, 100, DUR, 0);                // out: the same move, reversed
 
   var ctl = ctlNull(comp);
   addSlider(ctl, "Size", 100);
@@ -952,22 +966,30 @@ function buildGradient(fmt) {
 
   var sol = comp.layers.addSolid([0, 0, 0], "Scrim", W, H, 1, DUR);
   var wipe = sol.property("ADBE Effect Parade").addProperty("ADBE Linear Wipe");
-  // completion clears everything but the band; angle 0 clears from the TOP, so the
-  // scrim lands at the BOTTOM. "Top" flips the angle to 180 to move it up.
+  // Linear Wipe CLEARS the side the angle points away from. Measured in Premiere:
+  // angle 0 left the scrim at the TOP, not the bottom - the opposite of what the
+  // first cut assumed - so the mapping is inverted here. Angle 180 = scrim at the
+  // BOTTOM (the default), angle 0 = scrim at the TOP.
   wipe.property("Transition Completion").setValue(Math.round((1 - G.height_frac) * 100));
   wipe.property("Feather").setValue(Math.round(H * G.height_frac * G.feather_frac));
   wipe.property("Wipe Angle").expression =
-    "thisComp.layer('Controls').effect('Top')('Checkbox') > 0 ? 180 : 0;";
+    "thisComp.layer('Controls').effect('Top')('Checkbox') > 0 ? 0 : 180;";
+  // "Full screen" bypasses the wipe entirely: an even scrim over the whole frame,
+  // for text that sits anywhere. Completion 0 = nothing cleared.
+  wipe.property("Transition Completion").expression =
+    "thisComp.layer('Controls').effect('Full screen')('Checkbox') > 0 ? 0 : value;";
   sol.transform.opacity.expression =
     "thisComp.layer('Controls').effect('Opacity')('Slider');";
 
   var ctl = ctlNull(comp);
   addCheckbox(ctl, "Top", false);
+  addCheckbox(ctl, "Full screen", false);
   addSlider(ctl, "Opacity", G.opacity);
   var mv = new MarkerValue("gradient"); mv.duration = DUR; mv.protectedRegion = true;
   comp.markerProperty.setValueAtTime(0, mv);     // fixed piece - protect it all
   comp.motionGraphicsTemplateName = comp.name;
-  addEGP(ctl.effect("Opacity").property(1), comp, "Opacity");   // display: Top, Opacity
+  addEGP(ctl.effect("Opacity").property(1), comp, "Opacity");   // display: Top, Full screen, Opacity
+  addEGP(ctl.effect("Full screen").property(1), comp, "Full screen");
   addEGP(ctl.effect("Top").property(1), comp, "Top");
   return comp;
 }
