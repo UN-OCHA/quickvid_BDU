@@ -1,6 +1,6 @@
 {
-  "version": "0.31.0",
+  "version": "0.31.1",
   "date": "2026-07-21",
-  "notes": "Stops blinking your selection: Premiere's Properties panel can't be made to re-read script-set values, so the panel says so instead. Tighter copy on the Text pane.",
+  "notes": "The plugin now mirrors the selected clip: text typed into Premiere's Properties panel appears in the plugin within a second, so the plugin always shows what is really on the clip.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }

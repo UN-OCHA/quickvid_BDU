@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.31.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.31.1";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -324,17 +324,7 @@ function setBound(clipName, el) {
   if (clipName && el && el !== curEl) selectEl(el, true);   // show the matching pane
 }
 
-async function syncText() {
-  if (!hostReady) return;
-  if (document.activeElement && document.activeElement.closest("section.pane")) return;  // don't fight the typist
-  const res = await jsx("ochaReadText()") || "none";
-  if (res === "none" || res.indexOf("|") < 0) {
-    if (boundClip !== null) setBound(null, null);
-    return;
-  }
-  const [name, el, blob] = res.split("|");
-  if (name === boundClip) return;                        // same clip — leave the fields alone
-  setBound(name, el);
+function fillFields(blob) {
   (blob || "").split(RS).forEach((pair) => {
     if (!pair) return;
     const [ctl, val] = pair.split(US);
@@ -343,14 +333,43 @@ async function syncText() {
   });
 }
 
+async function syncText() {
+  if (!hostReady) return;
+  if (document.activeElement && document.activeElement.closest("section.pane")) return;  // don't fight the typist
+  const res = await jsx("ochaReadText()") || "none";
+  if (res === "none" || res.indexOf("|") < 0) {
+    if (boundClip !== null) setBound(null, null);
+    return;
+  }
+  // name|el|blob — slice, don't split("|"): a "|" typed INSIDE a value would
+  // truncate the blob at the next pipe.
+  const i1 = res.indexOf("|"), i2 = res.indexOf("|", i1 + 1);
+  const name = res.slice(0, i1), el = res.slice(i1 + 1, i2), blob = res.slice(i2 + 1);
+  if (name === boundClip) {
+    // Same clip: MIRROR the clip while idle. This used to return without reading,
+    // which made the panel one-way — an edit typed into Premiere's Properties panel
+    // changed the clip but never appeared here, so the two showed different text
+    // forever. The typist guard above keeps this from fighting live typing, and a
+    // pending write means the fields are AHEAD of the clip, not behind it.
+    if (!textWriteBusy) fillFields(blob);
+    return;
+  }
+  setBound(name, el);
+  fillFields(blob);
+}
+
 // Typing while bound writes straight to that clip, debounced so every keystroke
 // isn't a round-trip into Premiere.
+let textWriteBusy = false;              // an edit is debouncing/in flight — fields lead the clip
 function textEdited() {
   if (!boundClip) return;
   clearTimeout(textWriteTimer);
-  textWriteTimer = setTimeout(async () => {
-    const res = await jsx(`ochaWriteText(${lit(collectValues())})`) || "";
-    if (res.indexOf("OK|") !== 0) show(res.replace(/^ERR\|/, "") || "Couldn't update the clip.", "err");
+  textWriteBusy = true;                 // without this, a poll landing inside the debounce
+  textWriteTimer = setTimeout(async () => {   // window would revert the field and the stale
+    try {                                     // value would then get WRITTEN — a lost edit.
+      const res = await jsx(`ochaWriteText(${lit(collectValues())})`) || "";
+      if (res.indexOf("OK|") !== 0) show(res.replace(/^ERR\|/, "") || "Couldn't update the clip.", "err");
+    } finally { textWriteBusy = false; }
   }, 400);
 }
 // Bind to EVERY control in the element panes, not just the text inputs — the first
