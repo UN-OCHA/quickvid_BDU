@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtensionManifest Version="7.0" ExtensionBundleId="org.unocha.branding"
-                   ExtensionBundleVersion="0.34.1" ExtensionBundleName="OCHA QuickVid"
+                   ExtensionBundleVersion="0.35.0" ExtensionBundleName="OCHA QuickVid"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ExtensionList>
-    <Extension Id="org.unocha.branding.panel" Version="0.34.1"/>
+    <Extension Id="org.unocha.branding.panel" Version="0.35.0"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
@@ -24,11 +24,13 @@
             <Parameter>--allow-file-access</Parameter>
             <Parameter>--allow-file-access-from-files</Parameter>
             <Parameter>--disable-application-cache</Parameter>
-            <!-- Node inside the panel. Required by the auto-updater: it needs
-                 https to fetch the package and child_process to spawn the detached
-                 helper that installs it after Premiere quits. Same flag the DataViz
-                 plugin uses. Removing it silently reduces the updater to notify-only. -->
-            <Parameter>--enable-nodejs</Parameter>
+            <!-- DO NOT re-add the enable-nodejs CEF flag without testing it on a
+                 spare machine first. It was added in 0.34.0 for the one-click updater
+                 and Premiere began crashing; removing it is what stopped that. The
+                 flag is fine in the DataViz plugin, but that runs in Illustrator, and
+                 Premiere's CEP host is not the same. The updater already degrades to
+                 notify-only when Node is absent, so the panel is fully functional
+                 without it. -->
           </CEFCommandLine>
         </Resources>
         <Lifecycle><AutoVisible>true</AutoVisible></Lifecycle>
