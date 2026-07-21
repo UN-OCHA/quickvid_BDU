@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.27.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.28.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 
@@ -120,8 +120,12 @@ function collectValues() {
   } else if (curEl === "ending") {
     push("Over black", $("end-black").checked);
   } else if (curEl === "text") {
-    const body = $("text-body").value.trim();
-    if (body) push("Text", body);
+    // one control per line — matches the template's "Line 1/2/3" EGP fields.
+    // Empty lines are skipped: the template's expressions close the gap.
+    ["text-l1", "text-l2", "text-l3"].forEach((id, i) => {
+      const v = $(id).value.trim();
+      if (v) push("Line " + (i + 1), v);
+    });
     // the readability gradient is its OWN template with its own button + modal —
     // deliberately NOT part of this CTA, which adds the text only
   }

@@ -1167,6 +1167,33 @@ the block scrolls into view.
 - Both hints used to end "Optional: skip it and files go to a temporary spot".
   Removed — it contradicted the requirement.
 
+## 2026-07-21 — Text on screen: three lines, no Range Selector
+The text template is now **three independent text layers** ("Line 1/2/3"), each with
+its own EGP field and its own keyframes, replacing the single multi-line layer driven
+by a Range Selector "based on Lines".
+
+**Why the rewrite, not a tweak.** The selector approach worked but made the whole
+template hostage to one obscure property path — `ADBE Text Range Type2`, which lives
+in the selector's *Advanced* group, not on the selector. When that lookup failed the
+builder logged a line and quietly dropped to a whole-block reveal whose **exit was a
+plain fade** with no downward move. That is exactly the symptom reported ("out
+animation shouldn't be fade only"), and a silent fallback is the worst way to ship it.
+Three layers need no selector at all:
+- the stagger is explicit (`DATA.text.stagger`, 0.09s per line),
+- the exit is guaranteed to be the entrance reversed — same rise, same fade, and the
+  LAST line leaves first,
+- and it gives the panel one field per line, which is what an editor actually wants.
+
+**Empty lines close the gap.** Line 2 and 3 carry an expression that counts blank
+lines above and shifts up one line height for each, so "line 1 + line 3" renders with
+no hole. It reads `value`, so the keyframed animation is untouched.
+
+Panel: the Text pane is three inputs instead of a textarea; `collectValues()` emits
+`Line 1/2/3` and skips blanks. `host.jsx` needed no change — it matches EGP controls
+by name.
+
+**Needs an AE run** to regenerate the four Text MOGRTs before it does anything.
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the

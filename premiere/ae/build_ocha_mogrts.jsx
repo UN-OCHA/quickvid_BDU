@@ -120,6 +120,7 @@ var DATA = {
   "enter": 0.5,
   "exit": 0.4,
   "rise": 0.045,
+  "stagger": 0.09,        // seconds each line waits behind the one above it
   "fonts": {
    "family": "Raleway",
    "weight": 700
@@ -899,76 +900,71 @@ function buildEnding(fmt) {
 // clip's native Motion, so no position control is exposed here.
 function buildText(fmt) {
   var W = fmt.w, H = fmt.h, safe = DATA.safe[fmt.orient], T = DATA.text;
-  var DUR = 5;
+  var DUR = 5, LINES = 3;
   var comp = S.proj.items.addComp("OCHA Text - " + fmt.label, W, H, 1, DUR, 30);
   comp.parentFolder = S.root;
 
   var size = Math.round(H * T.ratio[fmt.orient]);
   var px = Math.round(safe.left * W);
   var py = Math.round(H * T.y_frac);
-  var DEF = "YOUR TEXT HERE";
-
-  var txt = comp.layers.addText(DEF);            // never create empty - AE needs a value
-  txt.name = "Text";
-  setText(txt, DEF, T.fonts.family + "-Bold", size, hex2rgb(T.color),
-          T.letter_spacing * size);
-  // fixed leading so multi-line emphasis text sets tight, like the reference
-  try {
-    var st = txt.property("ADBE Text Properties").property("ADBE Text Document");
-    var td = st.value;
-    td.autoLeading = false;
-    td.leading = Math.round(size * T.line_gap);
-    st.setValue(td);
-  } catch (eLead) {}
-  txt.transform.position.setValue([px, py]);
-
-  // Reveal LINE BY LINE (not the whole block): a text animator that offsets the line
-  // down and hides it, driven by a Range Selector "based on LINES". The selector's
-  // Start sweeps 0 -> 100 during the entrance, so lines settle top-to-bottom; on the
-  // way out it sweeps 100 -> 0, which re-selects them from the LAST line backwards -
-  // i.e. the exit is literally the entrance played in reverse (lines slide back down
-  // and fade, bottom-to-top). Works for any number of typed lines, which a
-  // whole-block keyframe pair could never do.
+  var lineH = Math.round(size * T.line_gap);
   var rise = Math.round(H * T.rise);
-  var perLine = false;
-  try {
-    var anim = txt.property("ADBE Text Properties")
-                  .property("ADBE Text Animators").addProperty("ADBE Text Animator");
-    anim.name = "Line reveal";
-    var aprops = anim.property("ADBE Text Animator Properties");
-    aprops.addProperty("ADBE Text Position 3D").setValue([0, rise, 0]);
-    aprops.addProperty("ADBE Text Opacity").setValue(0);
-    var sel = anim.property("ADBE Text Selectors").addProperty("ADBE Text Selector");
-    // "Based On" is NOT on the selector - it lives in the selector's ADVANCED group.
-    // Reading it straight off `sel` returns null, which is what killed the Text build
-    // on every format (20 MOGRTs instead of 24).
-    var adv = sel.property("ADBE Text Range Advanced");
-    var basedOn = adv ? adv.property("ADBE Text Range Type2") : null;
-    if (basedOn) basedOn.setValue(4);                       // Based On: LINES
-    var selStart = sel.property("ADBE Text Percent Start");
-    if (!selStart) throw new Error("no 'Start' on the range selector");
-    key2(selStart, 0, 0, T.enter, 100);                     // in:  lines appear top -> bottom
-    key2(selStart, DUR - T.exit, 100, DUR, 0);              // out: the same move, reversed
-    perLine = true;
-  } catch (eAnim) {
-    // A property-name mismatch must degrade, not destroy the template: fall back to
-    // the whole-block reveal so there is always a usable Text MOGRT.
-    log("Text " + fmt.key + ": per-line animator unavailable (" + eAnim.toString() +
-        ") - falling back to a whole-block reveal");
-  }
-  if (!perLine) {
-    key2(txt.transform.position, 0, [px, py + rise], T.enter, [px, py]);
-    key2(txt.transform.opacity, 0, 0, T.enter, 100);
-    key2(txt.transform.opacity, DUR - T.exit, 100, DUR, 0);
+  var stagger = T.stagger;
+  var DEFAULTS = ["YOUR TEXT HERE", "", ""];
+
+  // THREE INDEPENDENT LINES, not one multi-line layer.
+  // The previous build animated a single layer with a Range Selector "based on
+  // Lines". That worked, but it made the whole template hostage to one obscure
+  // property path (ADBE Text Range Type2, which lives in the selector's Advanced
+  // group) — when that lookup failed the builder silently dropped to a whole-block
+  // reveal whose exit was a plain fade. Three layers need no selector at all: each
+  // line owns its keyframes, so the stagger is explicit and the exit is guaranteed
+  // to be the entrance reversed. It also gives the panel one field per line.
+  var layers = [];
+  for (var i = 0; i < LINES; i++) {
+    var name = "Line " + (i + 1);
+    // AE will not create an empty text layer, so seed a space and let the editor
+    // clear it; a lone space renders as nothing.
+    var seed = DEFAULTS[i] || " ";
+    var L = comp.layers.addText(seed);
+    L.name = name;
+    setText(L, seed, T.fonts.family + "-Bold", size, hex2rgb(T.color), T.letter_spacing * size);
+    L.transform.position.setValue([px, py + i * lineH]);
+
+    // In: rise + fade. Out: the exact reverse — fall back down by the same amount
+    // and fade, which is what "reversed" has to mean and what the old fallback
+    // never did. Each line is offset by `stagger`, so they cascade.
+    var t0 = i * stagger;
+    key2(L.transform.position, t0, [px, py + i * lineH + rise], t0 + T.enter, [px, py + i * lineH]);
+    key2(L.transform.opacity, t0, 0, t0 + T.enter, 100);
+    var tOut = DUR - T.exit - (LINES - 1 - i) * stagger;   // last line leaves first
+    key2(L.transform.position, tOut, [px, py + i * lineH], tOut + T.exit, [px, py + i * lineH + rise]);
+    key2(L.transform.opacity, tOut, 100, tOut + T.exit, 0);
+
+    // Close the gap left by an empty line above, so "line 1 + line 3" doesn't
+    // render with a hole in it. Reads the layers above and shifts up one line
+    // height for each blank; `value` keeps the keyframed animation intact.
+    if (i > 0) {
+      var checks = [];
+      for (var j = 1; j <= i; j++) {
+        checks.push('if (thisComp.layer("Line ' + j + '").text.sourceText.toString().replace(/\\s/g,"").length == 0) blank++;');
+      }
+      L.transform.position.expression =
+        'var blank = 0; ' + checks.join(" ") + ' value - [0, blank * ' + lineH + '];';
+    }
+    layers.push(L);
   }
 
   var ctl = ctlNull(comp);
   addSlider(ctl, "Size", 100);
-  sizeGroup(comp, [txt], "" + px, "" + py);      // scales in place about its own anchor
-  protectRegions(comp, T.enter, T.exit);
+  sizeGroup(comp, layers, "" + px, "" + py);     // scales the block in place
+  protectRegions(comp, T.enter + (LINES - 1) * stagger, T.exit + (LINES - 1) * stagger);
   comp.motionGraphicsTemplateName = comp.name;
-  addEGP(ctl.effect("Size").property(1), comp, "Size");   // display: Text, Size
-  addEGP(txt.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Text");
+  addEGP(ctl.effect("Size").property(1), comp, "Size");
+  for (var k = 0; k < LINES; k++) {
+    addEGP(layers[k].property("ADBE Text Properties").property("ADBE Text Document"),
+           comp, "Line " + (k + 1));
+  }
   return comp;
 }
 

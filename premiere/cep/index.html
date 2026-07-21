@@ -2,9 +2,9 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <link rel="stylesheet" href="styles.css?v=0.27" />
+  <link rel="stylesheet" href="styles.css?v=0.28" />
   <!-- anonymous usage pings; a NO-OP until an endpoint is configured -->
-  <script src="js/analytics.js?v=0.27"></script>
+  <script src="js/analytics.js?v=0.28"></script>
 </head>
 <body>
   <div class="app">
@@ -126,9 +126,13 @@
         </section>
 
         <section class="pane" data-pane="text">
-          <label class="fld"><span class="fld__label">Text on screen</span>
-            <textarea id="text-body" class="fld__area" rows="3" placeholder="Half a million&#10;people are displaced&#10;by insecurity in Mali"></textarea></label>
-          <p class="note">White Raleway Bold, revealed line by line. Placed centre-left by default — nudge with <strong>Size &amp; position</strong> below. <strong>Add to timeline</strong> adds the text only.</p>
+          <label class="fld"><span class="fld__label">Line 1</span>
+            <input id="text-l1" type="text" placeholder="Half a million" /></label>
+          <label class="fld"><span class="fld__label">Line 2 <em>optional</em></span>
+            <input id="text-l2" type="text" placeholder="people are displaced" /></label>
+          <label class="fld"><span class="fld__label">Line 3 <em>optional</em></span>
+            <input id="text-l3" type="text" placeholder="by insecurity in Mali" /></label>
+          <p class="note">White Raleway Bold. Each line animates in just behind the one above it, and leaves the same way in reverse. Leave a line empty and the ones below close the gap. Placed centre-left by default — nudge with <strong>Size &amp; position</strong> below. <strong>Add to timeline</strong> adds the text only.</p>
           <div class="tool-cards">
             <button id="text-grad-btn" class="tool-tile" type="button" title="Add a black readability gradient on its own track — separate from the text.">
               <svg class="tool-tile-icon" viewBox="0 0 576 512" fill="currentColor" aria-hidden="true"><path d="M264.5 5.2c14.9-6.9 32.1-6.9 47 0l218.6 101c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 149.8C37.4 145.8 32 137.3 32 128s5.4-17.9 13.9-21.8L264.5 5.2zM476.9 209.6l53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 277.8C37.4 273.8 32 265.3 32 256s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0l152-70.2zm-152 198.2l152-70.2 53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 405.8C37.4 401.8 32 393.3 32 384s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0z"/></svg>
