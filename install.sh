@@ -24,28 +24,99 @@
 #
 # Re-running the same command later = UPDATE (your setup is kept, so it's quick)
 # and it also puts the Start app back if it was deleted.
+#
+#   …/install.sh | bash -s -- --fresh
+# does the same but ALSO throws away the Python environment and rebuilds it from
+# scratch (~10 min). Use it when an install is behaving strangely; the big speech
+# model and the fonts live outside the app folder, so they are never re-downloaded.
 # Questions: ochavisual@un.org
 # ============================================================================
 set -e
 DEST="$HOME/Library/Application Support/OCHA QuickVid"
 APP="$DEST/app"
+PORT="${QV_PORT:-17870}"
 ZIP_URL="https://github.com/UN-OCHA/quickvid_BDU/archive/refs/heads/main.zip"
 
+FRESH="${QV_FRESH:-0}"
+for a in "$@"; do [ "$a" = "--fresh" ] && FRESH=1; done
+
+# Stop a running engine BEFORE touching any file. This is the single most
+# important step in the script. The engine is detached and stays up until logout,
+# so it survives an "update": we would replace the code on disk under a live
+# process that keeps serving the OLD version from memory, and the user sees the
+# install succeed while the app stubbornly reports the previous version. (That is
+# exactly how colleagues ended up stranded on v0.6.2.) Failure-tolerant
+# throughout — a missing pid must never abort an install.
+qv_stop_engine() {
+  local pids i
+  pids="$(lsof -ti tcp:"$PORT" 2>/dev/null || true)"
+  if [ -n "$pids" ]; then
+    echo "Stopping the running OCHA QuickVid engine…"
+    kill $pids 2>/dev/null || true
+  fi
+  i=0
+  while [ "$i" -lt 20 ]; do                      # ~6s for the port to come free
+    curl -s -m 1 "http://127.0.0.1:$PORT/api/health" 2>/dev/null | grep -q quickvid || return 0
+    sleep 0.3
+    i=$((i + 1))
+  done
+  # Still up: escalate, then give it a moment. Better a hard kill than a silent
+  # half-updated install.
+  pids="$(lsof -ti tcp:"$PORT" 2>/dev/null || true)"
+  if [ -n "$pids" ]; then
+    kill -9 $pids 2>/dev/null || true
+    sleep 1
+  fi
+  return 0
+}
+
 echo "OCHA QuickVid — installing to a system folder (you never need to open it)."
+qv_stop_engine
 mkdir -p "$DEST"
 
 echo "Downloading OCHA QuickVid (~1 MB)…"
 TMPD="$(mktemp -d)"
-curl -fL -o "$TMPD/quickvid.zip" "$ZIP_URL"
-ditto -x -k "$TMPD/quickvid.zip" "$TMPD"
+if ! curl -fL -o "$TMPD/quickvid.zip" "$ZIP_URL"; then
+  echo "Download failed — check your internet connection, then run this again."
+  rm -rf "$TMPD"; exit 1
+fi
+# Both of these are allowed to fail: a truncated or corrupt zip is caught by the
+# VERSION check below, which gives the user a sentence instead of a `ditto` error.
+ditto -x -k "$TMPD/quickvid.zip" "$TMPD" >/dev/null 2>&1 || true
+NEW="$TMPD/quickvid_BDU-main"
+# Never wipe anything on the strength of a download we haven't checked.
+if [ ! -f "$NEW/VERSION" ]; then
+  echo "The download looks incomplete — nothing on your Mac was changed."
+  echo "Try again in a minute. If it keeps happening, email ochavisual@un.org."
+  rm -rf "$TMPD"; exit 1
+fi
 
-# Keep the existing Python setup across updates — makes re-installs fast.
+# Keep the existing Python setup across updates — makes re-installs fast. With
+# --fresh we deliberately drop it so the next launch rebuilds the environment.
 if [ -d "$APP/.venv" ]; then
-  echo "Updating (keeping your existing setup)…"
-  mv "$APP/.venv" "$TMPD/quickvid_BDU-main/.venv"
+  if [ "$FRESH" = 1 ]; then
+    echo "Fresh install — rebuilding the Python environment from scratch (~10 min)."
+  elif mv "$APP/.venv" "$NEW/.venv" 2>/dev/null; then
+    echo "Updating (keeping your existing setup)…"
+  else
+    # Half-moved is worse than not moved: a broken environment would be carried
+    # into the new install. Bin the remains — the next launch rebuilds it.
+    rm -rf "$NEW/.venv"
+    echo "(couldn't carry your setup over — it will be rebuilt)"
+  fi
+fi
+
+# Guard the rm -rf. It only ever deletes the app folder we created ourselves. An
+# empty or mangled variable is the realistic failure here — "$DEST/app" collapsing
+# to "/app", or DEST ending up as $HOME — and any of those would take out a user's
+# own files, so refuse instead of deleting.
+if [ -z "$APP" ] || [ "$APP" != "$DEST/app" ] \
+   || [ -z "$DEST" ] || [ "$DEST" = "/" ] || [ "$DEST" = "$HOME" ]; then
+  echo "Refusing to delete an unexpected path: $APP"
+  rm -rf "$TMPD"; exit 1
 fi
 rm -rf "$APP"
-mv "$TMPD/quickvid_BDU-main" "$APP"
+mv "$NEW" "$APP"
 rm -rf "$TMPD"
 echo "$APP" > "$DEST/home"
 

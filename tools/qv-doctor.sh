@@ -78,4 +78,23 @@ else
   echo "     Nothing can auto-update until that host is reachable."
 fi
 echo
+
+# The classic stranded install: the engine on disk is new, the RUNNING engine is
+# old, because it was never restarted. Installers stop it now, but an install
+# from before that fix leaves this exact mismatch — so name it explicitly.
+echo "--- 5. is the RUNNING engine the one on disk? ---"
+DISK_V="$(cat "$HOME/Library/Application Support/OCHA QuickVid/app/VERSION" 2>/dev/null || echo '?')"
+LIVE_V="$(printf '%s' "$H" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')"
+echo "on disk : $DISK_V"
+echo "running : ${LIVE_V:-not running}"
+if [ -n "$LIVE_V" ] && [ "$DISK_V" != "?" ] && [ "$LIVE_V" != "$DISK_V" ]; then
+  echo "  -> MISMATCH. The engine is still running the old code from memory."
+  echo "     Fix: quit it and start again, or re-run the install command —"
+  echo "     it now stops the engine before replacing any files."
+fi
+echo
+echo "If anything above looks wrong, the reset that fixes almost everything is:"
+echo "  curl -fsSL $RAW/install.sh | bash -s -- --fresh"
+echo "(keeps your projects and the speech model; rebuilds the Python setup)"
+echo
 echo "===== end - please paste everything above ====="

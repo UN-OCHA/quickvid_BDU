@@ -1103,6 +1103,46 @@ unnoticed.
 
 Verified across {0,1,2,3 strips} x {none, over_black, over_footage} on both renderers.
 
+## 2026-07-21 — Installers stop the engine before replacing it (the stranded-install fix)
+Colleagues kept ending up on old versions after "updating". Root cause, in both
+installers: they replaced the code on disk **while the engine was still running**.
+The engine is detached and stays up until logout, so it kept serving the previous
+version from memory — the install looked like it worked and the app still reported
+the old number. On Windows it was worse: a live `python.exe` holds file locks, so
+`rmdir /s /q` half-failed and left a MIX of old and new (one PC ran 0.5.3 with
+0.6.0 on disk).
+
+Both installers now `stop the engine first` — `install.sh` (Mac) and
+`get/Install OCHA QuickVid.bat` (Windows). Same subroutine shape as the launchers:
+find whatever listens on 17870, kill it, wait for the port. On Mac it escalates to
+`kill -9` after ~6s; on Windows the delete is retried and then **verified**, and if
+the folder is still there the installer stops with "restart Windows and run this
+again" rather than producing the mixed install.
+
+Also landed:
+- **`--fresh`** on both (`| bash -s -- --fresh`, or the .bat with the argument):
+  throws away `.venv` so the Python environment is rebuilt. The speech model
+  (~500 MB, in `~/.cache/huggingface`) and the fonts live OUTSIDE the app folder,
+  so a fresh install never re-downloads them.
+- **Guards before any delete.** Refuse if the target isn't exactly `$DEST/app`, or
+  if `DEST` collapsed to `$HOME` or `/` — an empty variable there would take out a
+  user's files. And nothing is deleted until the download is confirmed to contain
+  a `VERSION` file, so a truncated zip or a 404 leaves the install untouched with a
+  readable message instead of a raw `ditto`/`tar` error.
+- **A half-moved `.venv` is binned rather than carried over** — a broken
+  environment in the new install is worse than a slow rebuild.
+- `get/Install OCHA QuickVid.command` (the unlinked Mac double-click installer) is
+  now a thin wrapper around `install.sh`. It had its own drifting copy of this
+  logic; a fourth copy was how the fix would have been missed next time.
+- `tools/qv-doctor.sh` gained a **running-vs-on-disk version check**, which names
+  this exact failure, plus the `--fresh` reset command at the end.
+
+Verified on Mac end-to-end against a scratch install root: clean install, update
+(code replaced, `.venv` kept, stale files gone), `--fresh` (venv dropped), a live
+engine actually stopped, the path guard refusing a mangled target, and both
+download-failure paths leaving the existing install intact. The Windows script is
+reviewed but NOT executed — it needs one run on a real PC.
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the
