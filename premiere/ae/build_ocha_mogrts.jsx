@@ -597,8 +597,10 @@ function buildLT(fmt) {
     "var lines = (t1.length ? 1 : 0) + (t2.length ? 1 : 0);\n" +
     "var oh = lines ? (2*" + OPY + " + " + OSIZE + " + (lines - 1) * " + OLINE + ") : 0;\n";
   var centreExpr = "var c = thisComp.layer('Controls').effect('Centre align')('Checkbox') > 0;\n";
-  var nwExpr = "var nr = thisComp.layer('LT Name').sourceRectAtTime(time, false);\n" +
-               "var nw = nr.width + 2*" + NPX + ";\n";
+  // name width, gated on the name having content (sourceRectAtTime throws on empty).
+  // `nn` (trimmed name) is reused to hide the white name band when the name is blank.
+  var nwExpr = "var nn = ('' + thisComp.layer('LT Name').text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
+               "var nw = (nn.length ? thisComp.layer('LT Name').sourceRectAtTime(time, false).width : 0) + 2*" + NPX + ";\n";
   var owExpr = "var w1 = t1.length ? thisComp.layer('LT Title 1').sourceRectAtTime(time, false).width : 0;\n" +
                "var w2 = t2.length ? thisComp.layer('LT Title 2').sourceRectAtTime(time, false).width : 0;\n" +
                "var ow = Math.max(w1, w2) + 2*" + OPX + ";\n";
@@ -610,6 +612,8 @@ function buildLT(fmt) {
     "[x, " + BOT + " - oh - " + NH + "];";
   var nameBand = rectLayer(comp, "LT Name band", C.name_bg, nameSize, namePos);
   var nameMatte = rectLayer(comp, "LT Name matte", "#FFFFFF", nameSize, namePos);
+  var nameOnExpr = "('' + thisComp.layer('LT Name').text.sourceText).replace(/^\\s+|\\s+$/g,'').length ? 100 : 0;";
+  nameBand.transform.opacity.expression = nameOnExpr;    // no name -> no white band
 
   var nameText = comp.layers.addText("NAME SURNAME");
   nameText.name = "LT Name";
@@ -619,7 +623,8 @@ function buildLT(fmt) {
     nameText.property("ADBE Text Properties").property("ADBE Text Document").expression =
       "('' + value).toUpperCase();";
   nameText.transform.position.expression = centreExpr + ohExpr +
-    "var r = thisLayer.sourceRectAtTime(time, false);\n" +
+    "var me = ('' + thisLayer.text.sourceText).replace(/^\\s+|\\s+$/g,'');\n" +
+    "var r = me.length ? thisLayer.sourceRectAtTime(time, false) : {left:0, width:0, top:0, height:0};\n" +
     "var nw = r.width + 2*" + NPX + ";\n" +
     "var x = (c ? (thisComp.width - nw)/2 : " + SAFEL + ") + " + NPX + " - r.left;\n" +
     "[x, " + BOT + " - oh - " + (NH / 2) + " - r.top - r.height/2];";   // ink-centre in the name band
@@ -650,9 +655,12 @@ function buildLT(fmt) {
       "var r = me.length ? thisLayer.sourceRectAtTime(time, false) : {left:0, width:0, top:0, height:0};\n" +
       "var bx = c ? (thisComp.width - ow)/2 : " + SAFEL + ";\n" +
       "var x = (c ? bx + (ow - r.width)/2 : bx + " + OPX + ") - r.left;\n" +
-      // ink-centre this line in its equal row of the org band (1 or 2 lines)
+      // ink-centre this line in its row. A line's row is how many NON-EMPTY lines
+      // sit at or above it, so a lone Title 2 (Title 1 empty) uses the single row 1
+      // instead of floating in row 2 of a one-line band.
+      "var myRow = (" + n + " == 1) ? 1 : (t1.length ? 2 : 1);\n" +
       "var rowH = oh / Math.max(1, lines);\n" +
-      "var rc = (" + BOT + " - oh) + (" + n + " - 0.5) * rowH;\n" +
+      "var rc = (" + BOT + " - oh) + (myRow - 0.5) * rowH;\n" +
       "[x, rc - r.top - r.height/2];";
     if (n === 2) t.transform.opacity.expression =
       "('' + text.sourceText).replace(/^\\s+|\\s+$/g, '').length ? 100 : 0;";
@@ -719,22 +727,36 @@ function buildPin(fmt) {
   var comp = S.proj.items.addComp("OCHA Location - " + fmt.label, W, H, 1, DUR, 30);
   comp.parentFolder = S.root;
 
+  var PATHR = DATA.pin_path.w / DATA.pin_path.h;         // pin aspect (w:h)
   var ckExpr = "var ck = thisComp.layer('Controls').effect('Show pin icon')('Checkbox') > 0;\n";
-  var boxXExpr = ckExpr + "var bx = " + SAFEL + " + (ck ? " + SHIFT + " : 0);\n";
-  var boxYExpr = ckExpr + "var by = ck ? " + (SAFET + Math.round((PINH - BOXH) / 2)) +
-                 " : " + SAFET + ";\n";
+  // Visible box height and pin size follow the content: two lines when a date is
+  // present, otherwise just the place band (single line) with a proportionally
+  // smaller pin. bvh=BOXH -> pinH=PINH, so two-line output is byte-identical to
+  // before; the single-line branch drives the same formulas with a smaller height.
+  var geomExpr =
+    "var _pl = ('' + thisComp.layer('Pin place').text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
+    "var _dt = ('' + thisComp.layer('Pin date').text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
+    "var twoLine = _pl.length && _dt.length;\n" +
+    "var bvh = twoLine ? " + BOXH + " : " + SPLIT + ";\n" +
+    "var pinH = bvh * " + G.pin_scale + ";\n" +
+    "var pinW = pinH * " + PATHR + ";\n";
+  var boxXExpr = ckExpr + geomExpr + "var bx = " + SAFEL + " + (ck ? pinW + " + PINGAP + " : 0);\n";
+  var boxYExpr = ckExpr + geomExpr + "var by = ck ? (" + SAFET + " + (pinH - bvh)/2) : " + SAFET + ";\n";
   // each band hugs ITS OWN line's text (place band = place width, date band =
   // date width) — a shared max width left the shorter line with a cyan overhang.
-  function band(name, y0, h, txtLayer) {
+  function band(name, y0, h, txtLayer, gateLayer) {
+    var gate = gateLayer
+      ? "if (!('' + thisComp.layer('" + gateLayer + "').text.sourceText).replace(/^\\s+|\\s+$/g,'').length) bw = 0;\n"
+      : "";
     var size = "var pp = ('' + thisComp.layer('" + txtLayer + "').text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
                "var bw = pp.length ? thisComp.layer('" + txtLayer + "').sourceRectAtTime(time, false).width + 2*" + PADX + " : 0;\n" +
-               "[bw, " + h + "];";
+               gate + "[bw, " + h + "];";
     var pos = boxXExpr + boxYExpr + "[bx, by + " + y0 + "];";
     return { band: rectLayer(comp, name + " band", C.rect_bg, size, pos),
              matte: rectLayer(comp, name + " matte", "#FFFFFF", size, pos) };
   }
   var b1 = band("Pin line 1", 0, SPLIT, "Pin place");
-  var b2 = band("Pin line 2", SPLIT, BOXH - SPLIT, "Pin date");
+  var b2 = band("Pin line 2", SPLIT, BOXH - SPLIT, "Pin date", "Pin place");   // date needs a place
 
   function pinText(name, defTxt, font, size, bc, trackPx) {   // bc = band centre (rel. to by)
     var t = comp.layers.addText(defTxt);
@@ -752,6 +774,8 @@ function buildPin(fmt) {
                       S1, SPLIT / 2, G.letter_spacing);                 // ink-centre in band 1
   var date = pinText("Pin date", "Month 2026", PIN.fonts.family + "-Medium",
                      S2, SPLIT + (BOXH - SPLIT) / 2, 0);                 // ink-centre in band 2
+  date.transform.opacity.expression =
+    "('' + thisComp.layer('Pin place').text.sourceText).replace(/^\\s+|\\s+$/g,'').length ? 100 : 0;";
 
   applyMatte([b1.band, place], b1.matte);
   applyMatte([b2.band, date], b2.matte);
@@ -774,11 +798,17 @@ function buildPin(fmt) {
     "var m = thisComp.layer('Controls').effect('Pin colour')('Menu');\n" +
     "m == 1 ? " + "[" + hex2rgb(C.pin_red).join(",") + ",1] : [" +
     hex2rgb(C.pin_blue).join(",") + ",1];";
-  // static size via the group transform; the LAYER scale carries the animation
-  g.property("ADBE Vector Transform Group").property("ADBE Vector Scale")
-    .setValue([PINH / DATA.pin_path.h * 100, PINH / DATA.pin_path.h * 100]);
-  icon.transform.position.setValue([SAFEL + PINW / 2, SAFET + PINH]);   // tip
-  icon.transform.opacity.expression = ckExpr + "ck ? 100 : 0;";
+  // size via the group transform, now DYNAMIC (smaller for a single line); the
+  // LAYER scale still carries the 0->100 animation, so the two compose unchanged.
+  g.property("ADBE Vector Transform Group").property("ADBE Vector Scale").expression =
+    geomExpr + "var s = pinH / " + DATA.pin_path.h + " * 100;\n[s, s];";
+  icon.transform.position.expression =                                  // tip, follows pin size
+    geomExpr + "[" + SAFEL + " + pinW/2, " + SAFET + " + pinH];";
+  // no place -> no strip at all, so the pin must vanish too (a date alone renders
+  // nothing rather than a floating pin next to an empty band)
+  icon.transform.opacity.expression = ckExpr +
+    "var _pl = ('' + thisComp.layer('Pin place').text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
+    "(ck && _pl.length) ? 100 : 0;";
 
   // --- motion (mirrors engine/pin_locator.py state()) ---
   var s = T.pin_overshoot;
