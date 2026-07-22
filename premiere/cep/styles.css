@@ -198,7 +198,9 @@ body {
 }
 .opt-check input { position: absolute; opacity: 0; width: 0; height: 0; }
 .opt-check .switch {
-  position: relative; flex: 0 0 auto; width: 42px; height: 22px; border-radius: var(--r-full);
+  /* 48px, not 42: "OFF" is absolutely-positioned and grows leftward, so a narrow
+     track let it run under the knob and look clipped. The extra 6px is all clearance. */
+  position: relative; flex: 0 0 auto; width: 48px; height: 22px; border-radius: var(--r-full);
   background: var(--bg-layer-2); border: 1px solid var(--border-field);
   transition: background var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease);
 }
@@ -212,7 +214,7 @@ body {
   font-size: 8px; font-weight: var(--fw-semibold); letter-spacing: 0.4px; color: var(--text-tertiary);
 }
 .opt-check input:checked + .switch { background: var(--accent-bg); border-color: var(--accent); }
-.opt-check input:checked + .switch::after { transform: translateX(20px); background: var(--accent); }
+.opt-check input:checked + .switch::after { transform: translateX(26px); background: var(--accent); }
 .opt-check input:checked + .switch::before { content: "ON"; left: 7px; right: auto; color: var(--accent); }
 .opt-check input:focus-visible + .switch { border-color: var(--accent); }
 .opt-check .opt-check__text { min-width: 0; }

@@ -1,6 +1,6 @@
 {
-  "version": "0.38.4",
+  "version": "0.38.5",
   "date": "2026-07-22",
-  "notes": "Selecting the OCHA logo or gradient no longer hijacks editing mode; clicking a different function now deselects so you can start a fresh element.",
+  "notes": "Toggle switches are a touch wider so the OFF label has clear space.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }
