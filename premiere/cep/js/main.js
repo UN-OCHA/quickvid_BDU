@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.40.3";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.40.4";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -749,6 +749,10 @@ loadWhatsNew();
    silent .zxp auto-extract (DataViz phase 2) needs a signed .zxp + --enable-nodejs. */
 const UPDATE_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/premiere/cep/version.json";
 const UPD_DISMISS_KEY = "qv-update-dismissed";
+// The banner is shared by the new-version prompt and the post-update "Updated ✓" /
+// error / staged notes. Track which version (if any) is being OFFERED, so the single
+// dismiss handler records "don't nag me about this one" only for the new-version case.
+let offeredVersion = null;
 function cmpVer(a, b) {                         // -1 a<b, 0 equal, 1 a>b
   const pa = String(a).split("."), pb = String(b).split(".");
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
@@ -827,10 +831,7 @@ function showUpdateBanner(info) {
     linkOut(url, "how to update");        // no installer: the original notify-only path
   }
 
-  $("update-dismiss").onclick = () => {
-    try { localStorage.setItem(UPD_DISMISS_KEY, info.version); } catch (e) {}
-    bar.hidden = true;
-  };
+  offeredVersion = info.version;   // dismissing THIS one records it — see the init handler
   bar.hidden = false;
 }
 
@@ -856,6 +857,7 @@ function reportUpdateResult() {
   if (!AutoUpdater.available()) return;
   const st = AutoUpdater.checkMarkers(EXT_ROOT);
   const bar = $("update-banner");
+  offeredVersion = null;           // a result note, not a nag — dismissing it just hides
   if (st.kind === "applied") {
     $("update-now").hidden = true;
     bannerMsg("Updated to <strong>v" + esc(st.version || PANEL_VERSION) + "</strong> \u2713");
@@ -876,6 +878,13 @@ loadHost().then(refresh);
 // anonymous usage pings (version / event / approximate city) — see js/analytics.js.
 // Never sends typed text, project names or paths. No-op until configured.
 try { Analytics.init(PANEL_VERSION); } catch (e) { /* analytics must never break the panel */ }
+// ONE dismiss (×) handler for the update banner, whatever state it's in. It used to
+// be wired only inside showUpdateBanner, so the post-update "Updated ✓" / error /
+// staged notes had a dead × and couldn't be closed.
+$("update-dismiss").addEventListener("click", () => {
+  if (offeredVersion) { try { localStorage.setItem(UPD_DISMISS_KEY, offeredVersion); } catch (e) {} }
+  $("update-banner").hidden = true;
+});
 reportUpdateResult();           // did an update land while we were away?
 checkForUpdate();               // once on load; a new release surfaces on next panel open
 setInterval(refresh, 2500);
