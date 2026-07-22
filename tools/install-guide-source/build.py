@@ -2,12 +2,12 @@
 Generate the colleague-facing OCHA QuickVid install guide as a one-file PDF.
 
 Modelled on the DataViz plugin's guide builder
-(ocha_dataviz_tool/distribution/install-guide-source/build.py): a PDF opens
+(ocha_dataviz_tool/tools/install-guide-source/build.py): a PDF opens
 straight from anywhere with the screenshots embedded — no markdown rendering,
 no sibling image folders.
 
 Output:  distribution/OCHA_QuickVid_Install_Guide.pdf
-Usage:   python3 distribution/install-guide-source/build.py
+Usage:   python3 tools/install-guide-source/build.py
 
 To change the text, edit this script and re-run. Only needs re-running when
 install STEPS change — routine version bumps don't touch it.
@@ -46,7 +46,7 @@ OCHA_DARK = HexColor("#1A1A1A")
 OCHA_GREY = HexColor("#555555")
 
 HERE   = os.path.dirname(os.path.abspath(__file__))
-OUTPUT = os.path.normpath(os.path.join(HERE, "..", "OCHA_QuickVid_Install_Guide.pdf"))
+OUTPUT = os.path.normpath(os.path.join(HERE, "..", "..", "distribution", "OCHA_QuickVid_Install_Guide.pdf"))
 IMG_STEP1  = os.path.join(HERE, "images", "install-aescripts-step1.jpg")
 IMG_STEP2  = os.path.join(HERE, "images", "install-aescripts-step2.jpg")
 IMG_NOCOMP = os.path.join(HERE, "images", "no-compatible-dialog.jpg")
