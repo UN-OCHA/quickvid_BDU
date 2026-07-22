@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtensionManifest Version="7.0" ExtensionBundleId="org.unocha.branding"
-                   ExtensionBundleVersion="0.39.4" ExtensionBundleName="OCHA QuickVid"
+                   ExtensionBundleVersion="0.40.0" ExtensionBundleName="OCHA QuickVid"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ExtensionList>
-    <Extension Id="org.unocha.branding.panel" Version="0.39.4"/>
+    <Extension Id="org.unocha.branding.panel" Version="0.40.0"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
@@ -21,16 +21,18 @@
           <MainPath>./index.html</MainPath>
           <ScriptPath>./jsx/host.jsx</ScriptPath>
           <CEFCommandLine>
-            <Parameter>--allow-file-access</Parameter>
+            <!-- Matches the DataViz plugin's CEF flag set EXACTLY. The enable-nodejs
+                 flag powers the one-click auto-updater (js/auto-updater.js needs
+                 https, fs and child_process). It was first tried in 0.34.0 and
+                 Premiere crashed, but THAT manifest also carried allow-file-access and
+                 disable-application-cache, which DataViz does not ship; the crash was
+                 most likely that combination, not nodejs on its own. This is now the
+                 minimal DataViz set. TEST ON A SPARE MACHINE after touching anything
+                 here: a bad CEF flag makes Premiere crash on launch. If it does crash,
+                 delete the enable-nodejs Parameter and the updater falls back to its
+                 notify-only banner (still fully functional, just not one-click). -->
             <Parameter>--allow-file-access-from-files</Parameter>
-            <Parameter>--disable-application-cache</Parameter>
-            <!-- DO NOT re-add the enable-nodejs CEF flag without testing it on a
-                 spare machine first. It was added in 0.34.0 for the one-click updater
-                 and Premiere began crashing; removing it is what stopped that. The
-                 flag is fine in the DataViz plugin, but that runs in Illustrator, and
-                 Premiere's CEP host is not the same. The updater already degrades to
-                 notify-only when Node is absent, so the panel is fully functional
-                 without it. -->
+            <Parameter>--enable-nodejs</Parameter>
           </CEFCommandLine>
         </Resources>
         <Lifecycle><AutoVisible>true</AutoVisible></Lifecycle>
