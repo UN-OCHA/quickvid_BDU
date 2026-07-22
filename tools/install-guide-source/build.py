@@ -146,7 +146,7 @@ def build():
         "Quit Premiere Pro (Cmd&nbsp;Q &mdash; fully quit).",
         "Download the free <b>ZXP/UXP Installer</b> from "
         "<font color='#009EDB'>aescripts.com/learn/zxp-installer</font>.",
-        "Drag <b>ocha-quickvid-panel.zxp</b> onto the installer window.",
+        "Drag <b>ocha_quickvid_plugin.zxp</b> onto the installer window.",
         "Open Premiere Pro <font face='Helvetica'>&rarr;</font> "
         "<b>Window <font face='Helvetica'>&rarr;</font> Extensions "
         "<font face='Helvetica'>&rarr;</font> OCHA QuickVid</b>.",
@@ -187,7 +187,7 @@ def build():
 
     story.append(Paragraph("4. Add the ZXP &mdash; and ignore the compatibility warning", h3_style))
     story.append(Paragraph(
-        "Drag <b>ocha-quickvid-panel.zxp</b> onto the ZXP/UXP Installer window "
+        "Drag <b>ocha_quickvid_plugin.zxp</b> onto the ZXP/UXP Installer window "
         "<i>or</i> use <b>File <font face='Helvetica'>&rarr;</font> Open</b> in "
         "the installer's menu and pick the file. The installer may then claim "
         "no compatible application was found:", body_style))
@@ -223,7 +223,7 @@ def build():
     story.append(Paragraph("If auto-update doesn't work", h2_style))
     story.append(Paragraph(
         "Rare, but if the update doesn't land, download the latest "
-        "<b>ocha-quickvid-panel.zxp</b> from this folder and drag it onto the "
+        "<b>ocha_quickvid_plugin.zxp</b> from this folder and drag it onto the "
         "ZXP/UXP Installer again &mdash; it overwrites the old version. The "
         "&#8942; menu's update line at the bottom shows what the updater is "
         "seeing (click it for details you can send us).", body_style))

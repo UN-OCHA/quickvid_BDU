@@ -9,7 +9,7 @@ the link, can view"). Everything else here is maintainer-facing.
 | File | What it is |
 |---|---|
 | `OCHA_QuickVid_Install_Guide.pdf` | **The install guide — start here.** Windows + Mac, with screenshots (incl. the installer's false "not compatible" warning: ignore it, click Install). |
-| `ocha-quickvid-panel.zxp` | The panel. Signed (OCHA BDU self-signed cert) so the ZXP/UXP Installer accepts it. **Also the auto-update target** — `version.json`'s `packageUrl` points at this file on GitHub raw, so the name/path is load-bearing. |
+| `ocha_quickvid_plugin.zxp` | The panel. Signed (OCHA BDU self-signed cert) so the ZXP/UXP Installer accepts it. **Also the auto-update target** — `version.json`'s `packageUrl` points at this file on GitHub raw, so the name/path is load-bearing. |
 | `windows-setup.bat` | One-time **Windows** step — enables Adobe's debug mode so the self-signed panel can load. Mac needs nothing extra. |
 
 Colleagues only need this folder ONCE — after installing, the panel updates

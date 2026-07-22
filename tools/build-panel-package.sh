@@ -4,7 +4,7 @@
 #
 #   bash tools/build-panel-package.sh
 #
-# Produces  premiere/cep/dist/ocha-quickvid-panel.zxp  — a plain zip of the
+# Produces  premiere/cep/dist/ocha_quickvid_plugin.zxp  — a plain zip of the
 # panel WITH the MOGRTs bundled inside it. Two consumers:
 #
 #   1. A colleague installing for the first time (unzip into the CEP
@@ -27,7 +27,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CEP="$ROOT/premiere/cep"
 DIST="$CEP/dist"
-OUT="$DIST/ocha-quickvid-panel.zxp"
+OUT="$DIST/ocha_quickvid_plugin.zxp"
 
 manifest_v="$(sed -n 's/.*ExtensionBundleVersion="\([^"]*\)".*/\1/p' "$CEP/CSXS/manifest.xml" | head -1)"
 version_v="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$CEP/version.json" | head -1)"
@@ -90,7 +90,7 @@ fi
 # points INTO this folder on GitHub raw, so its name is load-bearing.
 DISTRIB="$ROOT/distribution/ocha_quickvid_plugin_download"
 mkdir -p "$DISTRIB"
-cp "$OUT" "$DISTRIB/ocha-quickvid-panel.zxp"
+cp "$OUT" "$DISTRIB/ocha_quickvid_plugin.zxp"
 
 n_mogrt="$(find "$STAGE/mogrts" -name '*.mogrt' | wc -l | tr -d ' ')"
 echo "built $OUT"
@@ -103,5 +103,5 @@ else
 fi
 echo "  size     : $(du -h "$OUT" | cut -f1)"
 echo "  templates: $n_mogrt  (expected 24)"
-echo "  copied   : distribution/ocha_quickvid_plugin_download/ocha-quickvid-panel.zxp"
+echo "  copied   : distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp"
 [ "$n_mogrt" -eq 24 ] || echo "  WARNING: expected 24 templates — run the AE builder?"
