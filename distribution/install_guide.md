@@ -7,8 +7,7 @@ your Premiere timeline, auto-matching the sequence format (9:16 / 4:5 / 1:1 /
 
 **In this folder**
 - `ocha-quickvid-panel.zxp` — the panel (this is what you install)
-- `windows-setup.bat` — one-time Windows step (run before installing)
-- `mac-setup.command` — one-time Mac step (run before installing)
+- `windows-setup.bat` — one-time Windows step (run before installing; Mac needs nothing extra)
 
 ---
 
@@ -28,13 +27,12 @@ your Premiere timeline, auto-matching the sequence format (9:16 / 4:5 / 1:1 /
 ## Install — Mac
 
 1. **Quit Premiere Pro** (⌘Q — fully quit, not just close the window).
-2. **Double-click `mac-setup.command`.** One-time debug-mode step. (If macOS
-   blocks it → right-click → *Open* → *Open*, or System Settings ▸ Privacy &
-   Security ▸ *Open anyway*.)
-3. **Download the free [ZXP/UXP Installer](https://aescripts.com/learn/zxp-installer/)**
+2. **Download the free [ZXP/UXP Installer](https://aescripts.com/learn/zxp-installer/)**
    and open it.
-4. **Drag `ocha-quickvid-panel.zxp` onto the installer window.**
-5. **Open Premiere Pro** → **Window ▸ Extensions ▸ OCHA QuickVid**.
+3. **Drag `ocha-quickvid-panel.zxp` onto the installer window.**
+4. **Open Premiere Pro** → **Window ▸ Extensions ▸ OCHA QuickVid**.
+
+(No setup script needed on Mac — the ZXP/UXP Installer handles it.)
 
 ---
 
@@ -52,10 +50,12 @@ the setup script.)
 
 ## If the panel doesn't appear under Window ▸ Extensions
 
-- Make sure you ran the setup script for your OS **and** fully restarted
-  Premiere afterwards.
-- The panel is self-signed (OCHA BDU), so the setup script's debug-mode step is
-  required — without it, Premiere silently hides the panel.
+- Fully quit and reopen Premiere afterwards (on Mac, ⌘Q — not just closing the window).
+- **Windows:** make sure you ran `windows-setup.bat` first — without it, Premiere
+  silently hides the self-signed panel.
+- **Mac:** the ZXP/UXP Installer normally handles this. If the panel still doesn't
+  show, open **Terminal** and run `defaults write com.adobe.CSXS.11 PlayerDebugMode 1`
+  (then again with `.12`), and restart Premiere.
 
 ### Manual install (no installer)
 
@@ -65,8 +65,8 @@ the extracted folder here as `org.unocha.branding`:
 - **Windows:** `C:\Users\<you>\AppData\Roaming\Adobe\CEP\extensions\org.unocha.branding\`
 - **Mac:** `~/Library/Application Support/Adobe/CEP/extensions/org.unocha.branding/`
 
-so that `…/org.unocha.branding/CSXS/manifest.xml` exists. Then run the setup
-script and restart Premiere.
+so that `…/org.unocha.branding/CSXS/manifest.xml` exists. On Windows, also run
+`windows-setup.bat`; then restart Premiere.
 
 ## Privacy
 
