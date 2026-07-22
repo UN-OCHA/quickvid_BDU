@@ -815,6 +815,12 @@ function ochaCleanMogrts() {
 // beside the .prproj, then save a portable, relinked copy of the project inside
 // it. The ORIGINAL project + media are never modified (saveAs writes a new file).
 function ochaPkgExt(p) { var m = /\.([A-Za-z0-9]+)\s*$/.exec(p); return m ? m[1].toLowerCase() : ""; }
+// No spaces in anything the packager creates: spaces -> underscore, collapse runs,
+// trim leading/trailing underscores. Keeps a file's extension intact (only the base
+// name is touched by the caller).
+function ochaSafeName(s) {
+  return String(s).replace(/\s+/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "");
+}
 function ochaPkgCategory(p) {
   var e = ochaPkgExt(p);
   if (/^(mp4|mov|mxf|avi|mkv|m4v|mts|m2ts|mpg|mpeg|wmv|r3d|braw|dv|3gp|ts|vob|webm|f4v)$/.test(e)) return "footage";
@@ -856,8 +862,9 @@ function ochaPkgDest() {
   try { chosen = Folder.selectDialog("Choose where to save the '" + base + "' package"); } catch (e) { chosen = null; }
   if (!chosen) return { cancelled: true };
   var parent = chosen.fsName;
-  var root = new Folder(parent + "/" + base + " - Package");
-  if (root.exists) { for (var i = 2; i < 999; i++) { var r = new Folder(parent + "/" + base + " - Package " + i); if (!r.exists) { root = r; break; } } }
+  var safe = ochaSafeName(base);
+  var root = new Folder(parent + "/" + safe + "_Package");
+  if (root.exists) { for (var i = 2; i < 999; i++) { var r = new Folder(parent + "/" + safe + "_Package_" + i); if (!r.exists) { root = r; break; } } }
   return { root: root, projName: base };
 }
 
@@ -894,7 +901,10 @@ function ochaPackageProject() {
       var cat = ochaPkgCategory(src);
       var srcFile = new File(src);
       var destFolder = ochaPkgFolder(root.fsName, cat);
-      var dest = ochaPkgUniqueDest(destFolder, srcFile.name);
+      var _nm = decodeURI(srcFile.name), _dot = _nm.lastIndexOf(".");
+      var _safe = (_dot > 0 ? ochaSafeName(_nm.substring(0, _dot)) + _nm.substring(_dot)
+                            : ochaSafeName(_nm));
+      var dest = ochaPkgUniqueDest(destFolder, _safe);
       var ok = false; try { ok = srcFile.copy(dest.fsName); } catch (e1) { ok = false; if (!firstErr) firstErr = e1.toString(); }
       if (ok && dest.exists) { map[src] = dest.fsName; counts[cat]++; copied++; }
       else { failed++; if (!firstErr) firstErr = "copy failed: " + srcFile.name; }
@@ -902,7 +912,7 @@ function ochaPackageProject() {
     if (copied === 0) return "ERR|Couldn't copy any files: " + firstErr;
 
     // 2) save a COPY of the project into the package root (original file untouched)
-    var newProj = new File(root.fsName + "/" + d.projName + ".prproj");
+    var newProj = new File(root.fsName + "/" + ochaSafeName(d.projName) + ".prproj");
     var savedAs = false;
     try { app.project.saveAs(newProj.fsName); savedAs = true; } catch (e2) { firstErr = firstErr || e2.toString(); }
 

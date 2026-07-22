@@ -1,6 +1,6 @@
 {
-  "version": "0.38.1",
+  "version": "0.38.2",
   "date": "2026-07-22",
-  "notes": "Package project: asks for the folder once (not twice), and after packaging shows just the confirmation + Done.",
+  "notes": "Package project: folder and file names use underscores instead of spaces.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }
