@@ -58,10 +58,6 @@ body {
 .hd__brand { display: flex; align-items: center; gap: var(--sp-100); min-width: 0; }
 .hd__mark { flex: 0 0 auto; display: block; }
 .hd__title { font-size: var(--fs-md); font-weight: var(--fw-semibold); white-space: nowrap; }
-.ver {
-  font-size: 9px; font-weight: var(--fw-bold); color: var(--text-tertiary);
-  border: 1px solid var(--border-field); border-radius: var(--r-sm); padding: 1px 5px;
-}
 .hd__spacer { flex: 1 1 auto; }
 .chip {
   font-size: 10px; font-weight: var(--fw-medium); color: var(--text-secondary);

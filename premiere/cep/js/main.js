@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.39.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.39.1";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -14,8 +14,8 @@ const THEME_KEY = "ocha-branding-theme";
 function applyTheme(t) { document.documentElement.setAttribute("data-theme", t); }
 try { applyTheme(localStorage.getItem(THEME_KEY) || "dark"); } catch (e) { applyTheme("dark"); }
 
-// badge FIRST — it doubles as the "panel JS loaded" indicator
-$("ver").textContent = "v" + PANEL_VERSION;
+// (the old top-left version badge is gone — the running version now lives in the
+// menu's About section, set below via #menu-version.)
 
 // any uncaught error surfaces in the status line (self-diagnosing panel)
 window.onerror = (msg, src, line) => {
