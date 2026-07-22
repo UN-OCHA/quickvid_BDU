@@ -21,7 +21,8 @@ from reportlab.lib.colors import HexColor
 from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_LEFT
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Image, KeepTogether, ListFlowable, ListItem
+    SimpleDocTemplate, Paragraph, Spacer, Image, KeepTogether, ListFlowable,
+    ListItem, PageBreak
 )
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -218,6 +219,7 @@ def build():
         "vX.Y.Z <font face='Helvetica'>&#10003;</font>&rdquo;</b>.",
         body_style))
 
+    story.append(PageBreak())          # keep the troubleshooting tail on its own page
     story.append(Paragraph("If auto-update doesn't work", h2_style))
     story.append(Paragraph(
         "Rare, but if the update doesn't land, download the latest "
