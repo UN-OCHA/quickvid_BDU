@@ -225,53 +225,13 @@ const parseTime = (s) => {
 };
 const fmtMMSS = (sec) => { sec = Math.max(0, Math.round(sec || 0)); return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0"); };
 
-function addLtRow() {
-  const row = document.createElement("div");
-  row.className = "lt-row";
-  row.innerHTML =
-    `<input class="cd-form__input lt-name" placeholder="First Name Last Name" autocomplete="off">
-     <input class="cd-form__input lt-org" placeholder="Job title" autocomplete="off">
-     <input class="cd-form__input lt-org2" placeholder="Additional info" autocomplete="off">
-     <div class="lt-meta">
-       <span class="lt-cell lt-cell--start"><span class="lt-cap">Start</span>
-         <span class="lt-start timefield">
-           <input class="cd-form__input timefield__input" type="text" inputmode="numeric" value="00:10" maxlength="5" aria-label="Start time (mm:ss)" title="When it appears (mm:ss)">
-           <span class="timefield__spin">
-             <button type="button" class="timefield__up" tabindex="-1" aria-label="Later">&#9650;</button>
-             <button type="button" class="timefield__down" tabindex="-1" aria-label="Earlier">&#9660;</button>
-           </span>
-         </span>
-       </span>
-       <span class="lt-cell lt-cell--dur"><span class="lt-cap">Duration</span>
-         <span class="lt-dur timefield">
-           <input class="cd-form__input durfield__input" type="text" inputmode="numeric" value="4" maxlength="3" aria-label="Duration in seconds" title="Seconds on screen">
-           <span class="durfield__unit" aria-hidden="true">sec</span>
-           <span class="timefield__spin">
-             <button type="button" class="durfield__up" tabindex="-1" aria-label="Longer">&#9650;</button>
-             <button type="button" class="durfield__down" tabindex="-1" aria-label="Shorter">&#9660;</button>
-           </span>
-         </span>
-       </span>
-       <span class="lt-cell lt-cell--align"><span class="lt-cap">Alignment</span>
-         <select class="cd-form__input lt-align" title="Alignment"><option value="left">Left</option><option value="center">Centre</option></select>
-       </span>
-       <button class="cd-button cd-button--outline cd-button--small lt-remove" type="button" title="Remove this lower third"><i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="cd-button__text">Remove</span></button>
-     </div>`;
-  const tf = row.querySelector(".timefield__input");
-  const setTf = (sec) => { tf.value = fmtMMSS(sec); };
-  tf.addEventListener("blur", () => setTf(parseTime(tf.value)));
-  row.querySelector(".timefield__up").onclick = () => setTf(parseTime(tf.value) + 1);
-  row.querySelector(".timefield__down").onclick = () => setTf(parseTime(tf.value) - 1);
-  const df = row.querySelector(".durfield__input");
-  const setDf = (n) => { df.value = String(Math.max(1, Math.round(n || 1))); };
-  df.addEventListener("blur", () => setDf(parseFloat(df.value)));
-  row.querySelector(".durfield__up").onclick = () => setDf((parseFloat(df.value) || 0) + 1);
-  row.querySelector(".durfield__down").onclick = () => setDf((parseFloat(df.value) || 0) - 1);
-  row.querySelector(".lt-remove").onclick = () => row.remove();
-  $("#lt-rows").appendChild(row);
-}
-$("#lt-add").onclick = addLtRow;
-addLtRow();
+/* lower thirds: the SHARED component (browser/lowerthird.js) — the Edit tab mounts
+   the same one. Titles default: appears at 0:10, left-aligned, 4s. */
+const ftLt = OchaLowerThirds.mount({
+  rows: $("#lt-rows"), add: $("#lt-add"), onChange: () => ftSave(),
+  defaults: { start: 10, duration: 4, align: "left" },
+});
+ftLt.ensure();
 
 // ---- the video box: click → the engine's native file picker ----
 const drop = $("#drop");
@@ -315,19 +275,7 @@ function ftRestore(p) {
   ftRestoring = true;
   try {
     if (p.name) $("#f-proj-name").value = p.name;
-    // lower thirds: rebuild the rows, then fill each one
-    $("#lt-rows").innerHTML = "";
-    (p.lower_thirds || []).forEach((lt) => {
-      addLtRow();
-      const r = $("#lt-rows").lastElementChild;
-      r.querySelector(".lt-name").value = lt.name || "";
-      r.querySelector(".lt-org").value = lt.org || "";
-      r.querySelector(".lt-org2").value = lt.org2 || "";
-      r.querySelector(".timefield__input").value = fmtMMSS(lt.start || 0);
-      r.querySelector(".durfield__input").value = lt.duration || 4;
-      r.querySelector(".lt-align").value = lt.align || "left";
-    });
-    if (!$("#lt-rows").children.length) addLtRow();      // always leave one empty row
+    ftLt.restore(p.lower_thirds);
     const end = document.querySelector(`input[name="ending"][value="${(p.ending || {}).style || "none"}"]`);
     if (end) end.checked = true;
     if (p.subtitles) { $("#t-subs-on").checked = !!p.subtitles.on; tSetSubStyle(p.subtitles.style || "box"); }
@@ -346,14 +294,7 @@ function ftRestore(p) {
 // the autosave, so the saved project can never drift from what gets rendered.
 function ftCollect() {
   return {
-    lowerThirds: [...document.querySelectorAll("#lt-rows .lt-row")].map((r) => ({
-      name: r.querySelector(".lt-name").value.trim(),
-      org: r.querySelector(".lt-org").value.trim(),
-      org2: r.querySelector(".lt-org2").value.trim(),
-      start: parseTime(r.querySelector(".timefield__input").value),
-      duration: parseFloat(r.querySelector(".durfield__input").value) || 4,
-      align: r.querySelector(".lt-align").value,
-    })).filter((lt) => lt.name),
+    lowerThirds: ftLt.collect(),
     ending: { style: document.querySelector('input[name="ending"]:checked').value },
     subtitles: { on: $("#t-subs-on").checked, style: tSubsStyle },
     bug: { on: $("#t-bug-on").checked },

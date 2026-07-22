@@ -575,67 +575,15 @@ const stLoc = OchaLocation.mount({
 });
 
 
-// ---------- E7: lower thirds (same multi-row component as the Titles tab) ----------
-const stFmtMMSS = (sec) => { sec = Math.max(0, Math.round(sec || 0)); return `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
-function stAddLt(v) {
-  v = v || {};
-  const row = document.createElement("div");
-  row.className = "lt-row";
-  row.innerHTML =
-    `<input class="cd-form__input lt-name" placeholder="First Name Last Name" autocomplete="off">
-     <input class="cd-form__input lt-org" placeholder="Job title" autocomplete="off">
-     <input class="cd-form__input lt-org2" placeholder="Additional info" autocomplete="off">
-     <div class="lt-meta">
-       <span class="lt-cell lt-cell--start"><span class="lt-cap">Start</span>
-         <span class="lt-start timefield">
-           <input class="cd-form__input timefield__input" type="text" inputmode="numeric" value="00:02" maxlength="5" aria-label="Start (mm:ss)">
-           <span class="timefield__spin"><button type="button" class="timefield__up" tabindex="-1" aria-label="Later">&#9650;</button><button type="button" class="timefield__down" tabindex="-1" aria-label="Earlier">&#9660;</button></span>
-         </span>
-       </span>
-       <span class="lt-cell lt-cell--dur"><span class="lt-cap">Duration</span>
-         <span class="lt-dur timefield">
-           <input class="cd-form__input durfield__input" type="text" inputmode="numeric" value="5" maxlength="3" aria-label="Duration (seconds)">
-           <span class="durfield__unit" aria-hidden="true">sec</span>
-           <span class="timefield__spin"><button type="button" class="durfield__up" tabindex="-1" aria-label="Longer">&#9650;</button><button type="button" class="durfield__down" tabindex="-1" aria-label="Shorter">&#9660;</button></span>
-         </span>
-       </span>
-       <span class="lt-cell lt-cell--align"><span class="lt-cap">Alignment</span>
-         <select class="cd-form__input lt-align"><option value="center">Centre</option><option value="left">Left</option></select>
-       </span>
-       <button class="cd-button cd-button--outline cd-button--small lt-remove" type="button" title="Remove this lower third"><i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="cd-button__text">Remove</span></button>
-     </div>`;
-  const tf = row.querySelector(".timefield__input"), df = row.querySelector(".durfield__input");
-  if (v.name) row.querySelector(".lt-name").value = v.name;
-  if (v.org) row.querySelector(".lt-org").value = v.org;
-  if (v.org2) row.querySelector(".lt-org2").value = v.org2;
-  if (v.start != null) tf.value = stFmtMMSS(v.start);
-  if (v.duration != null) df.value = String(v.duration);
-  if (v.align) row.querySelector(".lt-align").value = v.align;
-  const setTf = (s) => { tf.value = stFmtMMSS(s); stSave(); };
-  tf.addEventListener("blur", () => setTf(parseT(tf.value) || 0));
-  row.querySelector(".timefield__up").onclick = () => setTf((parseT(tf.value) || 0) + 1);
-  row.querySelector(".timefield__down").onclick = () => setTf((parseT(tf.value) || 0) - 1);
-  const setDf = (n) => { df.value = String(Math.max(1, Math.round(n || 1))); stSave(); };
-  df.addEventListener("blur", () => setDf(parseFloat(df.value)));
-  row.querySelector(".durfield__up").onclick = () => setDf((parseFloat(df.value) || 0) + 1);
-  row.querySelector(".durfield__down").onclick = () => setDf((parseFloat(df.value) || 0) - 1);
-  row.querySelector(".lt-remove").onclick = () => { row.remove(); stSave(); };
-  $st("#st-lt-rows").appendChild(row);
-  return row;
-}
-function stEnsureLt() { if (!$st("#st-lt-rows").children.length) stAddLt(); }
-function stCollectLts() {
-  return [...$st("#st-lt-rows").querySelectorAll(".lt-row")].map((r) => ({
-    name: r.querySelector(".lt-name").value.trim(),
-    org: r.querySelector(".lt-org").value.trim(),
-    org2: r.querySelector(".lt-org2").value.trim(),
-    start: parseT(r.querySelector(".timefield__input").value) || 0,
-    duration: parseFloat(r.querySelector(".durfield__input").value) || 5,
-    align: r.querySelector(".lt-align").value,
-  })).filter((l) => l.name);
-}
-$st("#st-lt-add").onclick = () => { stAddLt(); stSave(); };
-stEnsureLt();
+// ---------- E7: lower thirds — the SHARED component (browser/lowerthird.js) ----------
+// Edit-tab defaults: appears at 0:02, centred, 5s (was a hand-rolled copy of the
+// Titles rows that had drifted on defaults + alignment order).
+const stLt = OchaLowerThirds.mount({
+  rows: $st("#st-lt-rows"), add: $st("#st-lt-add"), onChange: () => stSave(),
+  defaults: { start: 2, duration: 5, align: "center" },
+});
+const stCollectLts = () => stLt.collect();
+stLt.ensure();
 
 $st("#st-render").onclick = async () => {
   if (OchaFolder.block($st("#st-folder"), ST.jobDir, (m) => stStatus(m, "error"))) return;
@@ -894,11 +842,10 @@ function stRestore(p) {
     check("st-ending", p.ending || "over_footage");
     if (Number.isFinite(p.tail)) $st("#st-tail").value = p.tail;
     stTailVis();
-    $st("#st-lt-rows").innerHTML = "";
     let lts = p.lts;
     if (!lts && p.lt && p.lt.name)                             // old single-LT projects
       lts = [{ name: p.lt.name, org: p.lt.title, org2: p.lt.title2, start: 2, duration: 5, align: p.lt.align }];
-    (lts && lts.length ? lts : [{}]).forEach(stAddLt);
+    stLt.restore(lts || []);
     $st("#st-captions").checked = p.captions !== false;
     stSetSubStyle(p.subsStyle || ((p.preset === "event") ? "gradient" : "box"));
     $st("#st-subs-opts").hidden = !$st("#st-captions").checked;
