@@ -3,5 +3,5 @@
   "date": "2026-07-22",
   "notes": "Auto-update test release. If About shows v0.40.7, the one-click updater works end to end.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
-  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha-quickvid-panel.zxp?v=0.40.7"
+  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha-quickvid-panel.zxp?v=0.40.7"
 }

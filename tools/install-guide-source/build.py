@@ -46,7 +46,7 @@ OCHA_DARK = HexColor("#1A1A1A")
 OCHA_GREY = HexColor("#555555")
 
 HERE   = os.path.dirname(os.path.abspath(__file__))
-OUTPUT = os.path.normpath(os.path.join(HERE, "..", "..", "distribution", "OCHA_QuickVid_Install_Guide.pdf"))
+OUTPUT = os.path.normpath(os.path.join(HERE, "..", "..", "distribution", "ocha_quickvid_plugin_download", "OCHA_QuickVid_Install_Guide.pdf"))
 IMG_STEP1  = os.path.join(HERE, "images", "install-aescripts-step1.jpg")
 IMG_STEP2  = os.path.join(HERE, "images", "install-aescripts-step2.jpg")
 IMG_NOCOMP = os.path.join(HERE, "images", "no-compatible-dialog.jpg")

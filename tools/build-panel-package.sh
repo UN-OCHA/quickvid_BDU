@@ -84,10 +84,11 @@ if [ -n "$CERT" ] && [ -f "$CERT" ] && [ -n "$ZXPCMD" ] && [ -x "$ZXPCMD" ]; the
 fi
 [ "$SIGNED" -eq 1 ] || ( cd "$STAGE" && zip -q -r -X "$OUT" . )
 
-# Colleague-facing download folder (DataViz-style): keep the signed install file
-# next to its guide + the Windows PlayerDebugMode helper, so BDU can share one
-# folder that has everything.
-DISTRIB="$ROOT/distribution"
+# Colleague-facing download folder (DataViz-style, like ocha_dataviz_plugin_download):
+# the ONE folder BDU shares — signed install file + PDF guide + windows-setup.bat.
+# Everything else in distribution/ is maintainer-facing. version.json's packageUrl
+# points INTO this folder on GitHub raw, so its name is load-bearing.
+DISTRIB="$ROOT/distribution/ocha_quickvid_plugin_download"
 mkdir -p "$DISTRIB"
 cp "$OUT" "$DISTRIB/ocha-quickvid-panel.zxp"
 
@@ -102,5 +103,5 @@ else
 fi
 echo "  size     : $(du -h "$OUT" | cut -f1)"
 echo "  templates: $n_mogrt  (expected 24)"
-echo "  copied   : distribution/ocha-quickvid-panel.zxp"
+echo "  copied   : distribution/ocha_quickvid_plugin_download/ocha-quickvid-panel.zxp"
 [ "$n_mogrt" -eq 24 ] || echo "  WARNING: expected 24 templates — run the AE builder?"
