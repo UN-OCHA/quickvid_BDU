@@ -36,8 +36,8 @@ echo  Done.
 echo.
 echo  Next step:
 echo    1. Close Adobe Premiere Pro completely (File - Exit).
-echo    2. Reopen Premiere Pro.
-echo    3. Go to Window - Extensions - OCHA QuickVid.
+echo    2. Install ocha-quickvid-panel.zxp with the ZXP/UXP Installer.
+echo    3. Open Premiere Pro, then Window - Extensions - OCHA QuickVid.
 echo.
 echo  You only need to run this once on this computer.
 echo.
