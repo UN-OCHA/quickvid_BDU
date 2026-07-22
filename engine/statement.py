@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import social_brand
 import ending as ending_mod  # noqa: E402  (same engine dir; shares fonts/logo/click plumbing)
 import lower_third   # noqa: E402  (shared LT animation timing constants — same brand-lt.json spec)
+import mediakit      # noqa: E402  (shared colour gate: HDR/wide-gamut → bt709)
 
 FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 
@@ -285,6 +286,13 @@ def do_still(spec):
 
 def do_render(spec):
     src, out = spec["src"], spec["out"]
+    workdir = os.path.dirname(os.path.abspath(out))
+    # Colour-normalize the SOURCE before cutting (HDR/wide-gamut phone footage →
+    # bt709): the cut re-encode would otherwise bake the wrong colours in AND strip
+    # the tags social_brand's own gate detects. Probe AFTER, so crops use the
+    # converted file's (rotation-baked) dimensions.
+    src = mediakit.normalize_709(src, workdir, spec.get("look"),
+                                 log=lambda m: print(m, flush=True))
     sw, sh, sfps, sdur = _probe(src)
     preset = PRESETS.get(spec.get("preset") or "reels", PRESETS["reels"])
     cw, ch = spec.get("canvas") or preset["canvas"]
@@ -294,7 +302,6 @@ def do_render(spec):
     rects = {"general": general, "close": close}
     ending = spec.get("ending") or {"style": "over_footage"}
     style = ending.get("style", "over_footage")
-    workdir = os.path.dirname(os.path.abspath(out))
     base = os.path.join(workdir, "base_cut.mp4")
 
     print(f"Cutting {len(runs)} continuous take(s) → {cw}x{ch}…", flush=True)
@@ -327,7 +334,8 @@ def do_render(spec):
     r = subprocess.run([FF, "-y", "-loglevel", "error"] + inputs +
                        ["-filter_complex", ";".join(fc), "-map", "[v]", "-map", "[a]",
                         "-c:v", "libx264", "-crf", "14", "-preset", "medium", "-pix_fmt", "yuv420p",
-                        "-r", str(fps), "-c:a", "aac", "-b:a", "192k", base],
+                        "-r", str(fps), "-c:a", "aac", "-b:a", "192k"]
+                       + mediakit.COLOR + [base],       # keep bt709 tags through the cut
                        capture_output=True, text=True)
     if r.returncode != 0:
         raise RuntimeError("cut ffmpeg failed: " + (r.stderr or "")[-500:])
@@ -365,6 +373,10 @@ def do_render(spec):
                  else cues_from_runs(runs, sub_cfg))
                 if (spec.get("subtitles") or {}).get("on", spec.get("captions", True)) else [],
         "lower_thirds": lts,
+        # look: the eq preset applies in social_brand (under every overlay). phone_fix
+        # is DEFUSED here — this render already converted the SOURCE above; leaving it
+        # on would make social_brand remap the (now-709) cut a second time.
+        "look": ({**(spec.get("look") or {}), "phone_fix": False} if spec.get("look") else None),
         "bug": spec.get("bug") or {},
         # forwarded RAW (both shapes) — social_brand hands them to pin_locator.specs(),
         # the one place that normalizes them. Normalizing here too would just risk drift.

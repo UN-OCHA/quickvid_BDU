@@ -35,7 +35,7 @@ const ENGINE_MIN = "0.5.0";
 // corrected from the repo's VERSION file at load — see trackLatestVersion below.
 // It used to be hardcoded only, which meant the banner quietly went stale every
 // release: it was still advertising 0.6.3 while main had moved on to 0.7.0.
-let ENGINE_LATEST = "0.11.0";
+let ENGINE_LATEST = "0.12.0";
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
@@ -106,6 +106,9 @@ function gate() {
   // render. Feature-gate the buttons instead of hard-gating the whole app.
   const capsOk = up && cmpVer(ver, "0.11.0") >= 0;
   document.querySelectorAll(".cap-review").forEach((el) => { el.hidden = !capsOk; });
+  // …and the Look picker needs 0.12.0+ (`look` field) for the same reason.
+  const lookOk = up && cmpVer(ver, "0.12.0") >= 0;
+  document.querySelectorAll(".look-review").forEach((el) => { el.hidden = !lookOk; });
   if (typeof stModeChanged === "function") stModeChanged(up);     // Edit wizard shows/hides
 }
 
@@ -157,6 +160,7 @@ async function enginePick() {
       const changed = state.enginePath && state.enginePath !== path;
       state.enginePath = path; $("#drop-text").textContent = path.split(/[\\/]/).pop(); $("#drop").classList.add("has-file"); setStatus("");
       if (changed) tCaps.clear("Video changed — captions reset.");   // stale cue text must never burn onto another clip
+      if (changed) tLook.resetPreview();                             // stills belong to the old clip
     }
   } catch (e) { setStatus("Couldn't open the file picker.", "warn"); }
 }
@@ -209,10 +213,10 @@ if (ftPick) ftPick.onclick = async () => {
 };
 
 // full mode: hand the job to the engine (real ffmpeg) and stream the result back over localhost
-async function renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues) {
+async function renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look) {
   const body = { video: state.enginePath, lower_thirds: lowerThirds, ending: { style: ending.style },
                  subtitles: subtitles || { on: false, style: "box" }, bug: bug || { on: false },
-                 pins: pins || [], cues: cues || undefined, dir: state.jobDir };
+                 pins: pins || [], cues: cues || undefined, look: look || undefined, dir: state.jobDir };
   const r = await fetch(ENGINE + "/api/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) { let m = "Engine error"; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
   const { job_id } = await r.json();
@@ -262,7 +266,7 @@ function ftSnapshot() {
     v: 1, mode: "titles", name: ($("#f-proj-name").value || "").trim(),
     video: state.enginePath || null,
     lower_thirds: f.lowerThirds, ending: f.ending,
-    subtitles: f.subtitles, bug: f.bug, pins: f.pins,
+    subtitles: f.subtitles, bug: f.bug, pins: f.pins, look: f.look,
     saved_at: new Date().toISOString(),
   };
 }
@@ -289,6 +293,7 @@ function ftRestore(p) {
     if (end) end.checked = true;
     if (p.subtitles) { $("#t-subs-on").checked = !!p.subtitles.on; tSetSubStyle(p.subtitles.style || "box"); }
     if (p.bug) $("#t-bug-on").checked = !!p.bug.on;
+    tLook.restore(p.look);
     tLoc.restore(p.pins || p.pin);        // `pin` = a project saved before Jul 2026
     document.querySelectorAll("#panel-titles input, #panel-titles select")
       .forEach((el) => el.dispatchEvent(new Event("change", { bubbles: true })));
@@ -308,13 +313,14 @@ function ftCollect() {
     subtitles: { on: $("#t-subs-on").checked, style: tSubsStyle },
     bug: { on: $("#t-bug-on").checked },
     pins: tLoc.collect(),
+    look: tLook.collect(),
   };
 }
 
 $("#run").onclick = async () => {
   if (!state.enginePath) return setStatus("Choose a video first.", "warn");
   if (OchaFolder.block($("#f-folder"), state.jobDir, (m) => setStatus(m, "error"))) return;
-  const { lowerThirds, ending, subtitles, bug, pins } = ftCollect();
+  const { lowerThirds, ending, subtitles, bug, pins, look } = ftCollect();
   if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on && !pins.length)
     return setStatus("Add at least one lower third, subtitles, the bug, a location strip, or pick an ending.", "warn");
 
@@ -328,7 +334,7 @@ $("#run").onclick = async () => {
   const t0 = performance.now();
   try {
     setStatus("Rendering with the OCHA engine…" + staleNote, "busy");
-    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues);  // real ffmpeg, no limits
+    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look);  // real ffmpeg, no limits
     if (state.url) URL.revokeObjectURL(state.url);
     state.url = URL.createObjectURL(blob);
     $("#player").src = state.url;
@@ -367,6 +373,14 @@ $("#t-substyle-event").onclick = () => tSetSubStyle("gradient");
    The Edit tab mounts the same one. Generate = transcribe once (a job), review
    the text, then Render sends the edited cues and skips re-transcribing. */
 const tCaps = OchaCaptions.mount({ list: $("#t-caps-list"), status: $("#t-caps-status") });
+
+/* ---- footage Look: the SHARED component (browser/look.js) — Edit tab mounts
+   the same one. Preview stills use the engine's own conversion + chain. */
+const tLook = OchaLook.mount({
+  grid: $("#t-look-grid"), fix: $("#t-look-fix"), previewBtn: $("#t-look-prev"),
+  getVideo: () => state.enginePath, getTime: () => 1, engine: ENGINE,
+  onChange: () => ftSave(),
+});
 $("#t-caps-gen").onclick = async () => {
   if (!state.enginePath) return setStatus("Choose a video first.", "warn");
   const btn = $("#t-caps-gen");

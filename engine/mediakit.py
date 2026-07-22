@@ -71,14 +71,84 @@ def ffmpeg_hdr():
             os.environ["IMAGEIO_FFMPEG_EXE"] = saved
 
 
-def to_sdr(src, tmp):
-    """HDR (HLG/PQ, BT.2020) -> SDR bt709, so overlaid sRGB graphics read correctly.
+def color_tags(src):
+    """(color_transfer, color_primaries) of the first video stream, '' when untagged."""
+    import json as _json
+    ff = ffmpeg_hdr()
+    fp = ff.replace("ffmpeg", "ffprobe")
+    if not os.path.exists(fp):
+        fp = "ffprobe"
+    try:
+        meta = _json.loads(subprocess.run(
+            [fp, "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=color_transfer,color_primaries", "-of", "json", src],
+            capture_output=True, text=True).stdout)
+        s = (meta.get("streams") or [{}])[0]
+        return s.get("color_transfer") or "", s.get("color_primaries") or ""
+    except Exception:
+        return "", ""
+
+
+def needs_709(src):
+    """Why this footage must be converted before sRGB brand graphics composite
+    over it: "hdr" (HLG/PQ — tonemap), "gamut" (SDR but wide-gamut primaries:
+    BT.2020 or Display P3, the iPhone OCHA-blue-shift case), or None (fine).
+    Untagged wide-gamut files can't be detected — that's what the user-facing
+    "Fix phone colours" option (look.phone_fix) forces."""
+    trc, prim = color_tags(src)
+    if trc in ("arib-std-b67", "smpte2084"):
+        return "hdr"
+    if prim in ("bt2020", "smpte432"):
+        return "gamut"
+    return None
+
+
+def to_709_vf(mode="hdr", assume_p3=False):
+    """The zscale chain (no format=) for a bt709 conversion — shared by to_sdr and
+    the /api/look-preview stills, so the preview can never disagree with the render.
+    mode "hdr": linearize + tonemap; "gamut": straight remap. assume_p3 must FULLY
+    specify the input: with only `pin` on an untagged file zscale fails with
+    "code 3074: no path between colorspaces" (it can't infer matrix/transfer)."""
+    if mode == "hdr":
+        return ("zscale=t=linear:npl=203,tonemap=hable:desat=0,"
+                "zscale=p=bt709:t=bt709:m=bt709:r=tv")
+    pin = "min=bt709:tin=bt709:rin=tv:pin=smpte432:" if assume_p3 else ""
+    return f"zscale={pin}p=bt709:t=bt709:m=bt709:r=tv"
+
+
+def normalize_709(src, work, spec_look=None, log=print):
+    """ONE gate for the colour-correctness pre-pass, shared by every renderer
+    (social_brand, finish, and the statement cut): HDR → tonemap; tagged
+    wide-gamut (BT.2020 / Display-P3 SDR — the iPhone OCHA-blue shift) →
+    straight remap; user-forced "Fix phone colours" (look.phone_fix) → remap
+    assuming Display P3, for untagged files detection can't catch.
+    Returns the src to keep using (converted or original)."""
+    import look as _look
+    why = needs_709(src)
+    if why == "hdr":
+        log("HDR source → converting to SDR (bt709) so brand colours match…")
+        return to_sdr(src, work, mode="hdr")
+    if why == "gamut":
+        log("Wide-gamut source (phone) → remapping to bt709 so OCHA blue stays true…")
+        return to_sdr(src, work, mode="gamut")
+    if _look.phone_fix(spec_look):
+        log("Fix phone colours is ON → remapping to bt709 (assuming Display P3)…")
+        return to_sdr(src, work, mode="gamut", assume_p3=True)
+    return src
+
+
+def to_sdr(src, tmp, mode="hdr", assume_p3=False):
+    """Normalize footage to SDR bt709, so overlaid sRGB graphics read correctly.
+    mode "hdr"   — HLG/PQ: linearize + tonemap (the original iPhone-HDR fix).
+    mode "gamut" — SDR wide-gamut (BT.2020 / Display P3): straight colour-space
+                   remap, NO tonemap (tonemapping SDR would crush it).
+    assume_p3    — untagged file forced by the user's "Fix phone colours": tell
+                   zscale the input is Display P3, since the tags can't.
     ffmpeg auto-rotates on decode, so this also bakes any rotation upright."""
     out = os.path.join(tmp, "sdr.mp4")
+    vf = to_709_vf(mode, assume_p3) + ",format=yuv420p"
     subprocess.run(
-        [ffmpeg_hdr(), "-y", "-v", "error", "-i", src,
-         "-vf", "zscale=t=linear:npl=203,tonemap=hable:desat=0,"
-                "zscale=p=bt709:t=bt709:m=bt709:r=tv,format=yuv420p",
+        [ffmpeg_hdr(), "-y", "-v", "error", "-i", src, "-vf", vf,
          "-c:v", "libx264", "-crf", "16", "-preset", "medium"] + COLOR
         + ["-c:a", "copy", out], check=True)
     return out

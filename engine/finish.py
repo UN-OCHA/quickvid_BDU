@@ -42,7 +42,8 @@ import ending as ending_mod   # THE ending — shared with social_brand.py
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BRAND = os.path.join(ROOT, "brand", "brand.json")
 from mediakit import (COLOR, LOGO_SVG, BUG_SVG, BUG_HEIGHT_FRAC,  # noqa: F401 — re-exported
-                      rotation as _rotation, ffmpeg_hdr as _ffmpeg_hdr, to_sdr)
+                      rotation as _rotation, ffmpeg_hdr as _ffmpeg_hdr, to_sdr, normalize_709)
+import look as look_mod   # shared footage looks (eq presets) + the phone-colour flag
 
 
 def _ffmpeg():
@@ -156,14 +157,21 @@ def run(spec, bitrate=12.0):
     print("PROGRESS 0", flush=True)                  # show the bar immediately (PNG prep precedes ffmpeg)
     tmp = tempfile.mkdtemp(prefix="ocha_finish_")
 
-    if info["hdr"]:
-        video = to_sdr(video, tmp)
+    # HDR → tonemap; tagged wide-gamut (iPhone Display-P3) → remap; user-forced
+    # "Fix phone colours" → remap assuming P3. One shared gate (mediakit).
+    video = normalize_709(video, tmp, spec.get("look"))
 
     # --- render + place each lower third ---
     inputs = ["-i", video]
     filt = []
     prev = "0:v"
     idx = 1
+
+    look_vf = look_mod.chain(spec.get("look"))          # footage look — FIRST, under every overlay
+    if look_vf:
+        filt.append(f"[{prev}]{look_vf}[vlook]")
+        prev = "vlook"
+        print(f"  look: {(spec.get('look') or {}).get('preset')}")
 
     if (spec.get("bug") or {}).get("on"):                # persistent corner watermark, on for the whole clip
         bug_png, bw, bh = render_bug(H, tmp)

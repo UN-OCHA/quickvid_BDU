@@ -52,20 +52,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 FFPROBE = FF.replace("ffmpeg", "ffprobe")
 from mediakit import (COLOR, LOGO_SVG, BUG_SVG, BUG_HEIGHT_FRAC, SAFE_AREA, BRAND_JSON,  # noqa: F401
-                      rotation as _rotation, ffmpeg_hdr as _ffmpeg_hdr, to_sdr)
-
-
-def is_hdr(src):
-    """True for iPhone/HLG/PQ HDR footage (BT.2020 primaries or HLG/PQ transfer).
-    Composited against sRGB brand graphics without tonemapping, the blue shifts —
-    so the caller converts to SDR bt709 first. Mirrors finish.py's HDR test."""
-    streams = json.loads(subprocess.run(
-        [FFPROBE, "-v", "error", "-select_streams", "v:0", "-show_entries",
-         "stream=color_transfer,color_primaries", "-of", "json", src],
-        capture_output=True, text=True).stdout).get("streams") or [{}]
-    s = streams[0]
-    return (s.get("color_transfer") in ("arib-std-b67", "smpte2084")
-            or s.get("color_primaries") == "bt2020")
+                      rotation as _rotation, ffmpeg_hdr as _ffmpeg_hdr, to_sdr, normalize_709)
+import look as look_mod   # shared footage looks (eq presets) + the phone-colour flag
 
 
 OGO_SVG = os.path.join(ROOT, "assets", "OCHA_logo_horizontal_white.svg")
@@ -192,12 +180,10 @@ def render(spec: dict, log=print) -> str:
     work = os.path.join(os.path.dirname(os.path.abspath(out)), "_brand_work")
     os.makedirs(work, exist_ok=True)
 
-    # iPhone/HDR footage: tonemap to SDR bt709 first, else the blue shifts when the
-    # sRGB brand graphics composite over it. (probe already reports display dims for
-    # rotated phone clips.) to_sdr also bakes rotation upright.
-    if is_hdr(src):
-        log("HDR source → converting to SDR (bt709) so brand colours match…")
-        src = to_sdr(src, work)
+    # iPhone/HDR/wide-gamut footage: normalize to SDR bt709 first, else the blue
+    # shifts when the sRGB brand graphics composite over it. (probe already reports
+    # display dims for rotated phone clips.) Also bakes rotation upright.
+    src = normalize_709(src, work, spec.get("look"), log)
 
     # cues: end = next start; last ends at footage_end; "" = boundary only
     raw = spec.get("cues") or []
@@ -329,8 +315,11 @@ def render(spec: dict, log=print) -> str:
     # chain, and one strip never triggered it — which is why it hid here until
     # strips became a list. The footage is cut at the demuxer instead, which the
     # filter graph never sees. Don't reintroduce a trim to shorten the video.
+    look_vf = look_mod.chain(spec.get("look"))         # footage look — FIRST, under every overlay
+    if look_vf:
+        fc.append(f"[{prev}]{look_vf}[vlook]"); prev = "vlook"
     if needs_scale:
-        fc.append(f"[0:v]scale={W}:{H},setsar=1[v0]"); prev = "v0"
+        fc.append(f"[{prev}]scale={W}:{H},setsar=1[v0]"); prev = "v0"
     if bug_png:                                         # base layer — everything else stacks above it
         fc.append(f"[{bug_idx}:v]format=rgba[bug]")
         fc.append(f"[{prev}][bug]overlay={bx}:{by}[vbug]"); prev = "vbug"

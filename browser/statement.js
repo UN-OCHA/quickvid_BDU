@@ -580,6 +580,16 @@ const stCapsFp = () => JSON.stringify({
   sel: ST.segments.filter((s) => s.sel).map((s) => [s.in, s.out]),
   preset: (document.querySelector('input[name="st-preset"]:checked') || {}).value || "reels",
 });
+/* ---- footage Look: the SHARED component (browser/look.js) ----
+   The Titles tab mounts the same one. Preview stills come from the engine with
+   the exact conversion + chain the render applies. */
+const stLook = OchaLook.mount({
+  grid: $st("#st-look-grid"), fix: $st("#st-look-fix"), previewBtn: $st("#st-look-prev"),
+  getVideo: () => ST.src,
+  getTime: () => { const sSel = ST.segments.find((x) => x.sel); return sSel ? sSel.in + 0.3 : 1; },
+  engine: ENGINE, onChange: () => stSave(),
+});
+
 $st("#st-caps-gen").onclick = async () => {
   const segs = stCapsSegs();
   if (!segs.length) return stStatus("Tick at least one sentence first (step 5).", "warn");
@@ -630,6 +640,7 @@ $st("#st-render").onclick = async () => {
     subtitles: { on: $st("#st-captions").checked, style: ST.subsStyle || "box" },
     // reviewed caption text — only while it still matches the selection + format
     cues: $st("#st-captions").checked ? (stCaps.collect(stCapsFp()) || undefined) : undefined,
+    look: stLook.collect(),
     bug: { on: $st("#st-bug-on").checked },
     pins: stLoc.collect(),
     dir: ST.jobDir,
@@ -816,6 +827,7 @@ function stSnapshot() {
     pins: stLoc.collect(),
     tail: parseFloat(($st("#st-tail") || {}).value),
     lts: stCollectLts(),
+    look: stLook.collect(),
   };
 }
 const stWorthResuming = (p) => !!(p && (p.src || (p.segments && p.segments.length) || p.jobDir));
@@ -874,6 +886,7 @@ function stRestore(p) {
     check("st-ending", p.ending || "over_footage");
     if (Number.isFinite(p.tail)) $st("#st-tail").value = p.tail;
     stTailVis();
+    stLook.restore(p.look);
     let lts = p.lts;
     if (!lts && p.lt && p.lt.name)                             // old single-LT projects
       lts = [{ name: p.lt.name, org: p.lt.title, org2: p.lt.title2, start: 2, duration: 5, align: p.lt.align }];

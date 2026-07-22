@@ -330,3 +330,18 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
 .cap-rows { display: grid; gap: 6px; margin-top: 10px; max-height: 340px; overflow-y: auto; padding-right: 4px; }
 .cap-row { display: grid; grid-template-columns: 46px 1fr; gap: 8px; align-items: center; }
 .cap-time { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink-tertiary, #6e6e6e); text-align: right; }
+
+/* ---- footage Look picker (shared component, both tabs) — layout only ---- */
+.look-review { margin-top: 12px; }
+.look-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 10px 0; }
+.look-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 6px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--card); cursor: pointer; font: inherit; text-align: center;
+}
+.look-card img { width: 100%; border-radius: 4px; display: block; }
+.look-card img[hidden] { display: none; }
+.look-card strong { font-size: 13px; }
+.look-card span { font-size: 11px; color: var(--ink-tertiary, #6e6e6e); }
+.look-card.is-active { border-color: var(--ocha-cyan); box-shadow: 0 0 0 1px var(--ocha-cyan); }
+.look-review .st-check { margin-top: 4px; }

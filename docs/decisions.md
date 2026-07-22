@@ -1264,6 +1264,29 @@ engine's.
   feature-gates the editor on the engine version instead of hard-gating
   (`ENGINE_MIN` stays 0.5.0).
 
+## Footage looks + the phone-colour fix, completed (2026-07-22, v0.12.0)
+
+A "Look" row on both tabs — named presets only (Original / Brighter / Punchier /
+Auto-balance), no free sliders to push a video off-brand. Applied FIRST in the
+filter graph, under every overlay, so captions/logos/strips are never re-graded.
+
+- ONE preset table: `engine/look.py`; every renderer asks it for the chain
+  (social_brand + finish inline; the statement cut passes it through to
+  social_brand). ONE UI component: `browser/look.js`, mounted by both tabs.
+- Picking is visual: `/api/look-preview` renders one still per preset with the
+  SAME conversion + chain the render uses (`mediakit.to_709_vf` is shared by
+  to_sdr and the preview, so the preview can't lie).
+- **Phone colours**: the old HDR tonemap gate grew into `mediakit.normalize_709`
+  — one shared gate that now also catches TAGGED wide-gamut SDR (Display-P3 /
+  BT.2020 primaries: the "OCHA blue looks off" iPhone case) automatically, and
+  offers a user-forced "Fix phone colours" for untagged clips (zscale must be
+  told `min/tin/rin/pin` explicitly — with only `pin` it fails "no path between
+  colorspaces"). The statement cut now converts the SOURCE before cutting and
+  carries bt709 tags through (`mediakit.COLOR` on the cut encode), with
+  phone_fix defused downstream so social_brand can't remap a second time.
+- Compatibility: engines < 0.12.0 ignore the `look` field → the page
+  feature-gates the row by engine version (same pattern as the caption editor).
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the

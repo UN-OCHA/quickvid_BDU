@@ -17,8 +17,9 @@
   <script src="location.js?v=2" defer></script>   <!-- shared location strip: BOTH tabs -->
   <script src="lowerthird.js?v=1" defer></script>  <!-- shared lower-third rows: BOTH tabs -->
   <script src="captions.js?v=1" defer></script>    <!-- shared caption editor: BOTH tabs -->
-  <script src="app.js?v=23" defer></script>
-  <script src="statement.js?v=15" defer></script>
+  <script src="look.js?v=1" defer></script>        <!-- shared footage-look picker: BOTH tabs -->
+  <script src="app.js?v=24" defer></script>
+  <script src="statement.js?v=16" defer></script>
 </head>
 <body>
   <a class="cd-skip-link" href="#main">Skip to main content</a>
@@ -117,6 +118,13 @@
         <div class="dropzone" id="drop" role="button" tabindex="0">
           <i class="fa-solid fa-film" aria-hidden="true"></i>
           <span id="drop-text">Choose a video — any size, any codec, kept full-resolution.</span>
+        </div>
+
+        <div class="look-review" hidden>
+          <h3 class="cd-block-title st-subsection">Look <span class="app-hint">— optional footage polish, applied under all branding</span></h3>
+          <div id="t-look-grid" class="look-grid"></div>
+          <label class="st-check"><input type="checkbox" id="t-look-fix" /> Fix phone colours <span class="app-hint">— force the colour correction when OCHA blue looks off on a phone clip. HDR and properly-tagged phone footage is corrected automatically; this is for clips whose tags got lost.</span></label>
+          <button type="button" id="t-look-prev" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Preview on this video</span></button>
         </div>
 
         <!-- Same job-folder contract as the Edit tab: name it, pick where it lives,
@@ -519,6 +527,14 @@
               <div id="st-caps-list" class="cap-rows" hidden></div>
             </div>
           </div>
+
+
+        <div class="look-review" hidden>
+          <h3 class="cd-block-title st-subsection">Look <span class="app-hint">— optional footage polish, applied under all branding</span></h3>
+          <div id="st-look-grid" class="look-grid"></div>
+          <label class="st-check"><input type="checkbox" id="st-look-fix" /> Fix phone colours <span class="app-hint">— force the colour correction when OCHA blue looks off on a phone clip. HDR and properly-tagged phone footage is corrected automatically; this is for clips whose tags got lost.</span></label>
+          <button type="button" id="st-look-prev" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Preview on this video</span></button>
+        </div>
 
           <h3 class="cd-block-title st-subsection">Bug</h3>
           <label class="st-check"><input type="checkbox" id="st-bug-on" /> Add the OCHA bug <span class="app-hint">— logo watermark, top-right, for the whole video. Typically for event videos; off by default.</span></label>

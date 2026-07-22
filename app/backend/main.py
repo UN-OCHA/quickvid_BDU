@@ -180,6 +180,7 @@ class FinishReq(BaseModel):
     ending: EndingReq = EndingReq()
     subtitles: SubtitlesReq = SubtitlesReq()  # engine-only: transcribe + burn captions
     cues: Optional[list] = None               # reviewed captions [[start, text], …] — skips transcription
+    look: Optional[dict] = None               # {"preset": "none|brighter|punchier|auto", "phone_fix": bool}
     dir: Optional[str] = None                 # job folder → final lands in <dir>/export/
 
 
@@ -200,6 +201,7 @@ def finish(req: FinishReq):
         "ending": req.ending.model_dump(),
         "subtitles": req.subtitles.model_dump(),
         "cues": req.cues,                      # reviewed captions, verbatim (see caption editor)
+        "look": req.look,                      # footage look + phone-colour fix (engine/look.py)
         "dir": req.dir,                        # same job-folder contract as the Edit tab
     })
     jobs.run_async(job, engine_bridge.finish)
@@ -220,6 +222,34 @@ def captions(req: CaptionsReq):
     job = jobs.create("captions", {"video": req.video})
     jobs.run_async(job, engine_bridge.captions_for_video)
     return {"job_id": job.id}
+
+
+@app.get("/api/look-preview")
+def look_preview(video: str, t: float = 1.0, preset: str = "none", phone_fix: bool = False):
+    """One still frame with a Look applied — the picker's thumbnails. The frame gets
+    the SAME colour conversion the render would (mediakit.to_709_vf), then the look
+    chain, so what you pick is what you get."""
+    if not Path(video).is_file():
+        raise HTTPException(400, "Not a video file.")
+    import look as look_engine                          # engine dir is on sys.path (see below)
+    import mediakit
+    vf = []
+    why = mediakit.needs_709(video)
+    if why:
+        vf.append(mediakit.to_709_vf(why))
+    elif phone_fix:
+        vf.append(mediakit.to_709_vf("gamut", assume_p3=True))
+    ch = look_engine.chain({"preset": preset})
+    if ch:
+        vf.append(ch)
+    vf.append("scale=320:-2")
+    key = f"{abs(hash((video, Path(video).stat().st_mtime, round(t, 2), preset, bool(phone_fix))))}"
+    out = settings.WORKSPACE / f"lookprev_{key}.jpg"
+    if not out.is_file():
+        subprocess.run([mediakit.ffmpeg_hdr(), "-y", "-v", "error",
+                        "-ss", str(max(0.0, t)), "-i", video,
+                        "-vf", ",".join(vf), "-frames:v", "1", "-q:v", "4", str(out)], check=True)
+    return FileResponse(str(out), media_type="image/jpeg")
 
 
 @app.get("/api/jobs/{jid}")
@@ -417,6 +447,7 @@ class StRenderReq(BaseModel):
     captions: bool = True
     subtitles: Optional[dict] = None                   # {"on": bool, "style": "box"|"gradient"}
     cues: Optional[list] = None                        # reviewed captions [[start, text], …] — text as edited
+    look: Optional[dict] = None                        # {"preset", "phone_fix"} — engine/look.py
     bug: Optional[dict] = None                         # {"on": bool} — off by default, top-right vertical logo
     pins: Optional[list] = None                        # [{"on","place","date","icon","color","start","duration"}] — location strips
     pin: Optional[dict] = None                         # legacy single strip (old projects) — see _pins()
