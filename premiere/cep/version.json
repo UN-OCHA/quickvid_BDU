@@ -1,6 +1,6 @@
 {
-  "version": "0.39.1",
+  "version": "0.39.2",
   "date": "2026-07-22",
-  "notes": "Version moved into the menu; the format chip (e.g. 1080x1080 - Square 1x1) now sits top-left.",
+  "notes": "Trimmed the intro lines from the Captions and Toolbox tabs.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }
