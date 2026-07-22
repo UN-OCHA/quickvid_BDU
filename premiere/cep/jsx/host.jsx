@@ -829,6 +829,23 @@ function ochaPkgCategory(p) {
   if (/^(wav|mp3|aac|aif|aiff|m4a|flac|ogg|wma|caf)$/.test(e)) return "audio";
   return "other";
 }
+// Recursive folder copy (ExtendScript has no Folder.copy). Used to bundle the
+// project's "OCHA Branding Elements" folder - the .mogrt sources - into the package.
+function ochaCopyTree(srcFolder, destFolder) {
+  if (!srcFolder.exists) return 0;
+  if (!destFolder.exists) destFolder.create();
+  var n = 0, list = srcFolder.getFiles();
+  for (var i = 0; i < list.length; i++) {
+    var it = list[i];
+    if (it instanceof Folder) {
+      n += ochaCopyTree(it, new Folder(destFolder.fsName + "/" + it.name));
+    } else {
+      try { if (it.copy(destFolder.fsName + "/" + it.name)) n++; } catch (e) {}
+    }
+  }
+  return n;
+}
+
 function ochaPkgFolder(rootFsName, cat) {
   var f = new Folder(rootFsName + "/" + cat);
   if (!f.exists) f.create();
@@ -928,6 +945,19 @@ function ochaPackageProject() {
       try { app.project.save(); } catch (e4) {}
     }
 
+    // 3b) The OCHA MOGRT sources travel too. Premiere can't relink an .aegraphic via
+    //     script (changeMediaPath is a no-op on MOGRT media), so copying the project's
+    //     "OCHA Branding Elements" folder into the package keeps the .mogrt sources with
+    //     it. Same NAME (spaces kept) so the reference still resolves. projPath was
+    //     captured before saveAs, so it's the ORIGINAL project's folder.
+    var brandingCopied = 0;
+    try {
+      var origBrand = new Folder(new File(projPath).parent.fsName + "/" + OCHA_ASSET_DIR);
+      if (origBrand.exists) {
+        brandingCopied = ochaCopyTree(origBrand, new Folder(root.fsName + "/" + OCHA_ASSET_DIR));
+      }
+    } catch (eBr) {}
+
     var parts = [];
     if (counts.footage) parts.push("footage " + counts.footage);
     if (counts.images) parts.push("images " + counts.images);
@@ -935,8 +965,10 @@ function ochaPackageProject() {
     if (counts.audio) parts.push("audio " + counts.audio);
     if (counts.other) parts.push("other " + counts.other);
     var msg = "Packaged " + copied + " file(s) into '" + decodeURI(root.name) + "' (" + parts.join(", ") + ").";
-    if (savedAs) msg += " Saved a relinked copy (" + relinked + " relinked) - you're now working in the package; your original project is unchanged.";
+    if (savedAs) msg += " Saved a relinked copy - you're now in the package; your original is unchanged.";
     else msg += " NOTE: couldn't save the project copy (" + firstErr + ") - files were still copied.";
+    if (brandingCopied) msg += " Bundled the OCHA branding folder (" + brandingCopied + " template file(s)).";
+    if (counts.graphics) msg += " If a MOGRT shows OFFLINE, run File > Project Manager - Premiere can't relink templates by script.";
     if (failed) msg += " " + failed + " file(s) failed to copy.";
     return "OK|" + msg;
   } catch (e) { return "ERR|" + e.toString(); }

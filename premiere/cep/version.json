@@ -1,6 +1,6 @@
 {
-  "version": "0.38.2",
+  "version": "0.38.3",
   "date": "2026-07-22",
-  "notes": "Package project: folder and file names use underscores instead of spaces.",
+  "notes": "Package project bundles the OCHA branding templates and notes that MOGRTs need Premiere's Project Manager to relink.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }
