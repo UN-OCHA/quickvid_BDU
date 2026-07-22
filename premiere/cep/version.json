@@ -1,6 +1,6 @@
 {
-  "version": "0.39.2",
+  "version": "0.39.3",
   "date": "2026-07-22",
-  "notes": "Trimmed the intro lines from the Captions and Toolbox tabs.",
+  "notes": "Trimmed a line from the Package project dialog.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }

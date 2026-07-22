@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.39.2";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.39.3";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -488,7 +488,7 @@ const TOOLS = {
     title: "Package project",
     explain: "<ul><li>Copies <strong>every file this project uses</strong> — footage, images, graphics, audio — into one folder, sorted by type.</li>"
       + "<li>Saves a <strong>relinked copy</strong> of the project, and bundles the OCHA branding templates.</li>"
-      + "<li>You pick where it goes. Your original project and files stay put.</li></ul>"
+      + "<li>Your original project and files stay put.</li></ul>"
       + "<p class=\"modal-hint\">MOGRTs can't be relinked by script — if a template shows offline, run <strong>File &gt; Project Manager</strong>.</p>",
     info: "ochaPackageInfo()",
     action: "ochaPackageProject()",
