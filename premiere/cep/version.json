@@ -1,7 +1,7 @@
 {
-  "version": "0.40.0",
+  "version": "0.40.1",
   "date": "2026-07-22",
-  "notes": "One-click auto-update: the panel can now download and install new versions itself (quit Premiere to finish).",
+  "notes": "Fix: 'MOGRT not found' on Windows (extension path was mis-parsed on Windows drive letters).",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
   "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha-quickvid-panel.zxp"
 }

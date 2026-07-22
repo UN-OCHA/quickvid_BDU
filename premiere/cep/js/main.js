@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.40.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.40.1";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -29,13 +29,20 @@ const bridge = window.__adobe_cep__ || {
   getSystemPath: () => "",
 };
 
-// extension root on disk — host.jsx resolves MOGRTs relative to this.
-// The raw bridge returns a URI-encoded path (CSInterface normally decodes it):
-// strip any file:// scheme + percent-decode, or MOGRT paths won't resolve.
+// extension root on disk — host.jsx resolves MOGRTs relative to this, and the
+// caption installer + auto-updater use it too. The raw bridge returns a URI-encoded
+// file:// path; CSInterface would decode it, but we call the raw bridge, so we must
+// replicate its platform-specific decode by hand:
+//   Mac:     file:///Users/…   -> /Users/…        (strip "file://", leading / is correct)
+//   Windows: file:///C:/Users/… -> C:/Users/…      (also drop the / BEFORE the drive)
+// The second replace is the Windows fix: without it EXT_ROOT stayed "/C:/Users/…",
+// an invalid path, so every File(...).exists was false and "Add" reported
+// "MOGRT not found" on Windows while working on Mac.
 let EXT_ROOT = "";
 try {
   EXT_ROOT = decodeURIComponent(String(bridge.getSystemPath("extension") || ""))
-    .replace(/^file:\/\//, "");
+    .replace(/^file:\/\//, "")
+    .replace(/^\/([A-Za-z]:)/, "$1");
 } catch (e) { /* leave empty; host reports MOGRT-not-found with detail */ }
 
 let curEl = "lt";
@@ -719,7 +726,9 @@ function loadWhatsNew() {
   const wrap = $("menu-whatsnew-wrap"), body = $("menu-whatsnew"), tag = $("menu-whatsnew-ver");
   if (!wrap || !body || !EXT_ROOT) return;
   let xhr; try { xhr = new XMLHttpRequest(); } catch (e) { return; }
-  try { xhr.open("GET", encodeURI("file://" + EXT_ROOT + "/version.json") + "?t=" + Date.now(), true); }
+  // file:/// + path-with-leading-slash-stripped works for both: Mac "/Users/…" ->
+  // "file:///Users/…", Windows "C:/Users/…" -> "file:///C:/Users/…".
+  try { xhr.open("GET", encodeURI("file:///" + EXT_ROOT.replace(/^\//, "") + "/version.json") + "?t=" + Date.now(), true); }
   catch (e) { return; }
   xhr.onreadystatechange = () => {
     if (xhr.readyState !== 4) return;
