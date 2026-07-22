@@ -6,6 +6,13 @@ REM does not survive Premiere's exit, whatever detached/stdio options are used -
 REM the DataViz plugin established that the hard way). Waits for Premiere to quit,
 REM then extracts the staged package over the extension folder.
 REM
+REM Extraction uses tar.exe, NOT PowerShell Expand-Archive - the DataViz plugin's
+REM proven method. Expand-Archive REJECTS a non-.zip extension ("only .zip
+REM supported"), and that error is non-terminating, so it would report success
+REM having extracted nothing (banner said "updated", files never changed). tar.exe
+REM (libarchive) ships with Windows 10 (April 2018+), reads a .zxp as the signed zip
+REM it is, and dodges locked-down PowerShell ExecutionPolicy on managed machines.
+REM
 REM   %1 staged package   %2 extension folder   %3 marker   %4 log   %5 version
 setlocal EnableExtensions EnableDelayedExpansion
 set "STAGED=%~1"
@@ -14,6 +21,10 @@ set "MARKER=%~3"
 set "LOG=%~4"
 set "VERSION=%~5"
 if "%LOG%"=="" set "LOG=%TEMP%\ocha-quickvid-update.log"
+
+REM Drop a "started" marker in the extension folder first, so the panel can tell the
+REM helper actually RAN even if a later step fails. (Cleaned up on success.)
+if not "%PLUGIN_DIR%"=="" if exist "%PLUGIN_DIR%" >"%PLUGIN_DIR%\__helper-started.txt" echo started %DATE% %TIME%
 
 call :log "==== OCHA QuickVid update helper started (v%VERSION%) ===="
 if "%STAGED%"=="" call :abort "missing staged package argument"
@@ -40,14 +51,13 @@ call :log "Premiere exited after ~%WAITED%s"
 ping -n 3 127.0.0.1 >nul 2>&1
 
 call :log "Extracting into %PLUGIN_DIR% ..."
-REM PowerShell Expand-Archive is on every supported Windows; -Force overwrites.
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "try { Expand-Archive -LiteralPath '%STAGED%' -DestinationPath '%PLUGIN_DIR%' -Force; exit 0 } catch { exit 1 }" >>"%LOG%" 2>&1
-if errorlevel 1 call :abort "extraction failed (see %LOG%)"
+tar.exe -xf "%STAGED%" -C "%PLUGIN_DIR%" >>"%LOG%" 2>&1
+if errorlevel 1 call :abort "tar.exe extraction failed (see %LOG%)"
 call :log "Extraction complete."
 
 del /f /q "%STAGED%" >nul 2>&1
 del /f /q "%MARKER%" >nul 2>&1
+del /f /q "%PLUGIN_DIR%\__helper-started.txt" >nul 2>&1
 for %%I in ("%MARKER%") do set "MARKER_DIR=%%~dpI"
 >"%MARKER_DIR%__pendingUpdate.applied.json" echo {"version":"%VERSION%","appliedAt":"%DATE% %TIME%"}
 call :log "==== finished cleanly ===="

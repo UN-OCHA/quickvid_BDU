@@ -1,7 +1,7 @@
 {
-  "version": "0.40.4",
+  "version": "0.40.5",
   "date": "2026-07-22",
-  "notes": "The update banner's X now closes it (the post-update 'Updated' note couldn't be dismissed before).",
+  "notes": "Auto-update now actually installs on Windows (extractor switched from PowerShell to tar.exe, matching DataViz).",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
-  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha-quickvid-panel.zxp?v=0.40.4"
+  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha-quickvid-panel.zxp?v=0.40.5"
 }
