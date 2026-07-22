@@ -40,3 +40,6 @@ premiere/ae/build_log.txt
 
 # UXP plugin package (build output)
 premiere/plugin/*.ccx
+
+# Local ZXP signing config (cert path + password) — never commit to this public repo
+tools/sign.env
