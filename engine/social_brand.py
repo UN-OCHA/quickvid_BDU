@@ -51,20 +51,8 @@ from PIL import ImageFont
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 FFPROBE = FF.replace("ffmpeg", "ffprobe")
-COLOR = ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"]
-
-
-def _ffmpeg_hdr():
-    """The BUNDLED imageio ffmpeg — it has zscale/tonemap (a Homebrew build set via
-    IMAGEIO_FFMPEG_EXE may not). Ignore the override to reach the bundled binary.
-    Mirrors finish.py._ffmpeg_hdr — keep in sync."""
-    import imageio_ffmpeg
-    saved = os.environ.pop("IMAGEIO_FFMPEG_EXE", None)
-    try:
-        return imageio_ffmpeg.get_ffmpeg_exe()
-    finally:
-        if saved is not None:
-            os.environ["IMAGEIO_FFMPEG_EXE"] = saved
+from mediakit import (COLOR, LOGO_SVG, BUG_SVG, BUG_HEIGHT_FRAC, SAFE_AREA, BRAND_JSON,  # noqa: F401
+                      rotation as _rotation, ffmpeg_hdr as _ffmpeg_hdr, to_sdr)
 
 
 def is_hdr(src):
@@ -80,54 +68,7 @@ def is_hdr(src):
             or s.get("color_primaries") == "bt2020")
 
 
-def to_sdr(src, tmp):
-    """HDR (HLG/PQ, BT.2020) → SDR bt709 so overlaid sRGB graphics read correctly.
-    ffmpeg auto-rotates on decode, so this also bakes any rotation upright.
-    Mirrors finish.py.to_sdr — keep in sync."""
-    out = os.path.join(tmp, "_sdr.mp4")
-    subprocess.run(
-        [_ffmpeg_hdr(), "-y", "-v", "error", "-i", src,
-         "-vf", "zscale=t=linear:npl=203,tonemap=hable:desat=0,"
-                "zscale=p=bt709:t=bt709:m=bt709:r=tv,format=yuv420p",
-         "-c:v", "libx264", "-crf", "16", "-preset", "medium"] + COLOR
-        + ["-c:a", "copy", out], check=True)
-    return out
-
-
-def _rotation(s):
-    """Display rotation as 0 or 90 (90 = axes swapped). iPhones store PORTRAIT as
-    landscape pixels + a rotation flag (old `rotate` tag OR newer displaymatrix
-    side_data). ffmpeg auto-rotates the frames but ffprobe still reports the CODED
-    dims — so without this a portrait clip is laid out as 16:9. Mirrors finish.py."""
-    deg = None
-    tags = s.get("tags") or {}
-    if tags.get("rotate") is not None:
-        try:
-            deg = int(tags["rotate"])
-        except (ValueError, TypeError):
-            deg = None
-    if deg is None:
-        for sd in s.get("side_data_list") or []:
-            if sd.get("rotation") is not None:
-                try:
-                    deg = int(round(float(sd["rotation"])))
-                except (ValueError, TypeError):
-                    deg = None
-                break
-    return 90 if abs(deg or 0) % 180 == 90 else 0
-LOGO_SVG = os.path.join(ROOT, "assets", "OCHA_logo_horizontal_white.svg")
-BUG_SVG = os.path.join(ROOT, "assets", "OCHA_logo_vertical_white.svg")
-BUG_HEIGHT_FRAC = 0.065    # corner watermark, mainly for EVENT (landscape) videos — mirrors
-                           # engine/finish.py; sized to a real reference (~6.67% measured on
-                           # references/videos/HNPW2026_USG_remarks.mp4), keep in sync
-# Safe-area insets for bug/LT placement, by orientation (mirrors finish.py's profile()
-# table — kept as a separate literal here rather than a cross-module import, same
-# tolerance the LOGO_SVG/logo_ratio numbers already have between these two files).
-# landscape right=.06 matches the reference's ~6.6% margin (not .045 like finish.py's LT left).
-SAFE_AREA = {"landscape": {"top": .06, "right": .06, "left": .045},
-             "portrait": {"top": .11, "right": .06, "left": .06},
-             "square": {"top": .08, "right": .08, "left": .08}}
-BRAND_JSON = os.path.join(ROOT, "brand", "brand.json")
+OGO_SVG = os.path.join(ROOT, "assets", "OCHA_logo_horizontal_white.svg")
 from svgpng import font_path as _font_path             # bundled fonts first - identical on every machine
 FONTS = {700: _font_path("Raleway-Bold.ttf"), 600: _font_path("Raleway-SemiBold.ttf"),
          500: _font_path("Raleway-Medium.ttf")}

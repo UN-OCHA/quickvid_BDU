@@ -36,9 +36,13 @@ HOLD = 1.5           # video cuts this long after the logo appears (both styles)
 
 
 def ffprobe_of(ff):
-    """ffprobe living next to the given ffmpeg — the naive replace settings.py's
-    symlink layout is designed around ("ffmpeg.exe" becomes "ffprobe.exe" too)."""
-    return ff.replace("ffmpeg", "ffprobe") if "ffmpeg" in ff else "ffprobe"
+    """ffprobe next to the given ffmpeg — the sibling settings.py's symlink layout
+    puts there ("ffmpeg.exe" -> "ffprobe.exe"). But the imageio ffmpeg build has NO
+    ffprobe sibling (its folder is imageio_ffmpeg only), so when the derived path
+    doesn't exist, fall back to a system `ffprobe`. Missing this made finish.py's
+    over_black crash: its FF is the imageio binary."""
+    cand = ff.replace("ffmpeg", "ffprobe")
+    return cand if cand != ff and os.path.exists(cand) else "ffprobe"
 
 
 def vcodec_args(bitrate):

@@ -41,15 +41,8 @@ import ending as ending_mod   # THE ending — shared with social_brand.py
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BRAND = os.path.join(ROOT, "brand", "brand.json")
-LOGO_SVG = os.path.join(ROOT, "assets", "OCHA_logo_horizontal_white.svg")
-BUG_SVG = os.path.join(ROOT, "assets", "OCHA_logo_vertical_white.svg")
-BUG_HEIGHT_FRAC = 0.065    # corner watermark, mainly for EVENT (landscape) videos — sized to
-                           # match a real reference (references/videos/HNPW2026_USG_remarks.mp4,
-                           # measured ~6.67% of frame height); still bigger than the ending logo's
-                           # 0.054 since it has to read as a persistent mark, not a closing beat.
-                           # (First cut at 0.032 was too small — tuned for reels, never checked
-                           # against actual event-video usage.) Mirrored in social_brand.py, keep in sync.
-COLOR = ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"]
+from mediakit import (COLOR, LOGO_SVG, BUG_SVG, BUG_HEIGHT_FRAC,  # noqa: F401 — re-exported
+                      rotation as _rotation, ffmpeg_hdr as _ffmpeg_hdr, to_sdr)
 
 
 def _ffmpeg():
@@ -61,49 +54,11 @@ def _ffmpeg():
         return shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
 
 
-def _ffmpeg_hdr():
-    """The BUNDLED imageio ffmpeg — it has zscale/tonemap (Homebrew's build may
-    not). Ignore the IMAGEIO_FFMPEG_EXE override to reach the bundled binary."""
-    import imageio_ffmpeg
-    saved = os.environ.pop("IMAGEIO_FFMPEG_EXE", None)
-    try:
-        return imageio_ffmpeg.get_ffmpeg_exe()
-    finally:
-        if saved is not None:
-            os.environ["IMAGEIO_FFMPEG_EXE"] = saved
-
-
 FF = _ffmpeg()
 FP = FF.replace("ffmpeg", "ffprobe") if FF.endswith("ffmpeg") else "ffprobe"
 
 
 ff_progress = ending_mod.ff_progress      # one implementation, in ending.py
-
-
-def _rotation(s):
-    """Display rotation of a video stream, as 0 or 90 (the only distinction that
-    matters for placement: 90/270 swap width<->height, 0/180 don't). iPhones store
-    PORTRAIT footage as landscape pixels + a rotation flag — carried either as an
-    old-style `rotate` tag OR a newer displaymatrix side_data `rotation` (a float,
-    often negative). ffmpeg auto-rotates the frames on decode, but ffprobe still
-    reports the CODED (landscape) width/height — so without this the engine lays a
-    portrait clip out as if it were 16:9. Returns 90 when the axes are swapped."""
-    deg = None
-    tags = s.get("tags") or {}
-    if tags.get("rotate") is not None:
-        try:
-            deg = int(tags["rotate"])
-        except (ValueError, TypeError):
-            deg = None
-    if deg is None:
-        for sd in s.get("side_data_list") or []:
-            if sd.get("rotation") is not None:
-                try:
-                    deg = int(round(float(sd["rotation"])))
-                except (ValueError, TypeError):
-                    deg = None
-                break
-    return 90 if abs(deg or 0) % 180 == 90 else 0
 
 
 def probe(video):
@@ -157,19 +112,6 @@ def profile(W, H):
                 "safe": {"top": .11, "bottom": .20, "left": .06, "right": .06}}
     return {"orient": "square",                       # 1:1
             "safe": {"top": .08, "bottom": .10, "left": .08, "right": .08}}
-
-
-def to_sdr(video, tmp):
-    """HDR (HLG/PQ, BT.2020) → SDR bt709, so overlaid sRGB graphics read correctly."""
-    out = os.path.join(tmp, "sdr.mp4")
-    ff = _ffmpeg_hdr()
-    subprocess.run(
-        [ff, "-y", "-v", "error", "-i", video,
-         "-vf", "zscale=t=linear:npl=203,tonemap=hable:desat=0,"
-                "zscale=p=bt709:t=bt709:m=bt709:r=tv,format=yuv420p",
-         "-c:v", "libx264", "-crf", "16", "-preset", "medium"] + COLOR
-        + ["-c:a", "copy", out], check=True)
-    return out
 
 
 def place(g, W, H, prof, align):
