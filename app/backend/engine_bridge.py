@@ -247,6 +247,24 @@ def finish(job) -> None:
     job.result = result
 
 
+def captions_for_video(job) -> None:
+    """Titles tab, caption editor: transcribe a FINISHED clip and return the cues
+    the render would burn — so mis-heard words can be fixed BEFORE rendering.
+    Exactly the same transcribe + cue path as _finish_with_subtitles; the reviewed
+    cues come back to the render in job.meta["cues"]."""
+    sys.path.insert(0, str(settings.ENGINE_DIR))
+    import statement as st                              # noqa: E402 — cue helpers
+
+    workdir = settings.WORKSPACE / job.id
+    workdir.mkdir(parents=True, exist_ok=True)
+    seg_json = workdir / "segments.json"
+    job.progress = "Transcribing the video…"
+    _statement_action(job, "transcribe", {"src": job.meta["video"], "model": settings.DEFAULT_MODEL,
+                                          "out_json": str(seg_json)})
+    segments = json.loads(seg_json.read_text())
+    job.result = {"cues": st.cues_real_timeline(segments), "segment_count": len(segments)}
+
+
 def _finish_with_subtitles(job, workdir, out) -> None:
     """Titles + subtitles: Whisper the finished clip → burn captions (chosen
     style) + lower thirds + ending via engine/social_brand.py."""
@@ -255,12 +273,19 @@ def _finish_with_subtitles(job, workdir, out) -> None:
     import lower_third as LT                            # noqa: E402 — shared animation constants
 
     video = job.meta["video"]
-    seg_json = workdir / "segments.json"
-    job.progress = "Transcribing the video for subtitles…"
-    _statement_action(job, "transcribe", {"src": video, "model": settings.DEFAULT_MODEL,
-                                          "out_json": str(seg_json)})
-    segments = json.loads(seg_json.read_text())
-    cues = st.cues_real_timeline(segments)
+    # Reviewed captions from the caption editor ride in on the render request —
+    # use them verbatim (their text, our timing) and skip the whole transcription.
+    reviewed = job.meta.get("cues")
+    if isinstance(reviewed, list) and reviewed:
+        job.progress = "Using your reviewed captions…"
+        cues = reviewed
+    else:
+        seg_json = workdir / "segments.json"
+        job.progress = "Transcribing the video for subtitles…"
+        _statement_action(job, "transcribe", {"src": video, "model": settings.DEFAULT_MODEL,
+                                              "out_json": str(seg_json)})
+        segments = json.loads(seg_json.read_text())
+        cues = st.cues_real_timeline(segments)
 
     pw, ph, _, dur = st._probe(video)
     style = (job.meta.get("subtitles") or {}).get("style", "box")

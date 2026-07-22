@@ -171,6 +171,23 @@ def cues_from_runs(runs, sub, min_show=1.2):
     return merged
 
 
+def sub_config(preset, style=None):
+    """Caption styling for a preset, with the UI's Social/Event override applied.
+    ONE place, because both the render and the caption-editor preview derive the
+    two-line budget from it — if they drifted, the reviewed text wouldn't match
+    what burns."""
+    return {**preset["sub"], **({"box": style == "box"} if style else {})}
+
+
+def cues_preview(segments, preset_key=None, style=None):
+    """The cues do_render WOULD burn for this selection — for the caption editor.
+    Same path as the render (build_runs → cues_from_runs, same sub_config), so
+    what the user reviews is exactly what renders."""
+    preset = PRESETS.get(preset_key or "reels", PRESETS["reels"])
+    runs = build_runs(sorted(segments, key=lambda s: s["in"]))
+    return cues_from_runs(runs, sub_config(preset, style))
+
+
 def cues_real_timeline(segments, max_len=7.0):
     """Caption cues on the ORIGINAL video timeline — for a FINISHED clip (Titles &
     branding + subtitles): nothing is cut, so each segment's own time is the cue
@@ -333,15 +350,19 @@ def do_render(spec):
                     "align": l.get("align", "center"), "in": float(l.get("start", 1.5)), "hold": hold})
     # Subtitles: {"on": bool, "style": "box"|"gradient"} — style overrides the
     # preset default (boxed social vs clean-over-gradient event look).
-    sub_cfg = {**preset["sub"],
-               **({"box": (spec.get("subtitles") or {}).get("style") == "box"}
-                  if (spec.get("subtitles") or {}).get("style") else {})}
+    sub_cfg = sub_config(preset, (spec.get("subtitles") or {}).get("style"))
+    # Caption text: the user may have REVIEWED the cues (the caption editor sends
+    # them back in spec["cues"], text fixed, timing untouched). Use those verbatim;
+    # otherwise build them fresh from the Whisper words. An empty/absent list means
+    # "not reviewed", never "no captions" — the on/off switch decides that.
+    reviewed = spec.get("cues")
     bspec = {
         "src": base, "out": out, "canvas": [cw, ch], "fps": fps,
         "bitrate": "12M",                              # 6M default reads soft on 1080x1920
         "footage_end": round(footage_end, 2),
         "subtitle": sub_cfg,
-        "cues": cues_from_runs(runs, sub_cfg)
+        "cues": (reviewed if isinstance(reviewed, list) and reviewed
+                 else cues_from_runs(runs, sub_cfg))
                 if (spec.get("subtitles") or {}).get("on", spec.get("captions", True)) else [],
         "lower_thirds": lts,
         "bug": spec.get("bug") or {},

@@ -1241,6 +1241,29 @@ location, lowerthird, + the two tab controllers) over an engine of focused modul
 (statement -> social_brand + ending + mediakit; finish -> the same; pin_locator,
 lower_third, svgpng, webtv). No module or component is defined twice.
 
+## Caption editor — review the words before they burn (2026-07-22, v0.11.0)
+
+Whisper mis-hears the odd word, and until now it went straight into the video.
+Both tabs can now REVIEW the caption text before rendering; timing stays the
+engine's.
+
+- ONE shared UI component (`browser/captions.js`), mounted by both tabs — the
+  share-don't-duplicate rule. Rows = mm:ss + an editable text box; clearing a
+  line drops that caption (social_brand treats "" as a boundary).
+- ONE engine path: `statement.cues_preview()` (build_runs → cues_from_runs with
+  the same `sub_config`) is asserted equal to what `do_render` burns, so the
+  review is never a lie. Titles-tab cues still come from `cues_real_timeline`.
+- Flow: Edit tab → `POST /api/statement/cues` (instant — words are already
+  transcribed). Titles tab → `POST /api/captions` (a transcribe job, so the
+  wait moves BEFORE the render); the reviewed cues ride back on the render
+  request (`cues: [[start, text], …]`) and the engine skips re-transcribing.
+- Staleness: edits carry a fingerprint of the inputs (video path / selection +
+  format). If the cut changes, `collect()` returns null and the engine builds
+  fresh automatic captions — one clip's text can never burn onto another cut.
+- Compatibility: engines < 0.11.0 silently IGNORE `cues`, so the page
+  feature-gates the editor on the engine version instead of hard-gating
+  (`ENGINE_MIN` stays 0.5.0).
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the

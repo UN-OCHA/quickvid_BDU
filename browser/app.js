@@ -35,7 +35,7 @@ const ENGINE_MIN = "0.5.0";
 // corrected from the repo's VERSION file at load — see trackLatestVersion below.
 // It used to be hardcoded only, which meant the banner quietly went stale every
 // release: it was still advertising 0.6.3 while main had moved on to 0.7.0.
-let ENGINE_LATEST = "0.7.0";
+let ENGINE_LATEST = "0.11.0";
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
@@ -101,6 +101,11 @@ function gate() {
     $("#st-upd-cur").textContent = ver; $("#st-upd-new").textContent = ENGINE_LATEST;
     banner.hidden = false;                       // engine self-updates on next Start — no download link
   } else { banner.hidden = true; }
+  // The caption editor needs an engine that understands `cues` (0.11.0+): an older
+  // one silently IGNORES the field, and the user's edits would vanish into a normal
+  // render. Feature-gate the buttons instead of hard-gating the whole app.
+  const capsOk = up && cmpVer(ver, "0.11.0") >= 0;
+  document.querySelectorAll(".cap-review").forEach((el) => { el.hidden = !capsOk; });
   if (typeof stModeChanged === "function") stModeChanged(up);     // Edit wizard shows/hides
 }
 
@@ -148,7 +153,11 @@ async function enginePick() {
     const r = await fetch(ENGINE + "/api/pick-file", { method: "POST" });
     if (!r.ok) return;
     const { path } = await r.json();
-    if (path) { state.enginePath = path; $("#drop-text").textContent = path.split(/[\\/]/).pop(); $("#drop").classList.add("has-file"); setStatus(""); }
+    if (path) {
+      const changed = state.enginePath && state.enginePath !== path;
+      state.enginePath = path; $("#drop-text").textContent = path.split(/[\\/]/).pop(); $("#drop").classList.add("has-file"); setStatus("");
+      if (changed) tCaps.clear("Video changed — captions reset.");   // stale cue text must never burn onto another clip
+    }
   } catch (e) { setStatus("Couldn't open the file picker.", "warn"); }
 }
 
@@ -200,10 +209,10 @@ if (ftPick) ftPick.onclick = async () => {
 };
 
 // full mode: hand the job to the engine (real ffmpeg) and stream the result back over localhost
-async function renderViaEngine(lowerThirds, ending, subtitles, bug, pins) {
+async function renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues) {
   const body = { video: state.enginePath, lower_thirds: lowerThirds, ending: { style: ending.style },
                  subtitles: subtitles || { on: false, style: "box" }, bug: bug || { on: false },
-                 pins: pins || [], dir: state.jobDir };
+                 pins: pins || [], cues: cues || undefined, dir: state.jobDir };
   const r = await fetch(ENGINE + "/api/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) { let m = "Engine error"; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
   const { job_id } = await r.json();
@@ -309,11 +318,17 @@ $("#run").onclick = async () => {
   if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on && !pins.length)
     return setStatus("Add at least one lower third, subtitles, the bug, a location strip, or pick an ending.", "warn");
 
+  // Reviewed captions ride along only while they still match the chosen video —
+  // otherwise the engine transcribes fresh (never burn one clip's text on another).
+  const cues = subtitles.on ? tCaps.collect(state.enginePath) : null;
+  const staleNote = subtitles.on && tCaps.stale(state.enginePath)
+    ? " (video changed since the caption review — using fresh automatic captions)" : "";
+
   $("#run").disabled = true;
   const t0 = performance.now();
   try {
-    setStatus("Rendering with the OCHA engine…", "busy");
-    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug, pins);  // real ffmpeg, no limits
+    setStatus("Rendering with the OCHA engine…" + staleNote, "busy");
+    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues);  // real ffmpeg, no limits
     if (state.url) URL.revokeObjectURL(state.url);
     state.url = URL.createObjectURL(blob);
     $("#player").src = state.url;
@@ -347,6 +362,35 @@ function tSetSubStyle(style) {
 }
 $("#t-substyle-box").onclick = () => tSetSubStyle("box");
 $("#t-substyle-event").onclick = () => tSetSubStyle("gradient");
+
+/* ---- caption editor: the SHARED component (browser/captions.js) ----
+   The Edit tab mounts the same one. Generate = transcribe once (a job), review
+   the text, then Render sends the edited cues and skips re-transcribing. */
+const tCaps = OchaCaptions.mount({ list: $("#t-caps-list"), status: $("#t-caps-status") });
+$("#t-caps-gen").onclick = async () => {
+  if (!state.enginePath) return setStatus("Choose a video first.", "warn");
+  const btn = $("#t-caps-gen");
+  btn.disabled = true;
+  try {
+    setStatus("Transcribing for captions — a few minutes for long videos…", "busy");
+    const r = await fetch(ENGINE + "/api/captions", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ video: state.enginePath }),
+    });
+    if (!r.ok) throw new Error((await r.json()).detail || "Couldn't start the caption job.");
+    const { job_id } = await r.json();
+    let job;
+    do {
+      await sleep(1000);
+      job = await (await fetch(ENGINE + "/api/jobs/" + job_id)).json();
+      setStatus(job.progress || "Transcribing…", "busy", job.percent);
+    } while (job.status !== "done" && job.status !== "error");
+    if (job.status === "error") throw new Error(job.error || "Transcription failed.");
+    tCaps.setCues((job.result || {}).cues || [], state.enginePath);
+    setStatus("Captions ready — review below, then render.", "ok");
+  } catch (e) { setStatus("Error: " + (e && e.message || e), "error"); }
+  finally { btn.disabled = false; }
+};
 /* ---- location strips: the SHARED component (browser/location.js) ----
    The Edit tab mounts the same one. Change the strip's fields, defaults or
    behaviour in location.js and BOTH tabs move together. */

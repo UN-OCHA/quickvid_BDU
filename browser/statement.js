@@ -567,6 +567,34 @@ document.querySelectorAll('input[name="st-preset"]').forEach((r) =>
   r.addEventListener("change", () => stSetSubStyle(r.value === "event" ? "gradient" : "box")));
 stSetSubStyle("box");
 
+/* ---- caption editor: the SHARED component (browser/captions.js) ----
+   The Titles tab mounts the same one. Here the cues come from the CURRENT
+   selection instantly (the words are already transcribed — no waiting): review
+   the text, and Render burns your words with the engine's timing. The
+   fingerprint ties edits to the selection + format — change the cut and stale
+   edits step aside for fresh automatic captions. */
+const stCaps = OchaCaptions.mount({ list: $st("#st-caps-list"), status: $st("#st-caps-status") });
+const stCapsSegs = () => ST.segments.filter((s) => s.sel)
+  .map((s) => ({ in: s.in, out: s.out, shot: s.shot, userShot: s.userShot, text: s.text, words: s.words }));
+const stCapsFp = () => JSON.stringify({
+  sel: ST.segments.filter((s) => s.sel).map((s) => [s.in, s.out]),
+  preset: (document.querySelector('input[name="st-preset"]:checked') || {}).value || "reels",
+});
+$st("#st-caps-gen").onclick = async () => {
+  const segs = stCapsSegs();
+  if (!segs.length) return stStatus("Tick at least one sentence first (step 5).", "warn");
+  try {
+    const r = await fetch(`${ENGINE}/api/statement/cues`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ segments: segs,
+        preset: (document.querySelector('input[name="st-preset"]:checked') || {}).value || "reels",
+        style: ST.subsStyle || "box" }),
+    });
+    if (!r.ok) throw new Error((await r.json()).detail || "Couldn't build the captions.");
+    stCaps.setCues((await r.json()).cues || [], stCapsFp());
+  } catch (e) { stStatus("Captions: " + (e && e.message || e), "error"); }
+};
+
 /* ---- location strips: the SHARED component (browser/location.js) ----
    The Titles & branding tab mounts the same one — one implementation, both tabs. */
 const stLoc = OchaLocation.mount({
@@ -600,13 +628,17 @@ $st("#st-render").onclick = async () => {
               tail: (() => { const v = parseFloat(($st("#st-tail") || {}).value); return Number.isFinite(v) ? v : undefined; })() },
     captions: $st("#st-captions").checked,
     subtitles: { on: $st("#st-captions").checked, style: ST.subsStyle || "box" },
+    // reviewed caption text — only while it still matches the selection + format
+    cues: $st("#st-captions").checked ? (stCaps.collect(stCapsFp()) || undefined) : undefined,
     bug: { on: $st("#st-bug-on").checked },
     pins: stLoc.collect(),
     dir: ST.jobDir,
   };
+  const capNote = $st("#st-captions").checked && stCaps.stale(stCapsFp())
+    ? " (selection changed since the caption review — using fresh automatic captions)" : "";
   try {
     $st("#st-render").disabled = true;
-    stStatus("Cutting and branding — a minute or two…", "busy");
+    stStatus("Cutting and branding — a minute or two…" + capNote, "busy");
     const r = await fetch(`${ENGINE}/api/statement/render`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });

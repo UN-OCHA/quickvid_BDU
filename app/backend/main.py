@@ -179,6 +179,7 @@ class FinishReq(BaseModel):
     pin: PinReq = PinReq()                     # legacy single strip — see _pins()
     ending: EndingReq = EndingReq()
     subtitles: SubtitlesReq = SubtitlesReq()  # engine-only: transcribe + burn captions
+    cues: Optional[list] = None               # reviewed captions [[start, text], …] — skips transcription
     dir: Optional[str] = None                 # job folder → final lands in <dir>/export/
 
 
@@ -198,9 +199,26 @@ def finish(req: FinishReq):
         "pins": pins,
         "ending": req.ending.model_dump(),
         "subtitles": req.subtitles.model_dump(),
+        "cues": req.cues,                      # reviewed captions, verbatim (see caption editor)
         "dir": req.dir,                        # same job-folder contract as the Edit tab
     })
     jobs.run_async(job, engine_bridge.finish)
+    return {"job_id": job.id}
+
+
+class CaptionsReq(BaseModel):
+    video: str
+
+
+@app.post("/api/captions")
+def captions(req: CaptionsReq):
+    """Caption editor (Titles tab): transcribe the finished clip and return the cues
+    the render would burn, so mis-heard words can be fixed BEFORE rendering. The
+    edited cues come back to /api/finish in `cues`."""
+    if not Path(req.video).is_file():
+        raise HTTPException(400, f"Not a video file: {req.video}")
+    job = jobs.create("captions", {"video": req.video})
+    jobs.run_async(job, engine_bridge.captions_for_video)
     return {"job_id": job.id}
 
 
@@ -398,10 +416,27 @@ class StRenderReq(BaseModel):
     ending: dict = {"style": "over_footage"}           # {"style", "tail"?} — tail = footage secs after last sentence
     captions: bool = True
     subtitles: Optional[dict] = None                   # {"on": bool, "style": "box"|"gradient"}
+    cues: Optional[list] = None                        # reviewed captions [[start, text], …] — text as edited
     bug: Optional[dict] = None                         # {"on": bool} — off by default, top-right vertical logo
     pins: Optional[list] = None                        # [{"on","place","date","icon","color","start","duration"}] — location strips
     pin: Optional[dict] = None                         # legacy single strip (old projects) — see _pins()
     dir: Optional[str] = None                          # job folder → final lands in <dir>/export/
+
+
+class StCuesReq(BaseModel):
+    segments: list                                     # the SELECTED sentences (with their words)
+    preset: str = "reels"
+    style: Optional[str] = None                        # "box" | "gradient"
+
+
+@app.post("/api/statement/cues")
+def st_cues(req: StCuesReq):
+    """Caption editor (Edit tab): the exact cues the render would burn for this
+    selection. Pure text/timing math on the already-transcribed words — instant,
+    no job. Edited text comes back to /api/statement/render in `cues`."""
+    if not req.segments:
+        raise HTTPException(400, "No sentences selected.")
+    return {"cues": statement_engine.cues_preview(req.segments, req.preset, req.style)}
 
 
 @app.post("/api/statement/render")

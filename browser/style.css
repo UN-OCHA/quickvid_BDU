@@ -323,3 +323,10 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
 .beta-banner .fa-circle-info { flex-shrink: 0; }
 .beta-banner a { color: var(--warn); font-weight: 600; text-decoration: underline; }
 .beta-banner a:hover { text-decoration: none; }
+
+/* ---- caption editor (shared component, both tabs) — layout only ---- */
+.cap-review { margin-top: 12px; }
+.cap-review .app-hint { display: block; margin-top: 6px; }
+.cap-rows { display: grid; gap: 6px; margin-top: 10px; max-height: 340px; overflow-y: auto; padding-right: 4px; }
+.cap-row { display: grid; grid-template-columns: 46px 1fr; gap: 8px; align-items: center; }
+.cap-time { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink-tertiary, #6e6e6e); text-align: right; }

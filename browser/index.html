@@ -16,8 +16,9 @@
   <script src="field.js?v=1" defer></script>      <!-- shared required project-folder field: BOTH tabs -->
   <script src="location.js?v=2" defer></script>   <!-- shared location strip: BOTH tabs -->
   <script src="lowerthird.js?v=1" defer></script>  <!-- shared lower-third rows: BOTH tabs -->
-  <script src="app.js?v=22" defer></script>
-  <script src="statement.js?v=14" defer></script>
+  <script src="captions.js?v=1" defer></script>    <!-- shared caption editor: BOTH tabs -->
+  <script src="app.js?v=23" defer></script>
+  <script src="statement.js?v=15" defer></script>
 </head>
 <body>
   <a class="cd-skip-link" href="#main">Skip to main content</a>
@@ -180,6 +181,11 @@
               <img id="t-subs-preview" src="img/ex-sub-box.jpg" width="360" height="640" alt="Subtitle style preview" />
               <figcaption id="t-subs-cap">Social — white text on a grey box (feeds &amp; reels).</figcaption>
             </figure>
+            <div class="cap-review">
+              <button type="button" id="t-caps-gen" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Review &amp; edit captions</span></button>
+              <span id="t-caps-status" class="app-hint"></span>
+              <div id="t-caps-list" class="cap-rows" hidden></div>
+            </div>
           </div>
         </div>
       </div>
@@ -507,6 +513,11 @@
               <img id="st-subs-preview" src="img/ex-sub-box.jpg" width="360" height="640" alt="Subtitle style preview" />
               <figcaption id="st-subs-cap">Social — white text on a grey box (feeds &amp; reels).</figcaption>
             </figure>
+            <div class="cap-review">
+              <button type="button" id="st-caps-gen" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Review &amp; edit captions</span></button>
+              <span id="st-caps-status" class="app-hint"></span>
+              <div id="st-caps-list" class="cap-rows" hidden></div>
+            </div>
           </div>
 
           <h3 class="cd-block-title st-subsection">Bug</h3>
