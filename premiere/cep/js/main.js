@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.38.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.38.1";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -475,6 +475,7 @@ const TOOLS = {
     action: "ochaPackageProject()",
     cta: (n) => (n > 0 ? `Package ${n} file${n === 1 ? "" : "s"}` : "Nothing to package"),
     countGated: true,
+    once: true,                                       // done once → show the result, not the CTA again
     working: "Choose a folder, then copying media + saving a relinked copy…",
   },
   gradient: {
@@ -551,6 +552,7 @@ function openTool(key) {
   modalInfo("Checking the project…", false);        // live status line
   $("modal-result").hidden = true;
   const run = $("modal-run");
+  run.hidden = false;                               // a `once` tool hid it last time
   run.textContent = cfg.cta(0);
   run.disabled = true;
   run.classList.toggle("is-danger", !!cfg.danger);
@@ -610,8 +612,14 @@ async function runToolAction() {
   modalResult(msg || "No response from Premiere.", ok ? "ok" : "err");
   cancel.disabled = false;
   cancel.textContent = ok ? "Done" : "Close";
-  if (ok) { refresh(); loadInfo(); }   // refresh format chip + re-read counts
-  else { run.disabled = false; }
+  if (ok && cfg.once) {
+    // one-shot tools (Package): don't re-offer the action — just the result + Done.
+    run.hidden = true;
+  } else if (ok) {
+    refresh(); loadInfo();             // refresh format chip + re-read counts
+  } else {
+    run.disabled = false;
+  }
 }
 function closeModal() {
   $("tool-modal").hidden = true;

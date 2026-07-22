@@ -864,10 +864,12 @@ function ochaPkgDest() {
 function ochaPackageInfo() {
   try {
     var projPath = ""; try { projPath = app.project.path; } catch (e) {}
-    if (!projPath) return "ERR|Save your project first - packaging copies its files into a folder next to the .prproj.";
+    if (!projPath) return "ERR|Save your project first, then package it.";
+    // READ-ONLY: just count files. Do NOT resolve a destination here - that now
+    // shows a folder picker (ochaPkgDest), and calling it from the info step is
+    // what prompted the user twice.
     var items = ochaPkgMediaItems();
-    var d = ochaPkgDest();
-    return "OK|" + items.length + " media file(s) found. Destination folder: '" + decodeURI(d.root.name) + "'.|" + items.length;
+    return "OK|" + items.length + " media file(s) to package. You'll pick where to save it.|" + items.length;
   } catch (e) { return "ERR|" + e.toString(); }
 }
 

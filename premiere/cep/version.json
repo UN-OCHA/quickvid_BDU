@@ -1,6 +1,6 @@
 {
-  "version": "0.38.0",
+  "version": "0.38.1",
   "date": "2026-07-22",
-  "notes": "Cleaner UI: toggle switches, tile-style branding buttons, bigger tab icons, a clear editing banner, auto-dismissing messages, and trimmed copy. Package project asks for a folder; Clean MOGRTs works and clears the files.",
+  "notes": "Package project: asks for the folder once (not twice), and after packaging shows just the confirmation + Done.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }
