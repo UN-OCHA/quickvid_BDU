@@ -1,7 +1,7 @@
 {
-  "version": "0.40.2",
+  "version": "0.40.3",
   "date": "2026-07-22",
-  "notes": "Test release to verify one-click auto-update. If you're reading this in About, the auto-updater worked.",
+  "notes": "Auto-update now pulls the current build past GitHub's CDN cache (the previous try could re-install the old version).",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
-  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha-quickvid-panel.zxp"
+  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha-quickvid-panel.zxp?v=0.40.3"
 }

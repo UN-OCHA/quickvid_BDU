@@ -103,7 +103,13 @@ var AutoUpdater = (function () {
       try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch (e) {}
       if (cb.onError) cb.onError(m);
     }
-    fetch(url);
+    // GitHub raw serves the SAME url for every version, and its CDN can hand back a
+    // STALE copy — which silently extracts the old build over itself (the marker,
+    // taken from the freshly-fetched version.json, still says "updated"). Append a
+    // unique query so we always pull the current bytes. Only the FIRST hop is busted;
+    // redirect targets (the signed CDN url) are followed verbatim.
+    var firstUrl = url + (url.indexOf("?") < 0 ? "?" : "&") + "cb=" + version + "-" + new Date().getTime();
+    fetch(firstUrl);
   }
 
   /* Hand the staged package to a detached helper and return. The helper outlives

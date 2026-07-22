@@ -40,6 +40,16 @@ if [ "$manifest_v" != "$version_v" ] || [ "$manifest_v" != "$panel_v" ]; then
   exit 1
 fi
 
+# packageUrl carries a ?v=<version> cache-buster (GitHub's raw CDN otherwise serves
+# a STALE .zxp at the fixed url and the update silently re-installs the old build).
+# It MUST match this version, or the current installed updater pulls the wrong bytes.
+pkg_v="$(sed -n 's/.*"packageUrl"[^"]*"[^"]*[?&]v=\([0-9.][0-9.]*\).*/\1/p' "$CEP/version.json" | head -1)"
+if [ "$pkg_v" != "$version_v" ]; then
+  echo "REFUSING TO BUILD: version.json packageUrl ?v=$pkg_v != version $version_v."
+  echo "  Update the ?v= on packageUrl so installs fetch this build past the CDN cache."
+  exit 1
+fi
+
 rm -rf "$DIST"
 mkdir -p "$DIST"
 STAGE="$(mktemp -d)"
