@@ -1,6 +1,6 @@
 {
-  "version": "0.39.3",
+  "version": "0.39.4",
   "date": "2026-07-22",
-  "notes": "Trimmed a line from the Package project dialog.",
+  "notes": "Removed the 'you'll pick where to save it' note from the Package dialog.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }

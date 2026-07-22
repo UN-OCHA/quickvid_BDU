@@ -893,7 +893,7 @@ function ochaPackageInfo() {
     // shows a folder picker (ochaPkgDest), and calling it from the info step is
     // what prompted the user twice.
     var items = ochaPkgMediaItems();
-    return "OK|" + items.length + " media file(s) to package. You'll pick where to save it.|" + items.length;
+    return "OK|" + items.length + " media file(s) to package.|" + items.length;
   } catch (e) { return "ERR|" + e.toString(); }
 }
 
