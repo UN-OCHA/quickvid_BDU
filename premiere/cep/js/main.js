@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.38.6";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.39.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -669,6 +669,7 @@ document.querySelectorAll(".ext-link").forEach((a) => {
     e.preventDefault();
     const url = a.dataset.url;
     if (!url) return;
+    if (url.indexOf("crisisrelief") !== -1) { try { Analytics.ping("donate:click"); } catch (er) {} }
     try {
       if (window.cep && window.cep.util) window.cep.util.openURLInDefaultBrowser(url);
       else window.open(url);
@@ -676,12 +677,61 @@ document.querySelectorAll(".ext-link").forEach((a) => {
   });
 });
 
-// theme toggle
-$("theme").addEventListener("click", () => {
+/* ---------- kebab menu (About / Appearance / What's new / donate) ----------
+   Same pattern as the DataViz plugin: a header button toggles an absolutely-positioned
+   dropdown; a document click (outside) or Escape closes it. The appearance (light/dark)
+   toggle lives inside the menu now, not as a standalone header button. */
+const menuBtn = $("menu-btn"), menuDropdown = $("menu-dropdown");
+function closeMenu() {
+  menuDropdown.classList.remove("visible");
+  menuBtn.classList.remove("active");
+  menuBtn.setAttribute("aria-expanded", "false");
+}
+if (menuBtn && menuDropdown) {
+  menuBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = menuDropdown.classList.toggle("visible");
+    menuBtn.classList.toggle("active", open);
+    menuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  // click anywhere outside the menu (and not on the button) closes it
+  document.addEventListener("click", (e) => {
+    if (menuDropdown.classList.contains("visible") &&
+        !menuDropdown.contains(e.target) && !menuBtn.contains(e.target)) closeMenu();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && menuDropdown.classList.contains("visible")) closeMenu(); });
+}
+
+// appearance toggle (inside the menu) — same persisted light/dark as before
+$("btn-theme-toggle").addEventListener("click", () => {
   const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
   applyTheme(next);
   try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
 });
+
+// About shows the running version
+{ const mv = $("menu-version"); if (mv) mv.textContent = "v" + PANEL_VERSION; }
+
+// "What's new" — the notes for the version we're actually running, read from the
+// LOCAL version.json (the same `notes` field we fill each release). Best-effort:
+// if the file can't be read the section just stays hidden.
+function loadWhatsNew() {
+  const wrap = $("menu-whatsnew-wrap"), body = $("menu-whatsnew"), tag = $("menu-whatsnew-ver");
+  if (!wrap || !body || !EXT_ROOT) return;
+  let xhr; try { xhr = new XMLHttpRequest(); } catch (e) { return; }
+  try { xhr.open("GET", encodeURI("file://" + EXT_ROOT + "/version.json") + "?t=" + Date.now(), true); }
+  catch (e) { return; }
+  xhr.onreadystatechange = () => {
+    if (xhr.readyState !== 4) return;
+    let info; try { info = JSON.parse(xhr.responseText); } catch (e) { return; }
+    if (!info || !info.notes) return;
+    body.textContent = info.notes;
+    if (tag && info.version) tag.textContent = "v" + info.version;
+    wrap.hidden = false;
+  };
+  try { xhr.send(); } catch (e) { /* best-effort */ }
+}
+loadWhatsNew();
 
 /* ---------- Update check (GitHub-hosted version.json; notify + manual download) ----------
    Mirrors the DataViz plugin's version check but channelled via GitHub (same repo

@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <link rel="stylesheet" href="styles.css?v=0.38.6" />
+  <link rel="stylesheet" href="styles.css?v=0.39.0" />
   <!-- anonymous usage pings; a NO-OP until an endpoint is configured -->
   <script src="js/analytics.js?v=0.38"></script>
   <!-- downloads + installs updates; needs --enable-nodejs (see the manifest) -->
@@ -15,11 +15,51 @@
       <span id="ver" class="ver" title="OCHA QuickVid version"></span>
       <div class="hd__spacer"></div>
       <span id="fmt" class="chip">no sequence</span>
-      <button id="theme" class="icon-btn" title="Toggle light / dark">
-        <svg class="icon-sun"  viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M320 496C333.3 496 344 506.7 344 520L344 584C344 597.3 333.3 608 320 608C306.7 608 296 597.3 296 584L296 520C296 506.7 306.7 496 320 496zM161.6 444.4C171 435 186.2 435 195.6 444.4C205 453.8 205 469 195.6 478.4L150.3 523.7C140.9 533.1 125.7 533.1 116.4 523.7C107.1 514.3 107 499.1 116.4 489.8L161.6 444.5zM444.4 444.4C453.8 435 469 435 478.4 444.4L523.7 489.7C533.1 499.1 533.1 514.3 523.7 523.6C514.3 532.9 499.1 533 489.8 523.6L444.5 478.3C435.1 468.9 435.1 453.7 444.5 444.3zM320 448C249.3 448 192 390.7 192 320C192 249.3 249.3 192 320 192C390.7 192 448 249.3 448 320C448 390.7 390.7 448 320 448zM320 240C275.8 240 240 275.8 240 320C240 364.2 275.8 400 320 400C364.2 400 400 364.2 400 320C400 275.8 364.2 240 320 240zM120 296C133.3 296 144 306.7 144 320C144 333.3 133.3 344 120 344L56 344C42.7 344 32 333.3 32 320C32 306.7 42.7 296 56 296L120 296zM584 296C597.3 296 608 306.7 608 320C608 333.3 597.3 344 584 344L520 344C506.7 344 496 333.3 496 320C496 306.7 506.7 296 520 296L584 296zM116.3 116.3C125.7 106.9 140.9 106.9 150.2 116.3L195.5 161.5C204.9 170.9 204.9 186.1 195.5 195.5C186.1 204.9 170.9 204.9 161.5 195.5L116.3 150.3C106.9 140.9 106.9 125.7 116.3 116.4zM489.7 116.3C499.1 106.9 514.3 106.9 523.6 116.3C532.9 125.7 533 140.9 523.6 150.2L478.3 195.5C468.9 204.9 453.7 204.9 444.3 195.5C434.9 186.1 434.9 170.9 444.3 161.5L489.6 116.3zM320 32C333.3 32 344 42.7 344 56L344 120C344 133.3 333.3 144 320 144C306.7 144 296 133.3 296 120L296 56C296 42.7 306.7 32 320 32z"/></svg>
-        <svg class="icon-moon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M303.3 112.7C196.2 121.2 112 210.8 112 320C112 434.9 205.1 528 320 528C353.3 528 384.7 520.2 412.6 506.3C309.2 482.9 232 390.5 232 280C232 214.2 259.4 154.9 303.3 112.7zM64 320C64 178.6 178.6 64 320 64C339.4 64 358.4 66.2 376.7 70.3C386.6 72.5 394 80.8 395.2 90.8C396.4 100.8 391.2 110.6 382.1 115.2C321.5 145.4 280 207.9 280 280C280 381.6 362.4 464 464 464C469 464 473.9 463.8 478.8 463.4C488.9 462.6 498.4 468.2 502.6 477.5C506.8 486.8 504.6 497.6 497.3 504.6C451.3 548.8 388.8 576 320 576C178.6 576 64 461.4 64 320z"/></svg>
+      <button id="menu-btn" class="icon-btn" title="Menu" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M368 144C368 170.5 346.5 192 320 192C293.5 192 272 170.5 272 144C272 117.5 293.5 96 320 96C346.5 96 368 117.5 368 144zM272 320C272 293.5 293.5 272 320 272C346.5 272 368 293.5 368 320C368 346.5 346.5 368 320 368C293.5 368 272 346.5 272 320zM368 496C368 522.5 346.5 544 320 544C293.5 544 272 522.5 272 496C272 469.5 293.5 448 320 448C346.5 448 368 469.5 368 496z"/></svg>
       </button>
     </header>
+
+    <!-- Kebab menu (parity with the DataViz plugin): About, Appearance, What's new, donate.
+         Appearance lives here now instead of a standalone header toggle. -->
+    <div id="menu-dropdown" class="menu-dropdown" role="menu">
+      <div class="menu-section">
+        <div class="menu-section-title">About</div>
+        <div class="menu-info-text">
+          <strong>OCHA QuickVid</strong> <span id="menu-version"></span><br>
+          Free &amp; made for OCHA<br><br>
+          Created by<br>
+          <strong>OCHA Brand &amp; Design Unit</strong><br>
+          <a href="#" class="ext-link" data-url="mailto:ochavisual@un.org">ochavisual@un.org</a><br>
+          <a href="#" class="ext-link" data-url="https://www.unocha.org">unocha.org</a>
+        </div>
+      </div>
+
+      <div class="menu-theme-row">
+        <span class="menu-theme-label">Appearance</span>
+        <button id="btn-theme-toggle" class="theme-circle-btn" title="Toggle dark / light">
+          <svg class="icon-sun"  viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M320 496C333.3 496 344 506.7 344 520L344 584C344 597.3 333.3 608 320 608C306.7 608 296 597.3 296 584L296 520C296 506.7 306.7 496 320 496zM161.6 444.4C171 435 186.2 435 195.6 444.4C205 453.8 205 469 195.6 478.4L150.3 523.7C140.9 533.1 125.7 533.1 116.4 523.7C107.1 514.3 107 499.1 116.4 489.8L161.6 444.5zM444.4 444.4C453.8 435 469 435 478.4 444.4L523.7 489.7C533.1 499.1 533.1 514.3 523.7 523.6C514.3 532.9 499.1 533 489.8 523.6L444.5 478.3C435.1 468.9 435.1 453.7 444.5 444.3zM320 448C249.3 448 192 390.7 192 320C192 249.3 249.3 192 320 192C390.7 192 448 249.3 448 320C448 390.7 390.7 448 320 448zM320 240C275.8 240 240 275.8 240 320C240 364.2 275.8 400 320 400C364.2 400 400 364.2 400 320C400 275.8 364.2 240 320 240zM120 296C133.3 296 144 306.7 144 320C144 333.3 133.3 344 120 344L56 344C42.7 344 32 333.3 32 320C32 306.7 42.7 296 56 296L120 296zM584 296C597.3 296 608 306.7 608 320C608 333.3 597.3 344 584 344L520 344C506.7 344 496 333.3 496 320C496 306.7 506.7 296 520 296L584 296zM116.3 116.3C125.7 106.9 140.9 106.9 150.2 116.3L195.5 161.5C204.9 170.9 204.9 186.1 195.5 195.5C186.1 204.9 170.9 204.9 161.5 195.5L116.3 150.3C106.9 140.9 106.9 125.7 116.3 116.4zM489.7 116.3C499.1 106.9 514.3 106.9 523.6 116.3C532.9 125.7 533 140.9 523.6 150.2L478.3 195.5C468.9 204.9 453.7 204.9 444.3 195.5C434.9 186.1 434.9 170.9 444.3 161.5L489.6 116.3zM320 32C333.3 32 344 42.7 344 56L344 120C344 133.3 333.3 144 320 144C306.7 144 296 133.3 296 120L296 56C296 42.7 306.7 32 320 32z"/></svg>
+          <svg class="icon-moon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M303.3 112.7C196.2 121.2 112 210.8 112 320C112 434.9 205.1 528 320 528C353.3 528 384.7 520.2 412.6 506.3C309.2 482.9 232 390.5 232 280C232 214.2 259.4 154.9 303.3 112.7zM64 320C64 178.6 178.6 64 320 64C339.4 64 358.4 66.2 376.7 70.3C386.6 72.5 394 80.8 395.2 90.8C396.4 100.8 391.2 110.6 382.1 115.2C321.5 145.4 280 207.9 280 280C280 381.6 362.4 464 464 464C469 464 473.9 463.8 478.8 463.4C488.9 462.6 498.4 468.2 502.6 477.5C506.8 486.8 504.6 497.6 497.3 504.6C451.3 548.8 388.8 576 320 576C178.6 576 64 461.4 64 320z"/></svg>
+        </button>
+      </div>
+
+      <div id="menu-whatsnew-wrap" hidden>
+        <div class="menu-divider"></div>
+        <div class="menu-section">
+          <div class="menu-section-title">What's new <span id="menu-whatsnew-ver" class="menu-ver-tag"></span></div>
+          <div class="menu-info-text" id="menu-whatsnew"></div>
+        </div>
+      </div>
+
+      <div class="menu-divider"></div>
+      <div class="menu-section menu-donate">
+        <div class="menu-donate-text">Do you like this free plugin?</div>
+        <a href="#" class="menu-donate-link ext-link" data-url="https://crisisrelief.un.org/en/">
+          <svg viewBox="0 0 640 640" fill="currentColor" width="14" height="14" aria-hidden="true"><path d="M442.9 144C415.6 144 389.9 157.1 373.9 179.2L339.5 226.8C335 233 327.8 236.7 320.1 236.7C312.4 236.7 305.2 233 300.7 226.8L266.3 179.2C250.3 157.1 224.6 144 197.3 144C150.3 144 112.2 182.1 112.2 229.1C112.2 279 144.2 327.5 180.3 371.4C221.4 421.4 271.7 465.4 306.2 491.7C309.4 494.1 314.1 495.9 320.2 495.9C326.3 495.9 331 494.1 334.2 491.7C368.7 465.4 419 421.3 460.1 371.4C496.3 327.5 528.2 279 528.2 229.1C528.2 182.1 490.1 144 443.1 144zM335 151.1C360 116.5 400.2 96 442.9 96C516.4 96 576 155.6 576 229.1C576 297.7 533.1 358 496.9 401.9C452.8 455.5 399.6 502 363.1 529.8C350.8 539.2 335.6 543.9 320 543.9C304.4 543.9 289.2 539.2 276.9 529.8C240.4 502 187.2 455.5 143.1 402C106.9 358.1 64 297.7 64 229.1C64 155.6 123.6 96 197.1 96C239.8 96 280 116.5 305 151.1L320 171.8L335 151.1z"/></svg>
+          Help people in need
+        </a>
+      </div>
+    </div>
 
     <!-- Update banner — hidden until the GitHub version.json reports a newer
          release than this panel's version (see checkForUpdate in main.js). -->

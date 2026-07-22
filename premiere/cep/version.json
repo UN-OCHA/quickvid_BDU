@@ -1,6 +1,6 @@
 {
-  "version": "0.38.6",
+  "version": "0.39.0",
   "date": "2026-07-22",
-  "notes": "Branding tiles now lay out 3 on top, 2 centered on the bottom.",
+  "notes": "Menu (About, Appearance, What's new, feedback) tucked behind a header button; the five branding tiles now sit on one compact row.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }
