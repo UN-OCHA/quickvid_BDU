@@ -1,6 +1,6 @@
 {
-  "version": "0.38.5",
+  "version": "0.38.6",
   "date": "2026-07-22",
-  "notes": "Toggle switches are a touch wider so the OFF label has clear space.",
+  "notes": "Branding tiles now lay out 3 on top, 2 centered on the bottom.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }

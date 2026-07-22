@@ -146,7 +146,13 @@ body {
 .statusbar:empty { display: none; }
 
 /* ---------- element cards (same look as the Toolbox tiles) ---------- */
-.cards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-150); margin-bottom: var(--sp-200); }
+/* 3 tiles on top, 2 on the bottom. Six tracks with each tile spanning two = 3 per
+   row; the last two tiles are shifted in by one track so the pair sits CENTRED under
+   the three above (cols 2-3 and 4-5), not hanging off the left with an empty corner. */
+.cards { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--sp-150); margin-bottom: var(--sp-200); }
+.card { grid-column: span 2; }
+.card:nth-child(4) { grid-column: 2 / span 2; }
+.card:nth-child(5) { grid-column: 4 / span 2; }
 .card {
   min-height: 104px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-150);
@@ -159,8 +165,10 @@ body {
 .card:hover { background: var(--bg-hover); border-color: var(--accent); }
 .card:active { transform: scale(0.98); }
 .card.is-active { border-color: var(--accent); background: var(--accent-bg); }
-/* the preview thumbnails keep their 44x30 aspect but scale up to tile size */
-.card__icon { width: 56px; height: 38px; display: block; flex: 0 0 auto; }
+/* the preview thumbnails keep their 44x30 aspect but scale up to tile size.
+   max-width:100% + height:auto lets the icon shrink (never overflow) on a narrow
+   docked panel now that there are 3 tiles across instead of 2. */
+.card__icon { width: 56px; max-width: 100%; height: auto; display: block; flex: 0 0 auto; }
 .card__label { font-size: var(--fs-sm); font-weight: var(--fw-medium); line-height: 1.25; }
 
 /* ---------- fields ---------- */
