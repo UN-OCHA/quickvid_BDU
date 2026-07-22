@@ -22,7 +22,10 @@ your Premiere timeline, auto-matching the sequence format (9:16 / 4:5 / 1:1 /
 4. **Drag `ocha-quickvid-panel.zxp` onto the installer window.** If it offers a
    choice of location, pick **per-user** (…\AppData\Roaming\…), not the
    system-wide Program Files one.
-5. **Open Premiere Pro** → **Window ▸ Extensions ▸ OCHA QuickVid**.
+5. The installer may warn **"No application compatible with OCHA QuickVid was
+   found on your computer."** — **that warning is wrong.** It just fails to
+   detect Premiere on some Windows machines. Click **Install** and let it finish.
+6. **Open Premiere Pro** → **Window ▸ Extensions ▸ OCHA QuickVid**.
 
 ## Install — Mac
 

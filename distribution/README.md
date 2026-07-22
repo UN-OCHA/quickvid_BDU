@@ -5,8 +5,9 @@ Pro panel. Hand them (or point them at) this folder.
 
 | File | What it is |
 |---|---|
+| `OCHA_QuickVid_Install_Guide.pdf` | **The install guide — start here.** Windows + Mac, with screenshots (incl. the installer's false "not compatible" warning: ignore it, click Install). |
 | `ocha-quickvid-panel.zxp` | The panel. Signed (OCHA BDU self-signed cert) so the ZXP/UXP Installer accepts it. |
-| `install_guide.md` | Step-by-step install for **Windows and Mac**. Start here. |
+| `install_guide.md` | The same guide as plain text. |
 | `windows-setup.bat` | One-time **Windows** step — enables Adobe's debug mode so the self-signed panel can load. Mac needs nothing extra. |
 
 **Quick version:** install the `.zxp` with the free
