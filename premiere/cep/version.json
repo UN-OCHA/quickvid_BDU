@@ -1,7 +1,6 @@
 {
-  "version": "0.37.0",
-  "date": "2026-07-21",
-  "notes": "Size & position is hidden for now \u2014 elements land exactly as their template designs them. It will come back rebuilt.",
-  "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
-  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/premiere/cep/dist/ocha-quickvid-panel.zxp"
+  "version": "0.38.0",
+  "date": "2026-07-22",
+  "notes": "Cleaner UI: toggle switches, tile-style branding buttons, bigger tab icons, a clear editing banner, auto-dismissing messages, and trimmed copy. Package project asks for a folder; Clean MOGRTs works and clears the files.",
+  "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }

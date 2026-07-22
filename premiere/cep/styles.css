@@ -91,7 +91,7 @@ body {
   color: var(--text-secondary); font: var(--fw-medium) 11px var(--font-sans); cursor: pointer;
   transition: color var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease);
 }
-.tab svg { width: 17px; height: 17px; }
+.tab svg { width: 22px; height: 22px; }
 .tab:hover { color: var(--text-primary); }
 .tab.is-active { color: var(--accent); border-bottom-color: var(--accent); }
 
@@ -99,6 +99,28 @@ body {
 .body { flex: 1 1 auto; overflow-y: auto; padding: var(--sp-200); }
 .sec { display: none; }
 .sec.is-open { display: block; }
+
+/* ---------- editing-a-selected-clip mode ----------
+   Unmissable while the panel is bound to a timeline clip: a sticky accent banner,
+   and an accent ring around the whole app so it clearly isn't in "add" mode. */
+.edit-banner {
+  position: sticky; top: calc(var(--sp-200) * -1); z-index: 5;
+  display: flex; align-items: center; gap: var(--sp-150);
+  margin: calc(var(--sp-200) * -1) calc(var(--sp-200) * -1) var(--sp-200);
+  padding: var(--sp-100) var(--sp-150);
+  background: var(--accent); color: #fff; font-weight: var(--fw-semibold);
+}
+.edit-banner__txt { flex: 1 1 auto; min-width: 0; }
+.edit-banner__txt strong { font-weight: var(--fw-bold); }
+.edit-banner__btn {
+  flex: 0 0 auto; padding: 3px 10px; border: 1px solid rgba(255,255,255,.6);
+  border-radius: var(--r-sm); background: rgba(255,255,255,.14); color: #fff;
+  font: inherit; font-weight: var(--fw-semibold); cursor: pointer;
+}
+.edit-banner__btn:hover { background: rgba(255,255,255,.28); }
+.edit-banner[hidden] { display: none; }         /* author display:flex would beat the UA [hidden] */
+/* accent ring on the app frame while editing */
+.app.is-editing { box-shadow: inset 0 0 0 2px var(--accent); }
 .sec-hint { color: var(--text-tertiary); font-size: 10px; line-height: 1.5; margin: var(--sp-100) 0 0; }
 .sec-hint strong { color: var(--text-secondary); }
 
@@ -123,21 +145,23 @@ body {
 .statusbar { padding: 0 var(--sp-200) var(--sp-200); background: var(--bg-header); }
 .statusbar:empty { display: none; }
 
-/* ---------- element cards ---------- */
-.cards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-100); margin-bottom: var(--sp-200); }
+/* ---------- element cards (same look as the Toolbox tiles) ---------- */
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-150); margin-bottom: var(--sp-200); }
 .card {
-  display: flex; flex-direction: column; align-items: center; gap: var(--sp-75);
-  padding: var(--sp-150) var(--sp-75) var(--sp-100);
+  min-height: 104px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-150);
+  padding: var(--sp-200) var(--sp-150);
   background: var(--bg-layer-1); border: 1px solid var(--border-default);
-  border-radius: var(--r-lg); color: var(--text-primary);
-  font: var(--fw-medium) var(--fs-sm) var(--font-sans); cursor: pointer;
+  border-radius: var(--r-md); color: var(--text-primary);
+  font: var(--fw-medium) var(--fs-sm) var(--font-sans); cursor: pointer; text-align: center;
   transition: background var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease), transform var(--dur-1) var(--ease);
 }
-.card:hover { background: var(--bg-layer-2); }
+.card:hover { background: var(--bg-hover); border-color: var(--accent); }
 .card:active { transform: scale(0.98); }
 .card.is-active { border-color: var(--accent); background: var(--accent-bg); }
-.card__icon { width: 46px; height: 31px; display: block; }
-.card__label { font-size: var(--fs-sm); }
+/* the preview thumbnails keep their 44x30 aspect but scale up to tile size */
+.card__icon { width: 56px; height: 38px; display: block; flex: 0 0 auto; }
+.card__label { font-size: var(--fs-sm); font-weight: var(--fw-medium); line-height: 1.25; }
 
 /* ---------- fields ---------- */
 .pane { display: none; }
@@ -165,11 +189,36 @@ body {
 .fld__area:focus { border-color: var(--accent); }
 .fld__area::placeholder { color: var(--text-tertiary); }
 
-.opt-check { display: flex; align-items: center; gap: var(--sp-100); font-size: var(--fs-sm); margin: var(--sp-75) 0 var(--sp-150); cursor: pointer; }
-.opt-check input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+/* ---------- toggle switch (replaces the old checkboxes) ----------
+   The <input type=checkbox> stays (the JS still reads .checked); it's just visually
+   hidden and driven by a sliding track with an ON/OFF label. */
+.opt-check {
+  display: flex; align-items: center; gap: var(--sp-150); font-size: var(--fs-sm);
+  margin: var(--sp-200) 0; cursor: pointer;    /* standard breathing room around toggles */
+}
+.opt-check input { position: absolute; opacity: 0; width: 0; height: 0; }
+.opt-check .switch {
+  position: relative; flex: 0 0 auto; width: 42px; height: 22px; border-radius: var(--r-full);
+  background: var(--bg-layer-2); border: 1px solid var(--border-field);
+  transition: background var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease);
+}
+.opt-check .switch::after {                     /* the knob */
+  content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--text-secondary);
+  transition: transform var(--dur-2) var(--ease), background var(--dur-2) var(--ease);
+}
+.opt-check .switch::before {                    /* the ON/OFF word inside the track */
+  content: "OFF"; position: absolute; top: 0; right: 6px; line-height: 22px;
+  font-size: 8px; font-weight: var(--fw-semibold); letter-spacing: 0.4px; color: var(--text-tertiary);
+}
+.opt-check input:checked + .switch { background: var(--accent-bg); border-color: var(--accent); }
+.opt-check input:checked + .switch::after { transform: translateX(20px); background: var(--accent); }
+.opt-check input:checked + .switch::before { content: "ON"; left: 7px; right: auto; color: var(--accent); }
+.opt-check input:focus-visible + .switch { border-color: var(--accent); }
+.opt-check .opt-check__text { min-width: 0; }
 .opt-check em { color: var(--text-tertiary); font-style: italic; }
 
-.seg { display: flex; align-items: center; gap: var(--sp-100); margin: var(--sp-50) 0 var(--sp-150); }
+.seg { display: flex; align-items: center; gap: var(--sp-100); margin: var(--sp-200) 0; }
 .seg__label { font-size: 10px; font-weight: var(--fw-semibold); color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; }
 .seg__opt {
   display: inline-flex; align-items: center; gap: 5px;
@@ -313,6 +362,10 @@ body {
 .modal-x:hover { color: var(--text-primary); background: var(--bg-hover); }
 .modal-desc { font-size: var(--fs-sm); line-height: 1.5; color: var(--text-secondary); margin: 0 0 var(--sp-150); }
 .modal-desc strong { color: var(--text-primary); font-weight: var(--fw-semibold); }
+.modal-desc ul { margin: 0; padding-left: 1.1rem; }
+.modal-desc li { margin-bottom: var(--sp-75); }
+.modal-desc li::marker { color: var(--accent); }
+.modal-hint { margin: var(--sp-150) 0 0; font-size: var(--fs-xs); color: var(--text-tertiary); }
 /* optional per-tool settings inside the modal (the gradient's position + fade) */
 .modal-settings {
   background: var(--bg-layer-2); border: 1px solid var(--border-default);

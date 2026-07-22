@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.37.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.38.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -94,12 +94,17 @@ async function refresh() {
 }
 
 /* ---------- status ---------- */
+let statusTimer = null;
 function show(msg, kind) {
   const s = $("status");
   s.className = "status status--" + kind;
   s.innerHTML = msg;
+  clearTimeout(statusTimer);
+  // success messages clear themselves after a few seconds; warnings/errors stay put
+  // so they can be read and acted on.
+  if (kind === "ok") statusTimer = setTimeout(hideStatus, 7000);
 }
-function hideStatus() { $("status").className = "status is-off"; }
+function hideStatus() { clearTimeout(statusTimer); $("status").className = "status is-off"; }
 
 /* ---------- add ---------- */
 const RS = "\u001E", US = "\u001F";      // record / unit separators (untypeable)
@@ -326,8 +331,21 @@ function setBound(clipName, el) {
   const btn = $("add");
   btn.textContent = clipName ? "Update selected" : "Add to timeline";
   btn.classList.toggle("is-editing", !!clipName);
+  // make the mode unmistakable: sticky banner + accent ring on the whole app
+  document.querySelector(".app").classList.toggle("is-editing", !!clipName);
+  $("edit-banner").hidden = !clipName;
+  if (clipName) $("edit-banner-el").textContent = EL_LABEL[el] || "Element";
   if (clipName && el && el !== curEl) selectEl(el, true);   // show the matching pane
 }
+
+// "+ New": drop the binding so the CTA adds a fresh element. Deselecting in
+// Premiere is what truly unbinds (the poll re-reads the selection), so ask the
+// host to clear it; setBound(null) flips the UI back immediately.
+$("edit-banner-new").addEventListener("click", () => {
+  jsx("ochaClearSelection()");
+  setBound(null, null);
+  hideStatus();
+});
 
 function fillFields(blob) {
   (blob || "").split(RS).forEach((pair) => {
@@ -440,7 +458,9 @@ document.querySelectorAll(".tab").forEach((t) => {
 const TOOLS = {
   reel: {
     title: "Square → Reel",
-    explain: "Turns a <strong>square (1:1)</strong> sequence into a vertical <strong>9:16 reel</strong> for Stories, TikTok and Shorts. Your clip stays centred and sharp; a scaled, blurred copy of it fills the empty space above and below so there are no black bars. It builds on a <strong>duplicate</strong> sequence — your square original is never changed.",
+    explain: "<ul><li>Turns a <strong>square 1:1</strong> sequence into a <strong>9:16 reel</strong>.</li>"
+      + "<li>Your clip stays centred; a blurred copy fills top and bottom — no black bars.</li>"
+      + "<li>Works on a <strong>duplicate</strong> — your square original is untouched.</li></ul>",
     info: "ochaReelInfo()",
     action: "ochaSquareToReel()",
     cta: () => "Create reel",
@@ -448,41 +468,48 @@ const TOOLS = {
   },
   package: {
     title: "Package project",
-    explain: "Collects <strong>every file this project uses</strong> — footage, images, graphics, audio — from wherever they're scattered on the drive into one tidy folder next to your project, sorted into subfolders by type. It then saves a <strong>portable, relinked copy</strong> of the project inside that folder. Ideal before archiving or handing the project to someone else. Your original project and files are left untouched.",
+    explain: "<ul><li>Copies <strong>every file this project uses</strong> — footage, images, graphics, audio — into one folder, sorted by type.</li>"
+      + "<li>Saves a <strong>relinked copy</strong> of the project inside it.</li>"
+      + "<li>You pick where it goes. Your original project and files stay put.</li></ul>",
     info: "ochaPackageInfo()",
     action: "ochaPackageProject()",
     cta: (n) => (n > 0 ? `Package ${n} file${n === 1 ? "" : "s"}` : "Nothing to package"),
     countGated: true,
-    working: "Copying media + saving a relinked copy… (large projects take a while)",
+    working: "Choose a folder, then copying media + saving a relinked copy…",
   },
   gradient: {
     title: "Readability gradient",
-    explain: "Drops a soft <strong>black gradient</strong> on its own track so white text stays legible over busy footage. It goes in as a <strong>separate clip</strong> — put it on a track <strong>below</strong> your text or captions, and trim it to cover just the part you need.<br><br>Same button on the <strong>Text</strong>, <strong>Captions</strong> and <strong>Toolbox</strong> tabs — for captions in the <strong>OCHA Clean</strong> style, keep the default <strong>Bottom</strong>.",
+    explain: "<ul><li>A soft <strong>black gradient</strong> on its own track, so white text stays legible over busy footage.</li>"
+      + "<li>Goes in as a <strong>separate clip</strong> — put it on a track <strong>below</strong> your text or captions.</li>"
+      + "<li>For <strong>OCHA Clean</strong> captions, keep <strong>Bottom</strong>.</li></ul>",
     settings: "all",                                  // position + fade
     needsFmt: true,
-    ready: "Ready — the gradient goes in at the playhead, on its own track.",
-    done: (r) => `Gradient added on <strong>${trackOf(r)}</strong>. Move it <strong>below</strong> your text and trim it to length.`,
+    ready: "Ready — goes in at the playhead, on its own track.",
+    done: (r) => `Gradient added on <strong>${trackOf(r)}</strong>. Move it below your text and trim to length.`,
     cta: () => "Add gradient",
     working: "Adding the gradient…",
     action: () => addGradient(gradPos(), gradOpacity()),
   },
   capstyles: {
     title: "Install the OCHA caption styles",
-    explain:
-      "Copies <strong>OCHA Boxed</strong> and <strong>OCHA Clean</strong> into Premiere's own "
-      + "Text Styles, so they appear in the <strong>Track Style</strong> list when you make "
-      + "captions.<br><br>Once per computer — they stay there for every future project, and "
-      + "running it again just refreshes them with any brand updates.<br><br>"
-      + "The steps for actually generating captions are on the Captions tab behind this dialog.",
-    cta: () => "Install the styles",
+    explain: "<ul><li>Adds <strong>OCHA Boxed</strong> and <strong>OCHA Clean</strong> to Premiere's <strong>Track Style</strong> list.</li>"
+      + "<li>Once per computer — they stay for every project.</li>"
+      + "<li>Run again anytime to refresh with brand updates.</li></ul>"
+      + "<p class=\"modal-hint\">Captioning steps are on the Captions tab.</p>",
+    info: "ochaCaptionStylesInstalled()",
+    infoLine: (n) => n >= 2 ? "Already installed. Run again to refresh."
+      : (n === 1 ? "Partly installed — run to complete." : "Not installed yet."),
+    cta: (n) => n >= 2 ? "Reinstall" : "Install the styles",
     working: "Installing the OCHA caption styles…",
-    done: (r) => `Installed <strong>${(r.match(/installed=([^|]*)/) || [])[1] || "the styles"}</strong>. ` +
-                 `They're now in Premiere's Text Styles — pick one under <strong>Track Style</strong> when you make captions.`,
+    done: (r) => `Installed <strong>${(r.match(/installed=([^|]*)/) || [])[1] || "the styles"}</strong>. `
+      + `Pick one under <strong>Track Style</strong> when you make captions.`,
     action: () => jsx(`ochaInstallCaptionStyles(${lit(EXT_ROOT)})`).then((r) => r || ""),
   },
   clean: {
     title: "Clean unused MOGRTs",
-    explain: "Removes the <strong>OCHA branding templates</strong> (lower third, location, logo, ending) that are sitting in your project but <strong>aren't used in any sequence</strong> — the leftovers from trying a few options. Templates that are actually on a timeline are always kept. This only tidies the Project panel; your sequences and media aren't touched.",
+    explain: "<ul><li>Removes OCHA templates sitting in the project but <strong>not on any timeline</strong> — leftovers from trying options.</li>"
+      + "<li>Also deletes their leftover <strong>.mogrt files</strong>.</li>"
+      + "<li>Templates in use are always kept.</li></ul>",
     info: "ochaCleanInfo()",
     action: "ochaCleanMogrts()",
     cta: (n) => (n > 0 ? `Remove ${n} unused` : "Nothing to remove"),
@@ -548,10 +575,19 @@ async function loadInfo() {
   const res = await jsx(cfg.info) || "";
   const parts = res.split("|");
   const ok = parts[0] === "OK";
+  const run = $("modal-run");
+  // `infoLine` tools return OK|<count>: derive the status line and CTA from the
+  // count itself (e.g. caption styles — installed / partly / not).
+  if (cfg.infoLine) {
+    const n = parseInt(parts[1], 10) || 0;
+    modalInfo(ok ? cfg.infoLine(n) : "Couldn't check Premiere's Text Styles.", !ok);
+    run.textContent = cfg.cta(n);
+    run.disabled = !ok;
+    return;
+  }
   const status = parts[1] || (ok ? "" : (res.replace(/^ERR\|/, "") || "Couldn't read the project."));
   const count = parts.length > 2 ? parseInt(parts[2], 10) : null;
   modalInfo(status, !ok);
-  const run = $("modal-run");
   if (!ok) { run.disabled = true; run.textContent = cfg.cta(0); return; }
   run.textContent = cfg.cta(isNaN(count) ? 0 : (count == null ? 1 : count));
   run.disabled = cfg.countGated ? !(count > 0) : false;

@@ -442,6 +442,36 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob) {
    pick up brand updates with the plugin. */
 var OCHA_CAPTION_STYLES = ["OCHA Boxed.prtextstyle", "OCHA Clean.prtextstyle"];
 
+// Are the OCHA caption styles already in Premiere's Text Styles folder? Used by the
+// modal to show "already installed" instead of an empty status area.
+// "OK|<count>" - count of the two styles present (0, 1 or 2).
+function ochaCaptionStylesInstalled() {
+  try {
+    var destDir = new Folder(Folder.myDocuments.fsName + "/Adobe/Common/Assets/Text Styles");
+    var n = 0;
+    for (var i = 0; i < OCHA_CAPTION_STYLES.length; i++) {
+      if (new File(destDir.fsName + "/" + OCHA_CAPTION_STYLES[i]).exists) n++;
+    }
+    return "OK|" + n;
+  } catch (e) { return "OK|0"; }
+}
+
+// Clear the timeline selection so the panel unbinds from an OCHA clip (the "+ New"
+// button). Deselecting is what the poll reads, so this is what lets a user add a
+// fresh element while one is selected.
+function ochaClearSelection() {
+  try {
+    var seq = app.project.activeSequence;
+    if (seq && typeof seq.setSelection === "function") { seq.setSelection([]); return "OK|"; }
+    // fallback: walk the selection and deselect each
+    if (seq) {
+      var sel = seq.getSelection();
+      for (var i = 0; sel && i < sel.length; i++) { try { sel[i].setSelected(false, true); } catch (e) {} }
+    }
+    return "OK|";
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
 function ochaInstallCaptionStyles(extRoot) {
   try {
     var destDir = new Folder(Folder.myDocuments.fsName + "/Adobe/Common/Assets/Text Styles");

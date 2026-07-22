@@ -2,11 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <link rel="stylesheet" href="styles.css?v=0.33" />
+  <link rel="stylesheet" href="styles.css?v=0.38" />
   <!-- anonymous usage pings; a NO-OP until an endpoint is configured -->
-  <script src="js/analytics.js?v=0.33"></script>
+  <script src="js/analytics.js?v=0.38"></script>
   <!-- downloads + installs updates; needs --enable-nodejs (see the manifest) -->
-  <script src="js/auto-updater.js?v=0.34"></script>
+  <script src="js/auto-updater.js?v=0.38"></script>
 </head>
 <body>
   <div class="app">
@@ -49,6 +49,13 @@
     </nav>
 
     <div class="body">
+
+      <!-- Editing banner — shown while an OCHA clip is selected on the timeline.
+           The panel is bound to that clip; "New" deselects so you can add instead. -->
+      <div id="edit-banner" class="edit-banner" hidden>
+        <span class="edit-banner__txt"><strong id="edit-banner-el">Element</strong> selected — edits apply live</span>
+        <button id="edit-banner-new" class="edit-banner__btn" type="button">+ New</button>
+      </div>
 
       <!-- ===================== BRANDING ===================== -->
       <div class="sec is-open" data-sec="brand">
@@ -103,8 +110,8 @@
             <input id="lt-title" type="text" placeholder="Job title" /></label>
           <label class="fld"><span class="fld__label">2nd line <em>optional</em></span>
             <input id="lt-title2" type="text" placeholder="Additional info" /></label>
-          <label class="opt-check"><input id="lt-centre" type="checkbox" /><span>Centre align</span></label>
-          <p class="note">Editing an existing one? <strong>Select the clip</strong> and these fields fill with its text — change them here and the clip updates as you type. Premiere's <em>Properties</em> panel may keep showing the old text; the video itself is always right.</p>
+          <label class="opt-check"><input id="lt-centre" type="checkbox" /><span class="switch"></span><span class="opt-check__text">Centre align</span></label>
+          <p class="note"><strong>Select a clip</strong> to edit it — fields fill with its text, changes apply live. <em>(Premiere's Properties panel may lag; the video is always right.)</em></p>
         </section>
 
         <section class="pane" data-pane="loc">
@@ -117,16 +124,16 @@
             <button class="seg__opt is-active" data-col="red"><span class="dot dot--red"></span>Red</button>
             <button class="seg__opt" data-col="blue"><span class="dot dot--blue"></span>Blue</button>
           </div>
-          <label class="opt-check"><input id="loc-icon" type="checkbox" checked /><span>Show pin icon</span></label>
+          <label class="opt-check"><input id="loc-icon" type="checkbox" checked /><span class="switch"></span><span class="opt-check__text">Show pin icon</span></label>
         </section>
 
         <section class="pane" data-pane="bug">
-          <p class="note">The OCHA watermark — vertical white lockup, top-right, full clip. Typically for <strong>event</strong> videos. Nothing to type: just add it.</p>
+          <p class="note">OCHA watermark, top-right, whole clip. Mainly for <strong>event</strong> videos. Just add it.</p>
         </section>
 
         <section class="pane" data-pane="ending">
-          <label class="opt-check"><input id="end-black" type="checkbox" /><span>Over black <em>(else over footage)</em></span></label>
-          <p class="note">OCHA logo + click sound, snapping over your final shot — place it so it ends with your video.</p>
+          <label class="opt-check"><input id="end-black" type="checkbox" /><span class="switch"></span><span class="opt-check__text">Over black <em>(else over footage)</em></span></label>
+          <p class="note">OCHA logo + click, snapping over your last shot. Place it at the end.</p>
         </section>
 
         <section class="pane" data-pane="text">
@@ -136,8 +143,8 @@
             <input id="text-l2" type="text" placeholder="people are displaced" /></label>
           <label class="fld"><span class="fld__label">Line 3 <em>optional</em></span>
             <input id="text-l3" type="text" placeholder="by insecurity in Mali" /></label>
-          <p class="note">Leave a line empty and the ones below close the gap. <strong>Add to timeline</strong> adds the text only — the gradient is its own button.</p>
-          <p class="note">Editing an existing one? <strong>Select the clip</strong> and these fields fill with its text — change them here and the clip updates as you type. Premiere's <em>Properties</em> panel may keep showing the old text; the video itself is always right.</p>
+          <p class="note">Empty lines close up. <strong>Add to timeline</strong> adds text only — gradient is a separate button.</p>
+          <p class="note"><strong>Select a clip</strong> to edit it — fields fill with its text, changes apply live. <em>(Premiere's Properties panel may lag; the video is always right.)</em></p>
           <div class="tool-cards">
             <button id="text-grad-btn" class="tool-tile" type="button" title="Drop a black readability gradient on its own track — the same one on the Text and Captions tabs.">
               <svg class="tool-tile-icon" viewBox="0 0 576 512" fill="currentColor" aria-hidden="true"><path d="M264.5 5.2c14.9-6.9 32.1-6.9 47 0l218.6 101c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 149.8C37.4 145.8 32 137.3 32 128s5.4-17.9 13.9-21.8L264.5 5.2zM476.9 209.6l53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 277.8C37.4 273.8 32 265.3 32 256s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0l152-70.2zm-152 198.2l152-70.2 53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 405.8C37.4 401.8 32 393.3 32 384s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0z"/></svg>
@@ -191,7 +198,7 @@
         </section>
 
         <button id="add" class="btn btn-primary" disabled>Add to timeline</button>
-        <p class="sec-hint">Inserted at the playhead, sized for your sequence. Templates are saved with your project.</p>
+        <p class="sec-hint">Added at the playhead, sized to your sequence.</p>
       </div>
 
       <!-- ===================== CAPTIONS ===================== -->
@@ -217,7 +224,7 @@
 
       <!-- ===================== TOOLBOX ===================== -->
       <div class="sec" data-sec="toolbox">
-        <p class="sec-hint" style="margin-top:0">Utilities for OCHA video projects.</p>
+        <p class="sec-hint" style="margin-top:0">Project utilities.</p>
         <div class="tool-cards">
           <button id="tool-reel" class="tool-tile" title="Turn the active square sequence into a 9:16 reel — original centred, blurred fill behind.">
             <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M464 512C464 520.8 456.8 528 448 528L192 528C183.2 528 176 520.8 176 512L176 128C176 119.2 183.2 112 192 112L448 112C456.8 112 464 119.2 464 128L464 512zM512 128C512 92.7 483.3 64 448 64L192 64C156.7 64 128 92.7 128 128L128 512C128 547.3 156.7 576 192 576L448 576C483.3 576 512 547.3 512 512L512 128z"/></svg>
