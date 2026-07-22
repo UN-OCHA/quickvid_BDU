@@ -12,15 +12,9 @@ imageio-ffmpeg          # ffmpeg discovery fallback; honors IMAGEIO_FFMPEG_EXE
 # (this Mac's ffmpeg has no drawtext/libfreetype). Pillow renders the PNGs.
 pillow
 
-# --- Subject-follow reframe (engine/reframe.py) ---
-# Haar face detection over sampled frames -> smoothed, velocity-capped crop path.
-# headless build = no GUI libs; numpy ships with it.
-opencv-python-headless
-
 # --- Local web app (FastAPI backend + static SPA) ---
 fastapi
 uvicorn[standard]
-python-multipart        # form/multipart parsing for the instruction POST
 
 # --- Portability (fresh Macs without Homebrew; also pre-solves Windows) ---
 cairosvg                # SVG->PNG when the cairo lib exists (Homebrew Macs; pixel-identical to the original pipeline)

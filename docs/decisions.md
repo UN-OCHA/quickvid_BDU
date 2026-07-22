@@ -1194,6 +1194,53 @@ by name.
 
 **Needs an AE run** to regenerate the four Text MOGRTs before it does anything.
 
+## 2026-07-22 — Overnight audit: one ending, place-only pins, dedupe, dead-code purge
+A cleanup pass after many patches. Verified by reference-mapping (every endpoint vs
+what the UI calls; every engine module vs its importers) and by re-running renders.
+
+**Edit-tab "over black doesn't work" — the real cause.** It wasn't broken per se:
+social_brand's single-pass graph REFUSED over_black + 2 location strips (the
+trim/framesync limit), and Javi was testing two strips. Fixed by making the ending
+one shared module:
+- `engine/ending.py` — the OCHA ending (logo snap, black card, click), extracted
+  from finish.py. BOTH pipelines call it. social_brand now renders over_black in TWO
+  passes (body cut at `at`, 0-70%; ending appended, 70-100%), which removes the trim
+  and the refusal. finish.py brands the whole clip then appends (21.5s for a 20s
+  source); statement cuts to the selection first. Both verified with black-card +
+  logo luma checks.
+- Cross-platform bug found on the way: finish.py hardcoded `h264_videotoolbox`
+  (macOS-only) — the Titles tab could never render on Windows. `vcodec_args()` now
+  picks videotoolbox on Mac, libx264 elsewhere. And `ffprobe_of()` existence-checks
+  the sibling ffprobe (the imageio ffmpeg ships none), falling back to a system one.
+
+**Location pin, place-only.** `pin_locator.build()`: no date -> the box collapses to
+the single visible band and the pin scales from that (smaller, centred on the line,
+5% overlap) — numerically identical to the Premiere template (88px place-only,
+160px two-line at 1920). `specs()` requires a place; date-only rows are dropped. The
+UI (location.js) disables the Date field until a Place is typed. Two-line geometry
+unchanged (checked field-for-field against the old build).
+
+**Dedup — the UI now matches the engine's one-module discipline.**
+- `browser/lowerthird.js` — lower-third rows were copy-pasted into app.js and
+  statement.js and had drifted (defaults, alignment order). One component, per-tab
+  defaults. Mirrors location.js and field.js.
+- `engine/mediakit.py` — COLOR, the logo paths, BUG_HEIGHT_FRAC, SAFE_AREA,
+  `rotation()`, `ffmpeg_hdr()`, `to_sdr()` were duplicated between finish.py and
+  social_brand.py, each labelled "keep in sync". Now one source.
+
+**Deleted (dead, git keeps history):** `app/web/` (the retired original UI, 21
+files); the legacy wizard surface — `/api/config`, `/api/transcribe`, `/api/render`,
+`/api/jobs/{id}/transcript`, engine_bridge's transcribe/render, and
+engine/{transcribe,cut,run,render,reframe}.py (the statement pipeline supersedes
+them); `browser/test_prores.mov` (13 MB); `opencv-python-headless` +
+`python-multipart` from requirements (only the deleted reframe / instruction-POST
+used them).
+
+Web app now: FastAPI backend + a static SPA of four shared JS components (field,
+location, lowerthird, + the two tab controllers) over an engine of focused modules
+(statement -> social_brand + ending + mediakit; finish -> the same; pin_locator,
+lower_third, svgpng, webtv). No module or component is defined twice.
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the
