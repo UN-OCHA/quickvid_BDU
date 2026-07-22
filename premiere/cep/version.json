@@ -1,7 +1,7 @@
 {
-  "version": "0.40.1",
+  "version": "0.40.2",
   "date": "2026-07-22",
-  "notes": "Fix: 'MOGRT not found' on Windows (extension path was mis-parsed on Windows drive letters).",
+  "notes": "Test release to verify one-click auto-update. If you're reading this in About, the auto-updater worked.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
   "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha-quickvid-panel.zxp"
 }
