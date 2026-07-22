@@ -343,6 +343,24 @@ function ochaWriteText(kvBlob) {
 // the panel still shows defaults). It is a Premiere limitation, so the panel says so
 // rather than blinking the user's selection for nothing.
 
+// Which video track did the just-inserted clip actually land on? importMGT's
+// "one past the top" try often clamps to the existing top track instead of creating
+// a new one, so the index we PASSED can be one higher than reality (the V4-vs-V3
+// report). Match by start tick + element name and return the real 0-based track.
+function ochaInsertedTrack(seq, elName, timeTicks, fallback) {
+  for (var t = seq.videoTracks.numTracks - 1; t >= 0; t--) {
+    var clips = seq.videoTracks[t].clips;
+    for (var c = 0; c < clips.numItems; c++) {
+      try {
+        var ci = clips[c];
+        if (ci && ci.start && String(ci.start.ticks) === String(timeTicks) &&
+            ci.name && ci.name.indexOf(elName) === 0) return t;
+      } catch (e) {}
+    }
+  }
+  return fallback;
+}
+
 function ochaAdd(el, fmtKey, extRoot, kvBlob) {
   try {
     var seq = app.project.activeSequence;
@@ -402,7 +420,8 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob) {
     // leave the clip selected so a manual tweak is one click away
     try { clip.setSelected(true, true); } catch (e4) {}
 
-    var out = "OK|track=V" + (usedV + 1) + "|set=" + setNames.join(",");
+    var realV = ochaInsertedTrack(seq, OCHA_EL_NAME[el], timeTicks, usedV);
+    var out = "OK|track=V" + (realV + 1) + "|set=" + setNames.join(",");
     var warns = [];
     if (loc.note) warns.push(loc.note);
     if (!mgt) warns.push("controls not reachable after " + waited + "ms");
@@ -705,21 +724,59 @@ function ochaCleanInfo() {
 }
 function ochaCleanMogrts() {
   try {
-    var used = ochaUsedItemIds(), toRemove = [];
+    var used = ochaUsedItemIds();
+
+    // 1) collect the UNUSED OCHA template project items, and remember every media
+    //    path that a USED item still needs (never delete those files).
+    var toRemove = [], usedPaths = {}, rmPaths = [];
     ochaEachItem(app.project.rootItem, function (it) {
-      var nm = ""; try { nm = it.name; } catch (e) {}
-      if (OCHA_EL_RE.test(nm)) {
-        var id = null; try { id = it.nodeId; } catch (e) {}
-        if (!id || !used["n" + id]) toRemove.push(it);
-      }
+      var nm = ""; try { nm = it.name; } catch (e) { return; }
+      if (!OCHA_EL_RE.test(nm)) return;
+      var id = null; try { id = it.nodeId; } catch (e) {}
+      var mp = ""; try { mp = it.getMediaPath(); } catch (e) {}
+      if (id && used["n" + id]) { if (mp) usedPaths[mp] = 1; }
+      else { toRemove.push(it); if (mp) rmPaths.push(mp); }
     });
+
+    // 2) remove the items. deleteBin() only works on BINS, which is why the old
+    //    code silently failed on clip items - the reliable pattern is to move each
+    //    into a throwaway bin and delete THAT bin (contents and all).
     var removed = 0, err = "";
-    for (var i = 0; i < toRemove.length; i++) {
-      try { toRemove[i].deleteBin(); removed++; }
-      catch (e1) { try { app.project.deleteSequence ? 0 : 0; toRemove[i].remove(); removed++; } catch (e2) { if (!err) err = e2.toString(); } }
+    if (toRemove.length) {
+      var trash = null;
+      try { trash = app.project.rootItem.createBin("__ocha_clean__"); } catch (e0) { trash = null; }
+      for (var i = 0; i < toRemove.length; i++) {
+        var it = toRemove[i];
+        try {
+          if (trash) { it.moveBin(trash); removed++; }
+          else { it.deleteBin(); removed++; }               // fallback (bin items)
+        } catch (e1) { if (!err) err = e1.toString(); }
+      }
+      if (trash) { try { trash.deleteBin(); } catch (e2) { if (!err) err = e2.toString(); } }
     }
+
+    // 3) delete the actual .mogrt FILES for the removed items from the project's
+    //    "OCHA Branding Elements" folder - but ONLY files no used item still needs,
+    //    and ONLY inside that folder (never touch anything else on disk).
+    var filesDeleted = 0;
+    var projPath = ""; try { projPath = app.project.path; } catch (e) {}
+    if (projPath) {
+      var assetDir = new Folder(new File(projPath).parent.fsName + "/" + OCHA_ASSET_DIR);
+      for (var k = 0; k < rmPaths.length; k++) {
+        var p = rmPaths[k];
+        if (usedPaths[p]) continue;                          // a used item shares this file
+        var f = new File(p);
+        // guard: only delete inside the OCHA asset folder
+        if (assetDir.exists && f.exists && f.fsName.indexOf(assetDir.fsName) === 0) {
+          try { if (f.remove()) filesDeleted++; } catch (e3) {}
+        }
+      }
+    }
+
     if (removed === 0 && toRemove.length) return "ERR|Couldn't remove (" + toRemove.length + " unused): " + err;
-    return "OK|Removed " + removed + " unused OCHA template(s).";
+    var msg = "Removed " + removed + " unused template(s) from the project";
+    if (filesDeleted) msg += " and deleted " + filesDeleted + " leftover .mogrt file(s)";
+    return "OK|" + msg + ".";
   } catch (e) { return "ERR|" + e.toString(); }
 }
 
@@ -761,10 +818,16 @@ function ochaPkgMediaItems() {
 function ochaPkgDest() {
   var projPath = ""; try { projPath = app.project.path; } catch (e) {}
   if (!projPath) return null;
-  var projFile = new File(projPath), projFolder = projFile.parent;
+  var projFile = new File(projPath);
   var base = decodeURI(projFile.name).replace(/\.[^.]+$/, "");
-  var root = new Folder(projFolder.fsName + "/" + base + " - Package");
-  if (root.exists) { for (var i = 2; i < 999; i++) { var r = new Folder(projFolder.fsName + "/" + base + " - Package " + i); if (!r.exists) { root = r; break; } } }
+  // ASK where to put the package (native folder picker), instead of dropping it
+  // beside the project. Returns null with a "cancelled" flag if the user backs out.
+  var chosen = null;
+  try { chosen = Folder.selectDialog("Choose where to save the '" + base + "' package"); } catch (e) { chosen = null; }
+  if (!chosen) return { cancelled: true };
+  var parent = chosen.fsName;
+  var root = new Folder(parent + "/" + base + " - Package");
+  if (root.exists) { for (var i = 2; i < 999; i++) { var r = new Folder(parent + "/" + base + " - Package " + i); if (!r.exists) { root = r; break; } } }
   return { root: root, projName: base };
 }
 
@@ -784,6 +847,7 @@ function ochaPackageProject() {
     if (!projPath) return "ERR|Save your project first, then package it.";
     var d = ochaPkgDest();
     if (!d) return "ERR|Couldn't resolve the project folder.";
+    if (d.cancelled) return "WARN|Cancelled - no folder chosen.";
     var root = d.root;
     if (!root.exists && !root.create()) return "ERR|Couldn't create the package folder at " + root.fsName;
 
