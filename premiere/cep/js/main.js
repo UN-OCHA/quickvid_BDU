@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.38.3";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.38.4";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -323,6 +323,12 @@ const FIELD_OF = {                       // EGP control name -> panel input id
   "Line 2": "text-l2",
   "Line 3": "text-l3",
 };
+// Only these elements have editable fields, so only these drive "editing mode".
+// The OCHA logo (bug) and the readability gradient have nothing to edit — their
+// panes just say "add it" — so selecting one must NOT bind the panel and flip the
+// CTA to "Update selected". (Toolbox items aren't timeline clips, so they never
+// reach the selection poll at all.)
+const EDITABLE_EL = { lt: 1, loc: 1, ending: 1, text: 1 };
 let boundClip = null;                    // clip name we're editing, or null
 let textWriteTimer = null;
 
@@ -374,6 +380,13 @@ async function syncText() {
   }
   const i = head.indexOf("|");
   const name = head.slice(0, i), el = head.slice(i + 1);
+  // Non-editable element selected (OCHA logo / gradient) — don't bind. If we were
+  // editing something, drop it: the selection genuinely moved to a clip the panel
+  // can't edit, so staying in "Update selected" would be a lie.
+  if (!EDITABLE_EL[el]) {
+    if (boundClip !== null) setBound(null, null);
+    return;
+  }
   const changed = name !== boundClip;
   if (!changed && (++mirrorTick % 4) !== 0) return;
 
@@ -409,10 +422,15 @@ document.querySelectorAll('section.pane input, section.pane select').forEach((el
 
 /* ---------- UI wiring ---------- */
 function selectEl(el, fromClip) {
-  // Clicking a card by hand = "I want to make a NEW one of these", so drop any
-  // binding to a selected clip. Otherwise the panel stays bound to, say, a Text clip
-  // while showing the Lower third fields, and the CTA edits the wrong element.
-  if (!fromClip && boundClip) setBound(null, null);
+  // Clicking a DIFFERENT card by hand = "I want to make a NEW one of these". Just
+  // unbinding the UI isn't enough: the old clip is still selected in Premiere, so the
+  // 900ms mirror poll re-binds to it and yanks the pane straight back (the "it keeps
+  // going back to the OCHA logo" report). Clear Premiere's selection too, so the poll
+  // returns none and this really is a clean slate for the new element.
+  if (!fromClip && boundClip && el !== curEl) {
+    jsx("ochaClearSelection()");
+    setBound(null, null);
+  }
   curEl = el;
   document.querySelectorAll(".card").forEach((c) => c.classList.toggle("is-active", c.dataset.el === el));
   document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("is-open", p.dataset.pane === el));
@@ -539,6 +557,11 @@ function modalInfo(msg, isErr) {
 function openTool(key) {
   const cfg = TOOLS[key];
   if (!cfg) return;
+  // A tool (gradient, reel, package, clean, caption styles) is always a different
+  // function from editing a selected element. If we were bound to a clip, drop it and
+  // clear Premiere's selection so opening the tool is a clean start, not a lingering
+  // "Update selected" behind the modal that the poll would keep reasserting.
+  if (boundClip) { jsx("ochaClearSelection()"); setBound(null, null); }
   curTool = key;
   $("modal-title").textContent = cfg.title;
   $("modal-desc").innerHTML = cfg.explain;          // static explanation — always shown

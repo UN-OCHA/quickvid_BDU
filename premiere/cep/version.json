@@ -1,6 +1,6 @@
 {
-  "version": "0.38.3",
+  "version": "0.38.4",
   "date": "2026-07-22",
-  "notes": "Package project bundles the OCHA branding templates and notes that MOGRTs need Premiere's Project Manager to relink.",
+  "notes": "Selecting the OCHA logo or gradient no longer hijacks editing mode; clicking a different function now deselects so you can start a fresh element.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep"
 }
