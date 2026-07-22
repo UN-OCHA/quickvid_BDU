@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.40.5";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.40.6";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -700,6 +700,7 @@ if (menuBtn && menuDropdown) {
     const open = menuDropdown.classList.toggle("visible");
     menuBtn.classList.toggle("active", open);
     menuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) updateMenuStatus();     // refresh the update line + diagnostics on open
   });
   // click anywhere outside the menu (and not on the button) closes it
   document.addEventListener("click", (e) => {
@@ -742,6 +743,28 @@ function loadWhatsNew() {
 }
 loadWhatsNew();
 
+// Menu footer: update status ("You have the latest version" / "vX available") plus
+// a click-to-reveal diagnostics readout — which updater gate is failing (node,
+// helper, symlink, writability) without attaching a debugger. DataViz pattern; it
+// is what made the Windows update debugging possible there.
+function updateMenuStatus() {
+  const el = $("menu-update-status");
+  if (el) {
+    if (!latestInfo) el.textContent = "Update check: not reached yet";
+    else if (cmpVer(PANEL_VERSION, latestInfo.version) >= 0) el.innerHTML = "✓ You have the latest version";
+    else el.innerHTML = "New version <strong>v" + esc(latestInfo.version) + "</strong> available — see the banner";
+  }
+  const d = $("menu-diag");
+  if (d) {
+    let diag;
+    try { diag = AutoUpdater.diagnose(EXT_ROOT); } catch (e) { diag = { error: String(e && e.message || e) }; }
+    d.textContent = "panel: v" + PANEL_VERSION + "\n" +
+      Object.keys(diag).map((k) => k + ": " + diag[k]).join("\n");
+  }
+}
+{ const s = $("menu-update-status");
+  if (s) s.addEventListener("click", () => { const d = $("menu-diag"); if (d) d.hidden = !d.hidden; }); }
+
 /* ---------- Update check (GitHub-hosted version.json; notify + manual download) ----------
    Mirrors the DataViz plugin's version check but channelled via GitHub (same repo
    the web app self-updates from) instead of Dropbox — no tokens, versioned, free.
@@ -753,6 +776,7 @@ const UPD_DISMISS_KEY = "qv-update-dismissed";
 // error / staged notes. Track which version (if any) is being OFFERED, so the single
 // dismiss handler records "don't nag me about this one" only for the new-version case.
 let offeredVersion = null;
+let latestInfo = null;      // last successfully fetched version.json (menu status line)
 function cmpVer(a, b) {                         // -1 a<b, 0 equal, 1 a>b
   const pa = String(a).split("."), pb = String(b).split(".");
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
@@ -773,6 +797,7 @@ function checkForUpdate() {
     let info;
     try { info = JSON.parse(xhr.responseText); } catch (e) { return; }
     if (!info || !info.version) return;
+    latestInfo = info;               // menu status line reads this ("latest" / "vX available")
     if (cmpVer(PANEL_VERSION, info.version) >= 0) return;      // already current or newer
     try { if (localStorage.getItem(UPD_DISMISS_KEY) === info.version) return; } catch (e) {}  // dismissed this one
     showUpdateBanner(info);
@@ -786,7 +811,11 @@ function showUpdateBanner(info) {
   if (!bar) return;
   const url = info.downloadUrl || "https://github.com/UN-OCHA/quickvid_BDU";
   const btn = $("update-now");
-  const canInstall = AutoUpdater.available() && info.packageUrl;
+  // Full gate, not just "node exists": helper present + not a symlinked dev
+  // install + the folder actually writable (Program Files installs are read-only
+  // for non-admins). When any gate fails we show the manual link, never a fake
+  // "Update now" that pretends to work. (DataViz isAvailable(), ported.)
+  const canInstall = AutoUpdater.isAvailable(EXT_ROOT) && info.packageUrl;
 
   bannerMsg("New version <strong>v" + esc(info.version) + "</strong>");
   if (canInstall) {
@@ -860,16 +889,30 @@ function reportUpdateResult() {
   offeredVersion = null;           // a result note, not a nag — dismissing it just hides
   if (st.kind === "applied") {
     $("update-now").hidden = true;
-    bannerMsg("Updated to <strong>v" + esc(st.version || PANEL_VERSION) + "</strong> \u2713");
+    // TRUST BUT VERIFY: the marker only proves the helper RAN. If it claims a
+    // version NEWER than the code now executing, the extraction didn't actually
+    // land (the exact failure we shipped once: helper "succeeded", files never
+    // changed). Say so instead of celebrating a phantom update.
+    if (st.version && cmpVer(PANEL_VERSION, st.version) < 0) {
+      bannerMsg("The update to <strong>v" + esc(st.version) + "</strong> didn't take \u2014 still running v" + PANEL_VERSION + ". See \u22ee menu for diagnostics.");
+      Analytics.ping("update:phantom");
+    } else {
+      bannerMsg("Updated to <strong>v" + esc(st.version || PANEL_VERSION) + "</strong> \u2713");
+      Analytics.ping("update:applied");
+    }
     bar.hidden = false;
-    Analytics.ping("update:applied");
   } else if (st.kind === "error") {
     $("update-now").hidden = true;
     bannerMsg("The last update didn't install: " + esc(st.message));
     bar.hidden = false;
   } else if (st.kind === "staged") {
     $("update-now").hidden = true;
-    bannerMsg("v" + esc(st.version) + " is downloaded \u2014 <strong>quit Premiere</strong> to finish installing.");
+    // Re-arm: the helper spawned last session is gone (it dies with its 30-min
+    // wait, or never ran). Without a fresh spawn, "quit Premiere to finish" would
+    // be a promise nobody keeps \u2014 the DataViz "pending" lesson.
+    const re = AutoUpdater.apply(st.version);
+    if (re.ok) bannerMsg("v" + esc(st.version) + " is downloaded \u2014 <strong>quit Premiere</strong> to finish installing.");
+    else bannerMsg("Update couldn't restart: " + esc(re.error));
     bar.hidden = false;
   }
 }
