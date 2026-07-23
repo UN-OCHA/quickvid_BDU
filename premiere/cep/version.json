@@ -1,7 +1,7 @@
 {
-  "version": "0.41.0",
-  "date": "2026-07-22",
-  "notes": "New in the Toolbox: Compress a video - opens the free OCHA QuickVid web app, which also cuts, captions and brands video without Premiere. The web app is linked from the menu too.",
+  "version": "2026.1.0",
+  "date": "2026-07-23",
+  "notes": "Captions: the Boxed style now really includes its box (Raleway Medium 48) - reinstall the styles from the Captions tab. New: Caption position guides (installed automatically; View > Guide Templates), a Middle option on the readability gradient, and Position sliders are back - pixel values with 1px arrows, stopping at the frame edges. Lower third and Text defaults sit clear of captions, title lines are bigger, and the second title field is now '3rd line'.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
-  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=0.41.0"
+  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=2026.1.0"
 }

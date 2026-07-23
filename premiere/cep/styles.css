@@ -307,7 +307,27 @@ body {
 .cap-hint { color: var(--text-tertiary); font-size: 10px; line-height: 1.5; margin: var(--sp-100) 0 0; }
 
 /* ---------- size & position (collapsed accordion) ---------- */
-.adjust { border-top: 1px solid var(--border-default); margin-top: var(--sp-150); padding-top: var(--sp-100); }
+/* Position = second-level settings, visually its OWN card: layer-2 background
+   (lighter than the page in dark mode, darker in light mode) + border, so it
+   reads as separate from the element's primary fields above it. Generous
+   margins both sides + a faint hairline floating in the gap before the
+   Add-to-timeline CTA, so card and primary action never crowd each other. */
+.adjust {
+  position: relative;
+  margin: var(--sp-300) 0 var(--sp-400);
+  background: var(--bg-layer-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-lg);
+  padding: var(--sp-100) var(--sp-150);
+}
+.adjust::after {
+  content: "";
+  position: absolute;
+  left: 8%; right: 8%;
+  bottom: calc(-1 * var(--sp-400) / 2);
+  height: 1px;
+  background: var(--border-default);
+}
 .adj-toggle {
   display: flex; align-items: center; gap: var(--sp-100); width: 100%;
   background: none; border: 0; cursor: pointer; padding: var(--sp-75) 0;
@@ -348,6 +368,14 @@ body {
 .adj-lab { width: 26px; flex: 0 0 auto; font-size: var(--fs-xs); color: var(--text-secondary); }
 .adj-slider { flex: 1 1 auto; min-width: 0; accent-color: var(--accent); height: 4px; }
 .adj-num { width: 52px; min-width: 52px; flex: 0 0 52px; padding: var(--sp-75) 5px; text-align: right; }
+/* ±1px nudge arrows hugging the slider ends (0.42 position rework) */
+.adj-arrow {
+  flex: 0 0 16px; width: 16px; height: 20px; padding: 0;
+  border: none; background: none; color: var(--text-tertiary);
+  font-size: 14px; line-height: 1; cursor: pointer; border-radius: 3px;
+}
+.adj-arrow:hover { color: var(--accent); background: var(--bg-hover); }
+.adj-arrow:active { transform: translateY(1px); }
 .adj-u { width: 16px; flex: 0 0 auto; font-size: 10px; color: var(--text-tertiary); }
 
 /* ---------- footer ---------- */

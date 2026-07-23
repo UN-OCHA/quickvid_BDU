@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.41.0";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "2026.1.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -98,6 +98,14 @@ async function refresh() {
   chip.textContent = `${parts[0]}×${parts[1]} · ${parts[3]}`;
   chip.className = "chip is-ok";
   $("add").disabled = false;
+  // keep the Position sliders spanning THIS sequence's frame; placement-mode
+  // values follow the format's centre (a bound clip keeps its own values)
+  const w = +parts[0] || 0, h = +parts[1] || 0;
+  if (w && h && (w !== curW || h !== curH)) {
+    curW = w; curH = h;
+    setAdjRanges();
+    if (!adjEditClip) resetAdjust();
+  }
 }
 
 /* ---------- status ---------- */
@@ -128,7 +136,7 @@ function collectValues() {
   if (curEl === "lt") {
     push("Name", $("lt-name").value.trim());
     push("Title", $("lt-title").value.trim());
-    push("Title line 2 (optional)", $("lt-title2").value.trim());
+    push("3rd line (optional)", $("lt-title2").value.trim());   // host aliases to the old EGP name on pre-0.42 clips
     push("Centre align", $("lt-centre").checked);
   } else if (curEl === "loc") {
     push("Place", $("loc-place").value.trim());
@@ -147,10 +155,14 @@ function collectValues() {
     // the readability gradient is its OWN template with its own button + modal —
     // deliberately NOT part of this CTA, which adds the text only
   }
-  // shared Size + Position → Motion (all four elements; skip values at default)
-  // adjust disabled (0.37.0): Size & position is hidden pending a rewrite, so no
-  // Motion overrides are sent and every element lands exactly as the template
-  // designed it. Restore these three pushes when the section comes back.
+  // Position rides along only when moved off the frame centre (absolute px,
+  // clamped — see the Position controls block). Scale stays parked: no @scale
+  // is ever sent, so every element keeps the template's designed size.
+  if (curFmt && curW && curH) {
+    const px = clampPos($("adj-x-n").value, "w"), py = clampPos($("adj-y-n").value, "h");
+    if (px !== adjCentre("w")) push("@posX", px);
+    if (py !== adjCentre("h")) push("@posY", py);
+  }
   return kv.join(RS);
 }
 
@@ -186,6 +198,7 @@ function addGradient(pos, opacity) {
   // negative and "Top" started producing a bottom gradient. If it ever looks swapped
   // again, the templates are stale — rebuild them, don't flip this.
   const kv = ["Top" + US + (pos === "top" ? "true" : "false"),
+              "Middle" + US + (pos === "middle" ? "true" : "false"),
               "Full screen" + US + (pos === "full" ? "true" : "false"),
               "Opacity" + US + (opacity == null ? 80 : opacity)].join(RS);
   return jsx(`ochaAdd("gradient",${lit(curFmt)},${lit(EXT_ROOT)},${lit(kv)})`).then((r) => r || "");
@@ -231,39 +244,68 @@ async function addElement() {
   }
 }
 
-/* ---------- Size & position controls ----------
-   All three are RELATIVE to the template's built-in transform: Size 100% and
-   X/Y 0 leave the graphic exactly as designed (the host reads/writes position
-   as an offset from the format centre, size as a % of Motion Scale). Each value
-   has its own reset back to that default. */
-// [slider id, number id, default, per-row reset id]
+/* ---------- Position controls (0.42: position only, scale parked) ----------
+   ABSOLUTE comp pixels — the same numbers Premiere shows in Effect Controls >
+   Motion > Position. Default = the frame centre (what every template designs
+   around). Three input routes, all clamped to [0..W]/[0..H] so a clip can
+   never leave the comp (the host clamps again as the hard cap): the slider
+   (its min/max ARE the frame), the ±1px arrows, and the number field, which
+   snaps back into range when a typed value is too high/low. */
+// [slider id, number id, axis ("w"|"h"), reset id, dec arrow, inc arrow]
 const ADJ_PAIRS = [
-  ["adj-size", "adj-size-n", 100, "adj-size-r"],
-  ["adj-x", "adj-x-n", 0, "adj-x-r"],
-  ["adj-y", "adj-y-n", 0, "adj-y-r"],
+  ["adj-x", "adj-x-n", "w", "adj-x-r", "adj-x-dec", "adj-x-inc"],
+  ["adj-y", "adj-y-n", "h", "adj-y-r", "adj-y-dec", "adj-y-inc"],
 ];
+let curW = 0, curH = 0;               // active sequence frame size (set by refresh)
+const adjMax = (axis) => (axis === "w" ? curW : curH) || 1080;
+const adjCentre = (axis) => Math.round(adjMax(axis) / 2);
+const clampPos = (v, axis) => {
+  const n = Math.round(parseFloat(v));
+  return isNaN(n) ? adjCentre(axis) : Math.max(0, Math.min(adjMax(axis), n));
+};
+// sliders span the frame exactly; called when the format (or bound clip) changes
+function setAdjRanges() {
+  ADJ_PAIRS.forEach(([sId, nId, axis]) => {
+    $(sId).min = 0; $(sId).max = adjMax(axis);
+    $(nId).min = 0; $(nId).max = adjMax(axis);
+  });
+}
 function linkPair(sliderId, numId) {
   const s = $(sliderId), n = $(numId);
   s.addEventListener("input", () => { n.value = s.value; });
   n.addEventListener("input", () => {
-    // number can exceed the slider range (e.g. Size 300%); clamp the slider only
     const v = parseFloat(n.value);
     if (!isNaN(v)) s.value = Math.max(+s.min, Math.min(+s.max, v));
   });
 }
 function resetAdjust() {
-  ADJ_PAIRS.forEach(([sId, nId, dflt]) => { $(sId).value = dflt; $(nId).value = dflt; });
+  ADJ_PAIRS.forEach(([sId, nId, axis]) => {
+    $(sId).value = adjCentre(axis); $(nId).value = adjCentre(axis);
+  });
 }
-// reset a single value to its default; in selection mode this writes live too
-function resetOne(sId, nId, dflt) {
-  $(sId).value = dflt; $(nId).value = dflt;
+// reset a single value to the frame centre; in edit mode this writes live too
+function resetOne(sId, nId, axis) {
+  $(sId).value = adjCentre(axis); $(nId).value = adjCentre(axis);
   adjLiveWrite();   // no-op in placement mode; pushes to the bound clip in edit mode
 }
 linkPair("grad-op", "grad-op-n");     // gradient fade slider <-> number
-ADJ_PAIRS.forEach(([sId, nId, dflt, rId]) => {
+ADJ_PAIRS.forEach(([sId, nId, axis, rId, decId, incId]) => {
   linkPair(sId, nId);
+  const nudge = (delta) => {
+    const v = clampPos(+$(nId).value + delta, axis);
+    $(sId).value = v; $(nId).value = v;
+    adjLiveWrite();
+  };
+  $(decId).addEventListener("click", () => nudge(-1));
+  $(incId).addEventListener("click", () => nudge(+1));
+  // typed values commit on change (Enter/blur) and STICK to the frame limits
+  $(nId).addEventListener("change", () => {
+    const v = clampPos($(nId).value, axis);
+    $(sId).value = v; $(nId).value = v;
+    adjLiveWrite();
+  });
   const r = $(rId);
-  if (r) r.addEventListener("click", () => resetOne(sId, nId, dflt));
+  if (r) r.addEventListener("click", () => resetOne(sId, nId, axis));
 });
 
 // advanced accordion — collapsed by default; caution note inside
@@ -281,7 +323,7 @@ $("adj-toggle").addEventListener("click", () => {
    the sliders are placement defaults for the next Add. */
 let adjEditClip = null;   // bound clip's name, or null (placement mode)
 let adjDragging = false, adjTimer = null;
-["adj-size", "adj-x", "adj-y", "adj-size-n", "adj-x-n", "adj-y-n"].forEach((id) => {
+["adj-x", "adj-y", "adj-x-n", "adj-y-n"].forEach((id) => {
   const el = $(id);
   el.addEventListener("pointerdown", () => { adjDragging = true; });
   el.addEventListener("pointerup", () => { adjDragging = false; });
@@ -291,37 +333,42 @@ function adjLiveWrite() {
   if (!adjEditClip) return;                     // placement mode → nothing to write
   clearTimeout(adjTimer);
   adjTimer = setTimeout(() => {
-    jsx(`ochaWriteMotion(${clampNum($("adj-size-n").value, 100)},${clampNum($("adj-x-n").value, 0)},${clampNum($("adj-y-n").value, 0)})`);
+    jsx(`ochaWriteMotion(${clampPos($("adj-x-n").value, "w")},${clampPos($("adj-y-n").value, "h")})`);
   }, 100);
 }
 function setAdjustEditing(name) {
   const warn = document.querySelector(".adj-warn"), tag = document.querySelector(".adj-tag");
   if (name) {
-    if (warn) warn.textContent = "Editing the selected clip \u2014 changes apply live. "
-      + "Premiere's Properties panel may keep showing the template defaults; "
-      + "Effect Controls \u203a Graphic Parameters and the video itself are always correct.";
+    if (warn) warn.innerHTML = "<strong>Use with caution</strong> \u2014 changes apply live to the selected clip.";
     if (tag) { tag.textContent = "editing"; tag.style.color = "var(--accent)"; tag.style.borderColor = "var(--accent)"; tag.style.background = "var(--accent-bg)"; }
   } else {
-    if (warn) warn.innerHTML = "Relative to each template's built-in size &amp; position: <strong>100%</strong> and <strong>0, 0</strong> leave it exactly as designed. Nudge from there only if a shot needs it.";
+    if (warn) warn.innerHTML = "<strong>Use with caution</strong> — each element already sits at its designed spot.";
     if (tag) { tag.textContent = "advanced"; tag.style.color = ""; tag.style.borderColor = ""; tag.style.background = ""; }
   }
 }
 async function syncAdjust() {
   if (!hostReady || adjDragging) return;
   if (!document.querySelector('.sec[data-sec="brand"]').classList.contains("is-open")) return;
+  // don't fight the user mid-typing in a number field
+  const act = document.activeElement;
+  if (act && (act.id === "adj-x-n" || act.id === "adj-y-n")) return;
   const res = await jsx("ochaReadMotion()") || "none";
   if (res === "none" || res.indexOf("|") < 0) {
-    if (adjEditClip !== null) { adjEditClip = null; setAdjustEditing(null); }
+    // unbound → back to placement mode at the frame centre, so the LAST clip's
+    // position can't silently ride into the NEXT Add
+    if (adjEditClip !== null) { adjEditClip = null; setAdjustEditing(null); resetAdjust(); }
     return;
   }
+  // <name>|<x>|<y>|<W>|<H> — absolute px + the clip's own sequence frame size
   const p = res.split("|");
   if (p[0] !== adjEditClip) {                    // newly selected clip → bind + populate
     adjEditClip = p[0];
     setAdjustEditing(p[0]);
     setAdjustOpen(true);
-    $("adj-size").value = $("adj-size-n").value = Math.round(+p[1]) || 100;
-    $("adj-x").value = $("adj-x-n").value = Math.round(+p[2]) || 0;
-    $("adj-y").value = $("adj-y-n").value = Math.round(+p[3]) || 0;
+    if (+p[3] && +p[4]) { curW = +p[3]; curH = +p[4]; }
+    setAdjRanges();
+    $("adj-x").value = $("adj-x-n").value = clampPos(+p[1], "w");
+    $("adj-y").value = $("adj-y-n").value = clampPos(+p[2], "h");
   }
 }
 
@@ -334,7 +381,8 @@ async function syncAdjust() {
 const FIELD_OF = {                       // EGP control name -> panel input id
   "Name": "lt-name",
   "Title": "lt-title",
-  "Title line 2 (optional)": "lt-title2",
+  "3rd line (optional)": "lt-title2",         // current template name…
+  "Title line 2 (optional)": "lt-title2",     // …and the pre-0.42 one, so old clips still load
   "Place": "loc-place",
   "Date": "loc-date",
   "Line 1": "text-l1",
@@ -474,6 +522,7 @@ $("add").addEventListener("click", addElement);
 // Text Styles folder so they appear in the native Style dropdown
 // Captions: both actions are toolbox-style tiles that open an explaining modal.
 $("cap-install").addEventListener("click", () => openTool("capstyles"));
+$("cap-guides").addEventListener("click", () => openTool("capguides"));
 $("cap-gradient").addEventListener("click", () => openTool("gradient"));
 
 // section tabs
@@ -519,7 +568,8 @@ const TOOLS = {
     title: "Readability gradient",
     explain: "<ul><li>A soft <strong>black gradient</strong> on its own track, so white text stays legible over busy footage.</li>"
       + "<li>Goes in as a <strong>separate clip</strong> — put it on a track <strong>below</strong> your text or captions.</li>"
-      + "<li>For <strong>OCHA Clean</strong> captions, keep <strong>Bottom</strong>.</li></ul>",
+      + "<li>For <strong>OCHA Clean</strong> captions, keep <strong>Bottom</strong>.</li>"
+      + "<li><strong>Middle</strong> = a soft band across the centre (feather – dark – feather) for captions or text that sit mid-frame.</li></ul>",
     settings: "all",                                  // position + fade
     needsFmt: true,
     ready: "Ready — goes in at the playhead, on its own track.",
@@ -530,7 +580,7 @@ const TOOLS = {
   },
   capstyles: {
     title: "Install the OCHA caption styles",
-    explain: "<ul><li>Adds <strong>OCHA Boxed</strong> and <strong>OCHA Clean</strong> to Premiere's <strong>Track Style</strong> list.</li>"
+    explain: "<ul><li>Adds <strong>OCHA Boxed</strong> and <strong>OCHA Clean</strong> to Premiere's <strong>Style browser</strong> (under Local).</li>"
       + "<li>Once per computer — they stay for every project.</li>"
       + "<li>Run again anytime to refresh with brand updates.</li></ul>"
       + "<p class=\"modal-hint\">Captioning steps are on the Captions tab.</p>",
@@ -540,14 +590,29 @@ const TOOLS = {
     cta: (n) => n >= 2 ? "Reinstall" : "Install the styles",
     working: "Installing the OCHA caption styles…",
     done: (r) => `Installed <strong>${(r.match(/installed=([^|]*)/) || [])[1] || "the styles"}</strong>. `
-      + `Pick one under <strong>Track Style</strong> when you make captions.`,
+      + `Pick one via the <strong>Style browser</strong> (Properties &gt; Track style) when you make captions.`,
     action: () => jsx(`ochaInstallCaptionStyles(${lit(EXT_ROOT)})`).then((r) => r || ""),
+  },
+  capguides: {
+    title: "Caption position guides",
+    explain: "<ul><li>Four <strong>OCHA Captions</strong> guide templates — one per format — two lines marking the band where the caption box belongs. <strong>The panel installs them automatically</strong>; this tile is for reinstalling and the how-to.</li>"
+      + "<li>Use: <strong>View &gt; Guide Templates</strong> &gt; pick your format, then move the captions (<strong>Properties &gt; Align &amp; transform</strong>) until the box sits between the lines.</li>"
+      + "<li>Guides are visual only — they <strong>never export</strong>. Hide them with View &gt; Show Guides.</li></ul>"
+      + "<p class=\"modal-hint\">Templates load when Premiere starts — installed just now? Restart Premiere once to see them.</p>",
+    info: "ochaCaptionGuidesInstalled()",
+    infoLine: (n) => n >= 4 ? "Installed. Run again to refresh."
+      : (n > 0 ? "Partly installed — run to complete." : "Not installed yet — run to install."),
+    cta: (n) => n >= 4 ? "Reinstall" : "Install the guides",
+    working: "Installing the guide templates…",
+    done: () => "Installed <strong>4 guide templates</strong>. They show under <strong>View &gt; Guide Templates</strong> after the next Premiere restart.",
+    action: () => jsx("ochaInstallCaptionGuides()"),
   },
   webapp: {
     title: "Compress a video",
-    explain: "<ul><li>Compression lives in the free <strong>OCHA QuickVid web app</strong> — drop a heavy file, pick a quality, get a light <strong>MP4 (H.264)</strong> that plays everywhere.</li>"
-      + "<li>The web app also <strong>cuts statement clips by transcript</strong>, burns captions and brands video — no Premiere needed.</li>"
-      + "<li>Runs on your computer; files never leave it.</li></ul>",
+    explain: "<ul><li>This one lives <strong>outside Premiere</strong> — it opens the free <strong>OCHA QuickVid web app</strong> in your browser.</li>"
+      + "<li>Drop a heavy file, pick a quality, get a light <strong>MP4 (H.264)</strong> that plays everywhere.</li>"
+      + "<li>The web app also <strong>cuts statement clips by transcript</strong>, burns captions and brands video — no Premiere needed. Files never leave your computer.</li></ul>"
+      + "<p class=\"modal-hint\">un-ocha.github.io/quickvid_BDU</p>",
     ready: "Opens in your browser — the Toolbox tab has the compressor.",
     cta: () => "Open OCHA QuickVid",
     working: "Opening your browser…",
@@ -685,6 +750,7 @@ $("tool-gradient").addEventListener("click", () => openTool("gradient"));
 $("text-grad-btn").addEventListener("click", () => openTool("gradient"));
 $("tool-package").addEventListener("click", () => openTool("package"));
 $("tool-clean").addEventListener("click", () => openTool("clean"));
+$("tool-webapp").addEventListener("click", () => openTool("webapp"));   // was never wired — the tile did nothing (0.42 fix)
 $("modal-run").addEventListener("click", runToolAction);
 $("modal-cancel").addEventListener("click", closeModal);
 $("modal-x").addEventListener("click", closeModal);
@@ -941,6 +1007,26 @@ function reportUpdateResult() {
 }
 
 loadHost().then(refresh);
+// Caption position guides: SILENT auto-install, once per panel version.
+// Premiere only reads Installed Guides.guides at LAUNCH (measured — and live
+// guide creation isn't scriptable at all, see docs/decisions.md 2026-07-23),
+// so installing during THIS session makes the templates appear by the user's
+// NEXT session with no manual step. Runs on every version bump so updated
+// band values ship too (the host install is idempotent + backed up). The
+// Captions tile stays for status, reinstall and the how-to. Failures stay
+// silent here — the tile's own status line reports the real state.
+const GUIDES_AUTO_KEY = "ocha-guides-installed";
+loadHost().then(() => {
+  try {
+    if (!hostReady || localStorage.getItem(GUIDES_AUTO_KEY) === PANEL_VERSION) return;
+    jsx("ochaInstallCaptionGuides()").then((res) => {
+      if ((res || "").indexOf("OK|") === 0) {
+        try { localStorage.setItem(GUIDES_AUTO_KEY, PANEL_VERSION); } catch (e1) {}
+        try { Analytics.ping("capguides:auto"); } catch (e2) {}
+      }
+    });
+  } catch (e) { /* never let auto-install break panel boot */ }
+});
 // anonymous usage pings (version / event / approximate city) — see js/analytics.js.
 // Never sends typed text, project names or paths. No-op until configured.
 try { Analytics.init(PANEL_VERSION); } catch (e) { /* analytics must never break the panel */ }
@@ -954,6 +1040,5 @@ $("update-dismiss").addEventListener("click", () => {
 reportUpdateResult();           // did an update land while we were away?
 checkForUpdate();               // once on load; a new release surfaces on next panel open
 setInterval(refresh, 2500);
-// adjust disabled (0.37.0): no Motion polling while Size & position is hidden.
-// setInterval(syncAdjust, 900);
+setInterval(syncAdjust, 900);   // bind the Position sliders to a selected OCHA clip (0.42)
 setInterval(syncText, 900);     // bind the text fields to a selected OCHA clip

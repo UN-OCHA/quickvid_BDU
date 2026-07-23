@@ -10,7 +10,7 @@
   },
   "geometry": {
     "name_ratio": { "portrait": 0.02292, "square": 0.0306, "landscape": 0.0382 },
-    "org_scale": 0.5909,
+    "org_scale": 0.66,
     "name_pad_x": 0.6,
     "name_pad_y": 0.32,
     "org_pad_x": 0.85,

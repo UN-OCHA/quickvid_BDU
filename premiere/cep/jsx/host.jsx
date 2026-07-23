@@ -43,8 +43,12 @@ var OCHA_FMT = {
   event:  { folder: "event",  label: "Event 16x9" }
 };
 // value coercion per control (everything not listed is text)
-var OCHA_BOOL = { "Centre align": 1, "Show pin icon": 1, "Over black": 1, "Top": 1, "Full screen": 1 };
+var OCHA_BOOL = { "Centre align": 1, "Show pin icon": 1, "Over black": 1, "Top": 1, "Middle": 1, "Full screen": 1 };
 var OCHA_NUM  = { "Pin colour": 1, "Size": 1, "Opacity": 1 };
+// Renamed EGP controls: panel sends the CURRENT name; clips placed with an older
+// template still carry the old one, so writers fall back through this map instead
+// of warning "could not set" on every edit of an old clip.
+var OCHA_FIELD_ALIAS = { "3rd line (optional)": "Title line 2 (optional)" };
 
 function ochaFmtFromSize(w, h) {
   if (!w || !h) return null;
@@ -195,19 +199,35 @@ function ochaApplyMotion(seq, clip, m) {
     }
   }
   if (m.posX != null || m.posY != null) {
-    var pp = ochaFindParam(mo.properties, "Position");
-    if (!pp) parts.push("no Position prop");
-    else {
-      var cx, cy, cur = null;
-      try { cur = pp.getValue(); } catch (e2) { cur = null; }
-      if (cur && cur.length >= 2) { cx = cur[0]; cy = cur[1]; }
-      else { cx = seq.frameSizeHorizontal / 2; cy = seq.frameSizeVertical / 2; }
-      // UI: +X right, +Y up. Premiere screen space: +Y down -> subtract.
-      var nx = cx + (m.posX || 0);
-      var ny = cy - (m.posY || 0);
-      try { pp.setValue([nx, ny], true);
-            parts.push("pos=[" + Math.round(nx) + "," + Math.round(ny) + "] from [" + Math.round(cx) + "," + Math.round(cy) + "]"); }
-      catch (e3) { parts.push("pos ERR " + e3.toString()); }
+    // 0.42: prefer the template's own Position X/Y controls (element-edge px,
+    // clamped element-exact inside the template); Motion is the old-clip
+    // fallback — its param is NORMALIZED fractions (see ochaReadMotion).
+    var tp = ochaPosParams(clip);
+    if (tp) {
+      // px -> PERCENT of frame (the sliders' 0-100 range; see ochaReadMotion)
+      var wT = seq.frameSizeHorizontal, hT = seq.frameSizeVertical;
+      try {
+        if (m.posX != null) tp.x.setValue(m.posX / wT * 100, true);
+        if (m.posY != null) tp.y.setValue(m.posY / hT * 100, true);
+        parts.push("tpos=[" + m.posX + "," + m.posY + "]");
+      } catch (eT) { parts.push("tpos ERR " + eT.toString()); }
+    } else {
+      var pp = ochaFindParam(mo.properties, "Position");
+      if (!pp) parts.push("no Position prop");
+      else {
+        var w2 = seq.frameSizeHorizontal, h2 = seq.frameSizeVertical;
+        var cur = null;
+        try { cur = pp.getValue(); } catch (e2) { cur = null; }
+        var nx = (m.posX != null) ? m.posX : (cur && cur.length >= 2 ? cur[0] * w2 : w2 / 2);
+        var ny = (m.posY != null) ? m.posY : (cur && cur.length >= 2 ? cur[1] * h2 : h2 / 2);
+        if (isNaN(nx)) nx = w2 / 2;
+        if (isNaN(ny)) ny = h2 / 2;
+        nx = Math.max(0, Math.min(w2, nx));
+        ny = Math.max(0, Math.min(h2, ny));
+        try { pp.setValue([nx / w2, ny / h2], true);
+              parts.push("pos=[" + Math.round(nx) + "," + Math.round(ny) + "]"); }
+        catch (e3) { parts.push("pos ERR " + e3.toString()); }
+      }
     }
   }
   return "motion=" + parts.join(" / ");
@@ -315,6 +335,7 @@ function ochaWriteText(kvBlob) {
       var kv = entries[n].split("\u001F"), key = kv[0], raw = kv[1];
       if (key.charAt(0) === "@") continue;              // Motion is handled elsewhere
       var pr = ochaFindParam(mgt.properties, key);
+      if (!pr && OCHA_FIELD_ALIAS[key]) pr = ochaFindParam(mgt.properties, OCHA_FIELD_ALIAS[key]);
       if (!pr) { fail.push(key); continue; }
       try {
         if (OCHA_BOOL[key]) pr.setValue(raw === "true", true);
@@ -407,6 +428,7 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob) {
       if (key === "@posY")  { motion.posY  = parseFloat(raw); continue; }
       if (!mgt) { failNames.push(key + " (controls not reachable)"); continue; }
       var p = ochaFindParam(mgt.properties, key);
+      if (!p && OCHA_FIELD_ALIAS[key]) p = ochaFindParam(mgt.properties, OCHA_FIELD_ALIAS[key]);
       if (!p) { failNames.push(key + " (not found)"); continue; }
       var val = raw;
       if (OCHA_BOOL[key]) val = (raw === "true");
@@ -489,6 +511,141 @@ function ochaInstallCaptionStyles(extRoot) {
     var out = "OK|installed=" + done.join(", ");
     if (fail.length) out += "|warn=" + fail.join("; ");
     return out;
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
+/* ---------------- Caption position guides ----------------
+   Caption position is NOT scriptable (measured 26.3: a selected cue exposes
+   zero components) and .prtextstyle carries no Align & Transform - so the
+   plugin ships Program Monitor GUIDE TEMPLATES instead: two horizontal lines
+   per format marking the band where the caption box belongs; the user drags
+   the captions there once (Properties > Align & transform). Templates live in
+   <Documents>/Adobe/Premiere Pro/<major>.0/Profile-<name>/Installed Guides.guides
+   as plain JSON. Measured with a saved test guide (2026-07-23):
+   orientationType 0 = HORIZONTAL, positionType 0 = PIXELS (floats accepted),
+   colors are 0-1 floats, and Premiere writes the file on template save.
+   Merge policy: parse, drop OCHA-named templates, append fresh, rewrite -
+   the user's own templates are never touched, and an unparseable file is
+   SKIPPED (with a one-time .ocha-backup made before our first rewrite). */
+var OCHA_GUIDE_SETS = [
+  // Positions by Javier (2026-07-23, original template + option-3 collision fix):
+  // square/event = caption box band 832-974 on 1080-tall; portrait band sits
+  // BETWEEN the Text block and the LT, reels 1190-1300; feed45 = same fractions
+  // of height as reels (836.7 -> 837, 914.1 -> 914).
+  { name: "OCHA Captions - Square 1x1", ys: [832, 974] },
+  { name: "OCHA Captions - Event 16x9", ys: [832, 974] },
+  { name: "OCHA Captions - Reels 9x16", ys: [1190, 1300] },
+  { name: "OCHA Captions - Feed 4x5", ys: [837, 914] }
+];
+
+// tiny serializer for the known .guides shape (ES3 has no JSON built-ins;
+// eval() is the matching parser). Quotes every key - Premiere's own keys
+// contain colons ("color:red").
+function ochaGuidesJson(o) {
+  if (o === null || o === undefined) return "null";
+  if (o instanceof Array) {
+    var a = [];
+    for (var i = 0; i < o.length; i++) a.push(ochaGuidesJson(o[i]));
+    return "[" + a.join(",") + "]";
+  }
+  var t = typeof o;
+  if (t === "number" || t === "boolean") return "" + o;
+  if (t === "string") return '"' + o.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+  var kv = [];
+  for (var k in o) if (o.hasOwnProperty(k)) kv.push('"' + k + '":' + ochaGuidesJson(o[k]));
+  return "{" + kv.join(",") + "}";
+}
+
+function ochaGuideTemplate(set) {
+  var guides = [];
+  for (var i = 0; i < set.ys.length; i++) {
+    guides.push({                          // OCHA cyan #009EDB, exact pixels
+      "color:blue": 0.8588235294117647,
+      "color:green": 0.6196078431372549,
+      "color:red": 0,
+      "orientationType": 0,                // 0 = horizontal (measured)
+      "pinToOpposite": false,
+      "position": set.ys[i],
+      "positionType": 0                    // 0 = pixels (measured)
+    });
+  }
+  return { guides: guides, name: set.name };
+}
+
+// every "Installed Guides.guides" of the RUNNING major version (one per
+// Profile-* folder; writing to all of them covers renamed/synced profiles)
+function ochaGuidesFiles() {
+  var out = [];
+  try {
+    var major = ("" + app.version).split(".")[0];
+    var base = new Folder(Folder.myDocuments.fsName + "/Adobe/Premiere Pro/" + major + ".0");
+    if (!base.exists) return out;
+    var kids = base.getFiles();
+    for (var i = 0; i < kids.length; i++) {
+      if (kids[i] instanceof Folder && ("" + kids[i].displayName).indexOf("Profile") === 0) {
+        out.push(kids[i].fsName + "/Installed Guides.guides");
+      }
+    }
+  } catch (e) {}
+  return out;
+}
+
+// "OK|<count>" - how many of the 4 OCHA templates the profile already has
+// (string count, no eval on the read path).
+function ochaCaptionGuidesInstalled() {
+  try {
+    var files = ochaGuidesFiles(), best = 0;
+    for (var i = 0; i < files.length; i++) {
+      var f = new File(files[i]);
+      if (!f.exists) continue;
+      f.encoding = "UTF-8";
+      var txt = "";
+      if (f.open("r")) { txt = f.read(); f.close(); }
+      var m = txt.match(/OCHA Captions - /g);
+      var n = m ? m.length : 0;
+      if (n > best) best = n;
+    }
+    return "OK|" + best;
+  } catch (e) { return "OK|0"; }
+}
+
+function ochaInstallCaptionGuides() {
+  try {
+    var files = ochaGuidesFiles();
+    if (!files.length) return "ERR|Couldn't find Premiere's profile folder (Documents/Adobe/Premiere Pro/<version>/Profile-...).";
+    var done = 0, warns = [];
+    for (var i = 0; i < files.length; i++) {
+      var f = new File(files[i]);
+      var data = { guideTemplates: [], version: 1 };
+      if (f.exists) {
+        f.encoding = "UTF-8";
+        var txt = "";
+        if (f.open("r")) { txt = f.read(); f.close(); }
+        var parsed = null;
+        try { parsed = eval("(" + txt + ")"); } catch (ePar) { parsed = null; }
+        if (!parsed || !(parsed.guideTemplates instanceof Array)) {
+          warns.push("skipped " + f.displayName + " (couldn't read it safely)");
+          continue;                        // never rewrite a file we can't parse
+        }
+        data = parsed;
+        var bak = new File(f.fsName + ".ocha-backup");
+        if (!bak.exists) { try { f.copy(bak.fsName); } catch (eBak) {} }
+      }
+      var keep = [];
+      for (var t = 0; t < data.guideTemplates.length; t++) {
+        var nm = "" + (data.guideTemplates[t] && data.guideTemplates[t].name);
+        if (nm.indexOf("OCHA Captions") !== 0) keep.push(data.guideTemplates[t]);
+      }
+      for (var g = 0; g < OCHA_GUIDE_SETS.length; g++) keep.push(ochaGuideTemplate(OCHA_GUIDE_SETS[g]));
+      data.guideTemplates = keep;
+      f.encoding = "UTF-8";
+      f.lineFeed = "Unix";
+      if (f.open("w")) { f.write(ochaGuidesJson(data)); f.close(); done++; }
+      else warns.push("couldn't write " + f.displayName);
+    }
+    var out = "OK|installed=" + OCHA_GUIDE_SETS.length + " guide templates|profiles=" + done;
+    if (warns.length) out += "|warn=" + warns.join("; ");
+    return done ? out : "ERR|" + (warns.join("; ") || "Nothing written.");
   } catch (e) { return "ERR|" + e.toString(); }
 }
 
@@ -631,9 +788,9 @@ function ochaCleanReport() {
   } catch (e) { return "ERR|" + e.toString(); }
 }
 
-/* ---------------- selection-aware Size & Position ----------------
+/* ---------------- selection-aware Position ----------------
    When an OCHA branding clip is selected, the panel binds its sliders to that
-   clip's Motion so edits apply live (offsets are from the frame centre; +Y up). */
+   clip's Motion so edits apply live. */
 function ochaSelectedOchaClip() {
   var seq = app.project.activeSequence;
   if (!seq) return null;
@@ -648,47 +805,75 @@ function ochaSelectedOchaClip() {
   return null;
 }
 
+/* 0.42 rework, round 2: the sliders drive the TEMPLATE's own "Position X/Y"
+   controls (element's LEFT/TOP edge in px; the template clamps against the
+   element's REAL text-aware bbox, so 0 = flush with the edge and it can never
+   leave the comp). Clips placed with OLDER templates have no such controls —
+   they fall back to Motion > Position, whose anchor knows nothing about the
+   element (that's why it was replaced), clamped to the frame as before.
+   Motion gotcha kept for the fallback: the param is NORMALIZED (fractions of
+   the frame, [0.5,0.5] = centre) while Effect Controls displays px — writing
+   raw px multiplied by the frame (measured: panel 6 -> 6480 = 6 x 1080).
+   Scale stays PARKED: read/write touch position only. */
+function ochaPosParams(clip) {
+  var mgt = null;
+  try { mgt = clip.getMGTComponent(); } catch (e) { return null; }
+  if (!mgt) return null;
+  var px = ochaFindParam(mgt.properties, "Position X");
+  var py = ochaFindParam(mgt.properties, "Position Y");
+  return (px && py) ? { x: px, y: py } : null;
+}
+
 function ochaReadMotion() {
   try {
     var clip = ochaSelectedOchaClip();
     if (!clip) return "none";
     var seq = app.project.activeSequence;
     var w = seq.frameSizeHorizontal, h = seq.frameSizeVertical;
-    var scale = 100, offX = 0, offY = 0;
-    var tSize = ochaGetSize(clip);             // the template's own Size wins
-    if (tSize != null) scale = tSize;
-    var mo = ochaFindComp(clip, "AE.ADBE Motion");
-    if (mo) {
-      if (tSize == null) {
-        var sp = ochaFindParam(mo.properties, "Scale");
-        if (sp) { try { var s = sp.getValue(); if (typeof s === "number") scale = s; } catch (e) {} }
+    var x = Math.round(w / 2), y = Math.round(h / 2), mode = "m";
+    var tp = ochaPosParams(clip);
+    if (tp) {
+      // template sliders hold PERCENT of frame (Premiere clamps MOGRT sliders
+      // to 0-100 — see sizeGroup in the AE builder); panel speaks px
+      try { x = Math.round(tp.x.getValue() / 100 * w); y = Math.round(tp.y.getValue() / 100 * h); mode = "t"; } catch (eT) {}
+    }
+    if (mode === "m") {
+      var mo = ochaFindComp(clip, "AE.ADBE Motion");
+      if (mo) {
+        var pp = ochaFindParam(mo.properties, "Position");
+        if (pp) { try { var p = pp.getValue(); if (p && p.length >= 2) { x = Math.round(p[0] * w); y = Math.round(p[1] * h); } } catch (e) {} }
       }
-      var pp = ochaFindParam(mo.properties, "Position");
-      if (pp) { try { var p = pp.getValue(); if (p && p.length >= 2) { offX = Math.round(p[0] - w / 2); offY = Math.round(-(p[1] - h / 2)); } } catch (e) {} }
     }
     var nm = ""; try { nm = clip.name; } catch (e) {}
-    return nm + "|" + Math.round(scale) + "|" + offX + "|" + offY;
+    return nm + "|" + x + "|" + y + "|" + w + "|" + h + "|" + mode;
   } catch (e) { return "none"; }
 }
 
-function ochaWriteMotion(scale, offX, offY) {
+function ochaWriteMotion(x, y) {
   try {
     var clip = ochaSelectedOchaClip();
     if (!clip) return "ERR|no OCHA clip selected";
     var seq = app.project.activeSequence;
     var w = seq.frameSizeHorizontal, h = seq.frameSizeVertical;
+    var fx = parseFloat(x), fy = parseFloat(y);
+    if (isNaN(fx)) fx = w / 2;
+    if (isNaN(fy)) fy = h / 2;
+    fx = Math.max(0, Math.min(w, fx));          // panel-range cap (px space); the
+    fy = Math.max(0, Math.min(h, fy));          // template clamps element-exact
+    var tp = ochaPosParams(clip);
+    if (tp) {
+      // px -> PERCENT of frame (the sliders' 0-100 range; see ochaReadMotion)
+      try { tp.x.setValue(fx / w * 100, true); tp.y.setValue(fy / h * 100, true);
+            return "OK|tpos=" + Math.round(fx) + "," + Math.round(fy); }
+      catch (eT) { return "ERR|" + eT.toString(); }
+    }
     var mo = ochaFindComp(clip, "AE.ADBE Motion");
     if (!mo) return "ERR|no Motion";
-    var out = [];
-    if (ochaSetSize(clip, scale)) {
-      out.push("size");                         // template's own anchor, not the comp centre
-    } else {
-      var sp = ochaFindParam(mo.properties, "Scale");
-      if (sp) { try { sp.setValue(parseFloat(scale), true); out.push("scale"); } catch (e) { out.push("scaleERR"); } }
-    }
     var pp = ochaFindParam(mo.properties, "Position");
-    if (pp) { try { pp.setValue([w / 2 + parseFloat(offX), h / 2 - parseFloat(offY)], true); out.push("pos"); } catch (e) { out.push("posERR"); } }
-    return "OK|" + out.join(",");
+    if (!pp) return "ERR|no Position prop";
+    // old-template fallback: normalized Motion (see the block comment)
+    try { pp.setValue([fx / w, fy / h], true); return "OK|pos=" + Math.round(fx) + "," + Math.round(fy); }
+    catch (e1) { return "ERR|" + e1.toString(); }
   } catch (e) { return "ERR|" + e.toString(); }
 }
 

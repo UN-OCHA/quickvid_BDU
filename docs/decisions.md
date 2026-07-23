@@ -1313,6 +1313,190 @@ looks right; H.264 because a distribution copy must play everywhere).
 Premiere plugin gets the same tool next (AME `app.encoder.encodeFile` spike +
 three bundled .epr presets; fallback = hand the file to this web tool).
 
+## 2026-07-23 — Plugin captions fixed by FILE FORENSICS, not guesswork (v0.42.0)
+
+Javier: "the boxed style doesn't install properly — it didn't pick the box" +
+"lower third / text must never overlap captions".
+
+**The box was never in the file.** A `.prtextstyle` is a mini Premiere project;
+the styling lives in ONE base64 "Source Text" FlatBuffers blob. Decoding both
+bundled styles showed "OCHA Boxed" (404 bytes) was structurally a SUBSET of
+"OCHA Clean" (408) — different font weight, no background section at all. So
+Premiere installed and applied it faithfully; there was no box to apply. Fix:
+Javier re-exported the style from his original template (Raleway **Medium 48**,
+box on — the new blob is bigger than Clean, with the background flag + pad/radius
+values) and the re-export replaced `premiere/cep/caption-styles/OCHA Boxed.prtextstyle`.
+Diagnosis rule that paid off: when "X doesn't apply", decode the artifact before
+blaming the applier.
+
+**Defaults now clear the caption zone.** Premiere captions sit in the bottom
+~10% region and can't be moved by style or script, so the branded elements move
+instead: each format bakes `cap_clear` (fraction of H reserved for captions =
+0.10 margin + 2-line 44px boxed block + breathing room; see make_assets.py) and
+`buildLT` clamps the block bottom to `H*(1-cap_clear)` — square 950→821,
+event 961→821, reels/feed45 already cleared. Text `y_frac` went per-orientation
+(square/landscape 0.56→0.52) so even a 3-line block clears. Title lines also got
+bigger: `org_scale` 0.5909→**0.66** in brand-lt.json (web app to be re-aligned —
+statement.py PRESETS hardcode their own LT sizes; noted in memory).
+
+**"Title line 2 (optional)" → "3rd line (optional)"** (Name = 1st line). Renaming
+an EGP control breaks the panel against clips placed with the old template, so
+host.jsx grew `OCHA_FIELD_ALIAS` (writers fall back old-name) and `FIELD_OF`
+maps BOTH names to `lt-title2` (readers accept either).
+
+**Caption position is NOT scriptable — measured, PPro 26.3.0.** A temporary
+read-only probe (reflection + captionTracks + selection + QE; removed after)
+showed: a selected caption cue DOES reach `getSelection()` (TrackItem
+'SyntheticCaption', type=1) but exposes `components: 0` and
+`getMGTComponent: null`; `seq.captionTracks` undefined; only
+`createCaptionTrack` exists; QE side nothing. So there is no property surface —
+a "position captions" button is impossible today. Also documented: installed
+styles appear ONLY in the **Style browser (Local)** — the plain Track Style
+dropdown lists project styles, ∅ until a style is used once.
+
+**Caption position GUIDES instead (Javier's idea, same day).** If the plugin
+can't move captions, it can install Program Monitor **guide templates** marking
+where the user should drag them — and those turned out to be file-installable:
+`<Documents>/Adobe/Premiere Pro/<major>.0/Profile-<name>/Installed Guides.guides`
+is plain JSON. Measured with a saved `test-h` guide: `orientationType 0` =
+horizontal, `positionType 0` = pixels (floats fine), colors 0-1 floats, and
+Premiere writes the file on template save. New Captions tile "Caption position
+guides" → `ochaInstallCaptionGuides()` eval-parses the file, drops OCHA-named
+templates, appends 4 fresh ones ("OCHA Captions - <format>", OCHA-cyan lines),
+rewrites — the user's own templates untouched, unparseable files skipped, and a
+one-time `.ocha-backup` made first. Bands (caption box between the lines):
+square/event **832-974** (Javier's original template — matches the Premiere
+default zone `cap_clear` was derived from), reels **1190-1300**, feed45
+**837-914**. Portrait is the tight one — captions sit BETWEEN Text (above) and
+the LT (below), and the 2-line-Text/2-line-title slot was only 108px, so
+"option 3": portrait Text `y_frac` 0.56→**0.52** (all orientations equal now)
+and the reels band placed at 1190/1300 → ~50px clear of 2-line Text, ~24px
+clear of a 2-line-title LT. A 3-line Text + captions can NEVER share a reel's
+lower-middle — editorial choice, not a numbers problem. Usage: View > Guide
+Templates > pick the format, drag captions in Properties > Align & transform;
+guides never export.
+
+**Middle gradient (same day).** The readability gradient learned a third
+position: a SECOND Linear Wipe on the same solid — wipe 1 clears above the band
+(angle forced 180), wipe 2 below it — leaving feather-dark-feather centred at
+`gradient.mid_center` (0.5, so the band spans 27.5–72.5% of H) with per-edge
+feather = the one-sided fade / 2. Two wipes compose multiplicatively, so no new
+layer machinery. Pairs with the mid-frame caption band on reels. Panel Position
+segment gained **Middle**; host `OCHA_BOOL` gained the checkbox; "Full screen"
+still overrides everything.
+
+**Guides aren't scriptable either (same day).** Javier's test found the
+installed templates only appear after RELAUNCHING Premiere (the wrench menu
+reads `Installed Guides.guides` at launch), so he asked for live per-sequence
+guides instead. A second probe (`ochaProbeGuides`, removed after) dumped the
+FULL reflection member lists — DOM Sequence 57, DOM Project 52, QE sequence 88,
+QE project 58 — and nothing guide-related exists anywhere; all candidate names
+(`addGuide`, `guides`, …) undefined on both sides. Live guide creation is
+impossible in 26.3; the template file stays the only route, with its one-time
+"install + relaunch once" cost.
+
+**Portrait correction from the official template (same day).** Javier's
+screenshot of the OFFICIAL template settled the portrait stacking question the
+other way from my "option 3" reading: the LOWER THIRD sits ABOVE the captions
+(caption box in the guide band 1190-1300, LT ending ~30px above it) — same
+arrangement as square/event, not the web-app-style captions-above-LT I had
+assumed. So reels/feed45 `cap_clear` went 0.188/0.216 → **0.396**: LT block
+bottom reels 1498→**1160**, feed45 1053→**815** (1-line-title LT top ≈1027 —
+matches the official template's measured ≈1031). Consequence: with BOTH Text
+and LT on a portrait frame, 2+-line Text can reach the LT zone — they rarely
+co-occur (Text lives on b-roll, LT on the speaker) and either drags off the
+other in Properties; captions-vs-LT, the pair that always co-occurs, is now
+collision-free by default in every format.
+
+**Guides auto-install (same day, Javier's call).** Since the templates only
+load at Premiere launch, the panel now SILENTLY installs them at boot — once
+per panel version (`localStorage ocha-guides-installed` = PANEL_VERSION, set
+only on an OK result; re-runs on version bumps so updated band values ship).
+By anyone's second session the templates are just there; the Captions tile
+stays for status, reinstall and the how-to, and its copy now says templates
+appear after the next restart. Also ruled out: programmatically opening
+View > Guide Templates and picking an entry — Premiere has no menu-invocation
+API, and the submenu is dynamically generated, so its entries have no stable
+command IDs even for the undocumented command-runner tricks.
+
+**0.42 sweep-up (same day).** (a) The Toolbox "Compress a video" tile was NEVER
+wired — `TOOLS.webapp` (modal, CTA, `openExternal`) existed but the
+`addEventListener` line didn't, so the tile silently did nothing; one line
+fixes it, and the modal now says up front that it leaves Premiere + shows the
+URL. (b) Captions steps rewritten to five short plain lines — the detail lives
+in the tiles' modals. (c) LT title rows got PER-ROW cyan bands (band 1 = the
+row that renders first, band 2 only when both lines are filled; zero-size hides
+a band, one max-width matte still wipes the block; centred mode centres each
+row on its own width) — a lone max-width band left the shorter line with a cyan
+overhang. The web app still draws the max-width band
+(`engine/lower_third.py` ~93, `browser/engine.js`) — noted for the web-app
+review.
+
+**Position sliders return (same day) — position only, absolute px, hard caps.**
+The 0.37.0-parked "Size & position" section is back as **Position**: Horiz +
+Vert sliders whose min/max ARE the frame, ±1px arrow nudges at the slider ends,
+and an editable px field that snaps back into range on commit — three input
+routes, one clamp (`clampPos`), plus the host clamps again in
+`ochaWriteMotion`/`ochaApplyMotion` as the hard cap, so a clip can never leave
+the comp. Semantics changed from the old offsets to **absolute comp pixels**
+(the same numbers as Effect Controls > Motion > Position; default = frame
+centre) — that's what makes "sticks to the limits of the comp" natural, and
+users can cross-check against Premiere directly. Scale stays parked: the Size
+row is hidden, no `@scale` is ever sent, and the 0.37.0 anchor-disagreement
+note still applies to any future scale revival. Selection-aware: `syncAdjust`
+(900ms, restored) binds the sliders to a selected OCHA clip (live writes,
+debounced 100ms), skips while dragging or typing, and unbinding RESETS to
+centre so the last clip's position can't silently ride into the next Add.
+
+Two bugs Javier caught in the first cut, both now load-bearing comments:
+(1) the parked Size row was "hidden" with the HTML attribute, but
+`.adj-row { display:flex }` BEATS `[hidden]` — parked rows must be DELETED,
+not hidden; (2) Motion > Position is **normalized in the API** (fractions of
+the frame, [0.5,0.5] = centre) while Effect Controls displays pixels — writing
+raw px multiplied by the frame (panel 6 → Premiere 6480 = 6×1080). The px⇄
+fraction conversion now lives at the host boundary in all three sites
+(`ochaReadMotion`, `ochaWriteMotion`, `ochaApplyMotion`).
+
+**Round 3 — the clamp moved INTO the templates (Javier's third catch).** Even
+converted, Motion moves the clip ANCHOR, which knows nothing about the element:
+on square the LT's left edge left the frame below anchor-x ≈454 (his measured
+446) while anchor 0..1080 was still "in range", and anchor-y 0 didn't put the
+element at the top. The element's bbox depends on typed text, and Premiere's
+API exposes no rendered bounds — so the only place that CAN clamp exactly is
+the template, whose expressions already measure text (`sourceRectAtTime`).
+`sizeGroup` therefore grew **"Position X/Y" sliders** (element's LEFT/TOP edge
+in comp px; defaults = the designed spot) and a position expression that
+computes each element's real bbox — per-builder bounds: LT = visible bands
+union (centre-align aware), pin = icon+bands (toggle + single/two-line aware),
+text = widest line × non-empty rows, bug/ending = static boxes — and clamps to
+[0 .. comp − element]: **0 = flush with the edge, and the element can never
+leave the comp, whatever the user typed.** The panel/host now write those
+template controls (`ochaPosParams`, template-first in
+read/write/`ochaApplyMotion`); clips from OLDER templates fall back to the
+normalized-Motion path. The Position UI also became its own layer-2 card —
+second-level settings, visually separated. Scale stays parked throughout.
+
+**Round 4 — Premiere clamps MOGRT sliders to their declared range.** First AE
+build of the position controls put the LT at the TOP of the frame and the
+sliders "barely moved": an AE Slider Control's default range is 0-100, Premiere
+enforces it on MOGRT params, and AE scripting cannot widen it — so the LT's
+720px default collapsed to 100 and every panel write past 100 was clamped.
+Fix: the template sliders speak **percent of frame** (0 = left/top edge,
+100 = right/bottom), converted to px inside the expression; the host converts
+px⇄percent at its boundary so the panel (and the user) still see pixels. The
+element-exact bbox clamp is unchanged — percent only changes the wire format.
+
+**Round 5 — static defaults vs moving design positions.** Centre align stopped
+centring: the X slider's baked default is the LEFT-mode edge, but a centred
+element's designed left edge is `(W−width)/2` — so the "absolute edge" offset
+dragged the centred LT toward x≈86. Same class of drift: a 2-line title moves
+the designed TOP, so the static Y default would pin the block top and grow it
+DOWN past BOT. Fix in `sizeGroup`: **at-default = as-designed** (a slider
+sitting exactly on its baked default contributes zero offset, so centring,
+bottom-anchored growth and reflow stay pure), and **Centre align OWNS X** (the
+LT passes a `lockXExpr`; the X slider is inert while centred — uncheck to take
+manual control). Once moved, a slider is an absolute edge, clamped as before.
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the

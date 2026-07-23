@@ -209,11 +209,22 @@ def main():
             "portrait": {"top": .11, "bottom": .20, "left": .06, "right": .06},
             "square": {"top": .08, "bottom": .10, "left": .08, "right": .08},
         },
+        # cap_clear = fraction of frame HEIGHT reserved BELOW the lower third, so
+        # its default can never sit on the captions. The LT clamps its block
+        # bottom to H*(1-cap_clear) (see buildLT). Official-template arrangement
+        # (Javier, 2026-07-23): the LT sits ABOVE the captions in EVERY format.
+        #  - square/event: captions in the bottom zone (guide band 832-974 on
+        #    1080-tall ~ Premiere's default subtitle region): 0.10 margin +
+        #    2-line 44px boxed block + breathing room -> 0.24 (LT bottom 821).
+        #  - portrait: captions in the MID-FRAME guide band (reels 1190-1300,
+        #    feed45 837-914), LT directly above it -> 1-(1160/1920) =
+        #    1-(815/1350) = 0.396 (LT bottom 1160 / 815, ~25-30px above the
+        #    band top — matches the official template's measured positions).
         "formats": [
-            {"key": "reels", "label": "Reels 9x16", "w": 1080, "h": 1920, "orient": "portrait"},
-            {"key": "feed45", "label": "Feed 4x5", "w": 1080, "h": 1350, "orient": "portrait"},
-            {"key": "square", "label": "Square 1x1", "w": 1080, "h": 1080, "orient": "square"},
-            {"key": "event", "label": "Event 16x9", "w": 1920, "h": 1080, "orient": "landscape"},
+            {"key": "reels", "label": "Reels 9x16", "w": 1080, "h": 1920, "orient": "portrait", "cap_clear": 0.396},
+            {"key": "feed45", "label": "Feed 4x5", "w": 1080, "h": 1350, "orient": "portrait", "cap_clear": 0.396},
+            {"key": "square", "label": "Square 1x1", "w": 1080, "h": 1080, "orient": "square", "cap_clear": 0.24},
+            {"key": "event", "label": "Event 16x9", "w": 1920, "h": 1080, "orient": "landscape", "cap_clear": 0.24},
         ],
         # Text on screen + the readability gradient. These were added straight to
         # the GENERATED jsx once, which meant a regeneration would have wiped both
@@ -227,7 +238,17 @@ def main():
                     "color": "#FFFFFF",
                     "line_gap": 1.16,
                     "letter_spacing": 0,
-                    "y_frac": 0.56,
+                    # per-orientation: line 1's baseline as a fraction of H. All 0.52
+                    # since 0.42: square/landscape clear the bottom caption zone, and
+                    # portrait clears the OCHA caption GUIDES (reels band 1190-1300 —
+                    # captions sit BETWEEN Text above and the LT below there, so a
+                    # 2-line text at 0.56 used to end 12px off the band). Kept as a
+                    # dict so one orientation can diverge again without re-plumbing.
+                    "y_frac": {
+                                "portrait": 0.52,
+                                "square": 0.52,
+                                "landscape": 0.52
+                    },
                     "enter": 0.5,
                     "exit": 0.4,
                     "rise": 0.045,
@@ -240,7 +261,11 @@ def main():
         "gradient": {
                     "height_frac": 0.45,
                     "opacity": 80,
-                    "feather_frac": 0.75
+                    "feather_frac": 0.75,
+                    # "Middle" mode: band centre as a fraction of H. 0.5 covers the
+                    # mid-frame text/caption zones of every format (reels captions
+                    # 1190-1300 included); per-edge feather = the one-sided fade / 2.
+                    "mid_center": 0.5
         },
         "bug_height_frac": 0.065,      # mirrors finish.py BUG_HEIGHT_FRAC
         "ending": {"logo_frac": 0.054, "lead_in": 0.30, "hold": 1.5},  # click peak @0.30s → snap

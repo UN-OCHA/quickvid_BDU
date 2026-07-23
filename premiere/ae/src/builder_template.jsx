@@ -152,19 +152,61 @@ function addSlider(ctl, label, v) {
   return fx;
 }
 
-// A "Size" slider (on the comp's Controls) that scales the WHOLE element about a
-// pinned anchor — so a per-video "make it bigger/smaller" grows in place instead
-// of drifting off its safe corner the way native Motion→Scale does.
-//   Trick: a parent null whose position == anchorPoint == the anchor point is
-//   IDENTITY at 100% (children keep their comp-coord expressions untouched) and
-//   scales purely about that point otherwise: child_world = A + (Size/100)*(child - A).
-// `axExpr`/`ayExpr` are expression-string comp coords for the anchor.
-function sizeGroup(comp, layers, axExpr, ayExpr) {
+// A "Size" slider + "Position X/Y" sliders (on the comp's Controls) applied to
+// the WHOLE element via one parent null.
+//   Size scales about a pinned anchor: a parent null whose position ==
+//   anchorPoint == the anchor point is IDENTITY at 100% (children keep their
+//   comp-coord expressions untouched) and scales purely about that point:
+//   child_world = A + (Size/100)*(child - A).
+//   Position (0.42): the sliders hold the element's LEFT/TOP edge in comp px.
+//   The null's position expression computes the element's REAL bounding box —
+//   text-aware, via the same sourceRectAtTime maths the bands already use
+//   (`bnd` = expression snippet defining L, T, R, B in design space) — and
+//   clamps the requested edge to [0 .. comp - element], so 0 is flush with the
+//   edge and the element can NEVER leave the comp, whatever the user typed.
+//   This is why the panel doesn't drive Motion > Position any more: the clip
+//   anchor knows nothing about the element, so clamping it both blocked legal
+//   moves and allowed illegal ones (measured 2026-07-23: square LT left edge
+//   left the frame below anchor-x 454 while anchor-x 0 was still "in range").
+//   `defX`/`defY` = the designed left/top edge (slider defaults => no move);
+//   the pivot travels with the element (world(anchor) == position == A + d).
+function sizeGroup(comp, ctl, layers, axExpr, ayExpr, bnd, defX, defY, lockXExpr) {
+  // THE SLIDERS SPEAK PERCENT OF FRAME, NOT PIXELS. Premiere clamps a MOGRT
+  // slider to its declared range — 0-100 by default, and AE scripting cannot
+  // widen it. Measured 0.42: a 720px default collapsed to 100 (the LT jumped
+  // to the top of the frame) and panel drags past 100 barely moved anything.
+  // So 0 = left/top edge, 100 = right/bottom edge; the expression converts to
+  // px, and the panel converts back so users still see pixels there.
+  //
+  // AT-DEFAULT = AS-DESIGNED: a slider sitting exactly on its baked default
+  // contributes NO offset, so every dynamic design behaviour stays pure —
+  // centre-align centring, bottom-anchored title growth, single/two-line
+  // reflow. Without this guard the static default fought the moving design
+  // position (measured: Centre align pulled the LT toward the LEFT-mode edge
+  // instead of centring). Once the user moves a slider it becomes an absolute
+  // edge position, clamped so the element can't leave the comp.
+  //
+  // `lockXExpr` (optional): expression that, when truthy, disables the X
+  // offset entirely — the LT passes its Centre align checkbox, because
+  // "centred" OWNS horizontal; uncheck it to take manual control.
+  var dxp = Math.round(defX / comp.width * 10000) / 100;
+  var dyp = Math.round(defY / comp.height * 10000) / 100;
+  addSlider(ctl, "Position X", dxp);
+  addSlider(ctl, "Position Y", dyp);
   var n = comp.layers.addNull(comp.duration);
   n.name = "Size anchor";
   n.enabled = false;
   var pe = "[" + axExpr + ", " + ayExpr + "]";
-  n.transform.position.expression = pe;
+  n.transform.position.expression = bnd +
+    "var _sx = thisComp.layer('Controls').effect('Position X')('Slider');\n" +
+    "var _sy = thisComp.layer('Controls').effect('Position Y')('Slider');\n" +
+    "var _lockX = " + (lockXExpr || "false") + ";\n" +
+    "var _px = _sx / 100 * thisComp.width;\n" +
+    "var _py = _sy / 100 * thisComp.height;\n" +
+    "var _w = R - L, _h = B - T;\n" +
+    "var _dx = (!_lockX && _w > 0 && Math.abs(_sx - " + dxp + ") > 0.01) ? Math.max(0, Math.min(thisComp.width - _w, _px)) - L : 0;\n" +
+    "var _dy = (_h > 0 && Math.abs(_sy - " + dyp + ") > 0.01) ? Math.max(0, Math.min(thisComp.height - _h, _py)) - T : 0;\n" +
+    "[" + axExpr + " + _dx, " + ayExpr + " + _dy];";
   n.transform.anchorPoint.expression = pe;
   n.transform.scale.expression =
     "var z = thisComp.layer('Controls').effect('Size')('Slider'); [z, z];";
@@ -264,7 +306,13 @@ function buildLT(fmt) {
   var NH = NSIZE + 2 * NPY;
   var PAN = Math.round(NSIZE * G.pan);
   var SAFEL = Math.round(safe.left * W);
-  var BOT = Math.round(H - safe.bottom * H - 0.02 * H);   // block bottom (engine place())
+  // Block bottom = the engine's place(), CLAMPED so the LT always sits ABOVE
+  // the captions (fmt.cap_clear = bottom fraction reserved below it — see
+  // make_assets.py). Official-template arrangement in every format: LT above,
+  // captions below — square/event just above the bottom caption zone, portrait
+  // just above the mid-frame caption guide band (reels LT bottom 1160).
+  var BOT = Math.round(Math.min(H - safe.bottom * H - 0.02 * H,
+                                H * (1 - fmt.cap_clear)));
   var ENTER = T.org_delay + T.org_in, EXIT = T.name_out_delay + T.name_out;
   var HOLD = 3.6, DUR = ENTER + HOLD + EXIT;
 
@@ -317,12 +365,27 @@ function buildLT(fmt) {
   mover.name = "LT Title mover";
   mover.enabled = false;
 
+  // PER-ROW cyan bands (0.42): each row hugs ITS OWN line's text — a single
+  // max-width band left the shorter line with a cyan overhang (same fix the pin
+  // bands got). Row 1 carries whichever line renders first (Title, or a lone
+  // 3rd line); row 2 exists only when both are filled. Zero width/height hides
+  // a band, so no opacity gates. ONE max-width matte still wipes the block.
+  var row1W = "var rw1 = (t1.length ? w1 : w2) + 2*" + OPX + ";\n";
+  var row2W = "var rw2 = w2 + 2*" + OPX + ";\n";
+  var band1Size = ohExpr + owExpr + row1W + "[lines ? rw1 : 0, lines ? oh/lines : 0];";
+  var band1Pos = centreExpr + ohExpr + owExpr + row1W +
+    "var x = c ? (thisComp.width - rw1)/2 : " + SAFEL + ";\n" +
+    "[x, " + BOT + " - oh];";
+  var band2Size = ohExpr + owExpr + row2W + "[lines == 2 ? rw2 : 0, lines == 2 ? oh/2 : 0];";
+  var band2Pos = centreExpr + ohExpr + owExpr + row2W +
+    "var x = c ? (thisComp.width - rw2)/2 : " + SAFEL + ";\n" +
+    "[x, " + BOT + " - oh/2];";
+  var orgBand = rectLayer(comp, "LT Title band 1", C.org_bg, band1Size, band1Pos);
+  var orgBand2 = rectLayer(comp, "LT Title band 2", C.org_bg, band2Size, band2Pos);
   var orgSize = ohExpr + owExpr + "[ow, oh];";
   var orgPos = centreExpr + ohExpr + owExpr +
     "var x = c ? (thisComp.width - ow)/2 : " + SAFEL + ";\n" +
     "[x, " + BOT + " - oh];";
-  var orgBand = rectLayer(comp, "LT Title band", C.org_bg, orgSize, orgPos);
-  orgBand.transform.opacity.expression = ohExpr + "oh ? 100 : 0;";
   var orgMatte = rectLayer(comp, "LT Title matte", "#FFFFFF", orgSize, orgPos);
 
   function titleLayer(n, defTxt, startEmpty) {
@@ -333,11 +396,11 @@ function buildLT(fmt) {
       var st = t.property("ADBE Text Properties").property("ADBE Text Document");
       var td = st.value; td.text = ""; st.setValue(td);
     }
-    t.transform.position.expression = centreExpr + ohExpr + owExpr +
+    t.transform.position.expression = centreExpr + ohExpr +
       "var me = ('' + text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
       "var r = me.length ? thisLayer.sourceRectAtTime(time, false) : {left:0, width:0, top:0, height:0};\n" +
-      "var bx = c ? (thisComp.width - ow)/2 : " + SAFEL + ";\n" +
-      "var x = (c ? bx + (ow - r.width)/2 : bx + " + OPX + ") - r.left;\n" +
+      // centre within THIS line's own band (bands are per-row now), not the widest
+      "var x = (c ? (thisComp.width - r.width)/2 : " + SAFEL + " + " + OPX + ") - r.left;\n" +
       // ink-centre this line in its row. A line's row is how many NON-EMPTY lines
       // sit at or above it, so a lone Title 2 (Title 1 empty) uses the single row 1
       // instead of floating in row 2 of a one-line band.
@@ -353,8 +416,9 @@ function buildLT(fmt) {
   var t2 = titleLayer(2, "Second line", true);
 
   applyMatte([nameBand, nameText], nameMatte);
-  applyMatte([orgBand, t1, t2], orgMatte);
-  orgBand.parent = mover; orgMatte.parent = mover; t1.parent = mover; t2.parent = mover;
+  applyMatte([orgBand, orgBand2, t1, t2], orgMatte);
+  orgBand.parent = mover; orgBand2.parent = mover;
+  orgMatte.parent = mover; t1.parent = mover; t2.parent = mover;
 
   // --- motion (matches engine/lower_third.py state()) ---
   key2(nameMatte.transform.scale, 0, [0, 100], T.name_in, [100, 100]);
@@ -368,20 +432,41 @@ function buildLT(fmt) {
   var ctl = ctlNull(comp);
   addCheckbox(ctl, "Centre align", false);
   addSlider(ctl, "Size", 100);
+  // element bbox for the position clamp: union of the visible bands (name +
+  // title rows), left/centre aware. Name empty -> the block top drops to the
+  // title rows; nothing filled -> zero box (clamp disabled).
+  var ltBnd = centreExpr + ohExpr + nwExpr + owExpr + row1W + row2W +
+    "var _xs = [], _rs = [];\n" +
+    "if (nn.length) { var _nx = c ? (thisComp.width - nw)/2 : " + SAFEL + "; _xs.push(_nx); _rs.push(_nx + nw); }\n" +
+    "if (lines) { var _b1 = c ? (thisComp.width - rw1)/2 : " + SAFEL + "; _xs.push(_b1); _rs.push(_b1 + rw1); }\n" +
+    "if (lines == 2) { var _b2 = c ? (thisComp.width - rw2)/2 : " + SAFEL + "; _xs.push(_b2); _rs.push(_b2 + rw2); }\n" +
+    "var L = _xs.length ? Math.min.apply(null, _xs) : 0;\n" +
+    "var R = _rs.length ? Math.max.apply(null, _rs) : 0;\n" +
+    "var T = nn.length ? " + BOT + " - oh - " + NH + " : " + BOT + " - oh;\n" +
+    "var B = " + BOT + ";\n";
   // scale the whole strip about its pinned corner (bottom-left, or bottom-centre
-  // when centred) via the Size slider — stays put while resizing.
-  sizeGroup(comp, [nameBand, nameMatte, nameText, mover],
+  // when centred) via the Size slider — stays put while resizing. Default
+  // position = the designed top-left with the default content (name + 1 title).
+  sizeGroup(comp, ctl, [nameBand, nameMatte, nameText, mover],
             "(thisComp.layer('Controls').effect('Centre align')('Checkbox') > 0 ? thisComp.width/2 : " + SAFEL + ")",
-            "" + BOT);
+            "" + BOT,
+            ltBnd, SAFEL, BOT - (2 * OPY + OSIZE) - NH,
+            // Centre align OWNS horizontal — the X slider is inert while it's on
+            "(thisComp.layer('Controls').effect('Centre align')('Checkbox') > 0)");
 
   protectRegions(comp, ENTER, EXIT);
   comp.motionGraphicsTemplateName = comp.name;
   // Add in REVERSE of the desired display order: AE prepends each control to the
   // Essential Graphics list, so the last added shows at the TOP. Desired top→bottom
-  // (matching the on-screen stack): Name, Title, Title line 2, Centre align, Size.
+  // (matching the on-screen stack): Name, Title, 3rd line, Centre align, Size,
+  // Position X, Position Y.
+  addEGP(ctl.effect("Position Y").property(1), comp, "Position Y");
+  addEGP(ctl.effect("Position X").property(1), comp, "Position X");
   addEGP(ctl.effect("Size").property(1), comp, "Size");
   addEGP(ctl.effect("Centre align").property(1), comp, "Centre align");
-  addEGP(t2.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Title line 2 (optional)");
+  // "3rd line" counts the whole strip (Name = 1st): renamed from "Title line 2
+  // (optional)" in 0.42 — the panel + host keep an alias for clips placed before.
+  addEGP(t2.property("ADBE Text Properties").property("ADBE Text Document"), comp, "3rd line (optional)");
   addEGP(t1.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Title");
   addEGP(nameText.property("ADBE Text Properties").property("ADBE Text Document"), comp, "Name");
   return comp;
@@ -526,13 +611,27 @@ function buildPin(fmt) {
   parade.property(parade.numProperties).name = "Pin colour";
   addCheckbox(ctl, "Show pin icon", true);
   addSlider(ctl, "Size", 100);
+  // element bbox for the position clamp: pin icon + the band(s), pin-toggle and
+  // single/two-line aware. No place text -> nothing renders -> zero box.
+  var pinBnd = ckExpr + geomExpr +
+    "var _bx = " + SAFEL + " + (ck ? pinW + " + PINGAP + " : 0);\n" +
+    "var _w1 = _pl.length ? thisComp.layer('Pin place').sourceRectAtTime(time, false).width + 2*" + PADX + " : 0;\n" +
+    "var _w2 = twoLine ? thisComp.layer('Pin date').sourceRectAtTime(time, false).width + 2*" + PADX + " : 0;\n" +
+    "var _by = ck ? (" + SAFET + " + (pinH - bvh)/2) : " + SAFET + ";\n" +
+    "var L = _pl.length ? " + SAFEL + " : 0;\n" +
+    "var T = _pl.length ? Math.min(" + SAFET + ", _by) : 0;\n" +
+    "var R = _pl.length ? (_bx + Math.max(_w1, _w2)) : 0;\n" +
+    "var B = _pl.length ? Math.max(" + SAFET + " + (ck ? pinH : 0), _by + bvh) : 0;\n";
   // scale the whole strip (bands + text + pin) about the top-left safe corner
-  sizeGroup(comp, [b1.band, b1.matte, b2.band, b2.matte, place, date, icon],
-            "" + SAFEL, "" + SAFET);
+  sizeGroup(comp, ctl, [b1.band, b1.matte, b2.band, b2.matte, place, date, icon],
+            "" + SAFEL, "" + SAFET, pinBnd, SAFEL, SAFET);
 
   protectRegions(comp, ENTER, EXIT);
   comp.motionGraphicsTemplateName = comp.name;
-  // reverse order (AE prepends) → displays top→bottom: Place, Date, Pin colour, Show pin icon, Size
+  // reverse order (AE prepends) → displays top→bottom: Place, Date, Pin colour,
+  // Show pin icon, Size, Position X, Position Y
+  addEGP(ctl.effect("Position Y").property(1), comp, "Position Y");
+  addEGP(ctl.effect("Position X").property(1), comp, "Position X");
   addEGP(ctl.effect("Size").property(1), comp, "Size");
   addEGP(ctl.effect("Show pin icon").property(1), comp, "Show pin icon");
   addEGP(ctl.effect("Pin colour").property(1), comp, "Pin colour");
@@ -559,9 +658,16 @@ function buildBug(fmt) {
   addSlider(ctl, "Size", 100);
   lyr.transform.opacity.expression =
     "thisComp.layer('Controls').effect('Opacity')('Slider');";
-  sizeGroup(comp, [lyr], "" + (W - Math.round(safe.right * W)), "" + Math.round(safe.top * H));
+  // static logo box (design constants) for the position clamp
+  var bugR = W - Math.round(safe.right * W), bugT = Math.round(safe.top * H);
+  var bugBnd = "var L = " + (bugR - w) + ", R = " + bugR +
+               ", T = " + bugT + ", B = " + (bugT + targetH) + ";\n";
+  sizeGroup(comp, ctl, [lyr], "" + bugR, "" + bugT, bugBnd, bugR - w, bugT);
   comp.motionGraphicsTemplateName = comp.name;
-  addEGP(ctl.effect("Size").property(1), comp, "Size");        // display: Opacity, Size
+  // display: Opacity, Size, Position X, Position Y
+  addEGP(ctl.effect("Position Y").property(1), comp, "Position Y");
+  addEGP(ctl.effect("Position X").property(1), comp, "Position X");
+  addEGP(ctl.effect("Size").property(1), comp, "Size");
   addEGP(ctl.effect("Opacity").property(1), comp, "Opacity");
   return comp;
 }
@@ -596,11 +702,20 @@ function buildEnding(fmt) {
   var ctl = ctlNull(comp);
   addCheckbox(ctl, "Over black", false);
   addSlider(ctl, "Size", 100);
-  sizeGroup(comp, [lyr], "" + (W / 2), "" + (H / 2));   // logo only, scales about frame centre
+  // static centred logo box for the position clamp (the black card stays put —
+  // it's background, not part of the element)
+  var lw = S.logoH.width * sc / 100, lh = H * E.logo_frac;
+  var endBnd = "var L = " + Math.round(W / 2 - lw / 2) + ", R = " + Math.round(W / 2 + lw / 2) +
+               ", T = " + Math.round(H / 2 - lh / 2) + ", B = " + Math.round(H / 2 + lh / 2) + ";\n";
+  sizeGroup(comp, ctl, [lyr], "" + (W / 2), "" + (H / 2),   // logo only, scales about frame centre
+            endBnd, Math.round(W / 2 - lw / 2), Math.round(H / 2 - lh / 2));
   var mv = new MarkerValue("ending"); mv.duration = DUR; mv.protectedRegion = true;
   comp.markerProperty.setValueAtTime(0, mv);      // fixed piece — protect it all
   comp.motionGraphicsTemplateName = comp.name;
-  addEGP(ctl.effect("Size").property(1), comp, "Size");        // display: Over black, Size
+  // display: Over black, Size, Position X, Position Y
+  addEGP(ctl.effect("Position Y").property(1), comp, "Position Y");
+  addEGP(ctl.effect("Position X").property(1), comp, "Position X");
+  addEGP(ctl.effect("Size").property(1), comp, "Size");
   addEGP(ctl.effect("Over black").property(1), comp, "Over black");
   return comp;
 }
@@ -619,7 +734,8 @@ function buildText(fmt) {
 
   var size = Math.round(H * T.ratio[fmt.orient]);
   var px = Math.round(safe.left * W);
-  var py = Math.round(H * T.y_frac);
+  var py = Math.round(H * T.y_frac[fmt.orient]);   // per-orientation: square/landscape
+                                                   // sit higher, clear of captions
   var lineH = Math.round(size * T.line_gap);
   var rise = Math.round(H * T.rise);
   var stagger = T.stagger;
@@ -674,14 +790,33 @@ function buildText(fmt) {
 
   var ctl = ctlNull(comp);
   addSlider(ctl, "Size", 100);
-  sizeGroup(comp, layers, "" + px, "" + py);     // scales the block in place
+  // text bbox for the position clamp: widest non-empty line (sourceRect), one
+  // row per non-empty line (the gap-close expressions compact them upward).
+  // T uses a full font-size ascent (slightly generous = errs INSIDE the frame);
+  // B adds ~0.35em of descender.
+  var txtBnd =
+    "var _ws = [], _cnt = 0;\n" +
+    "var _l1 = ('' + thisComp.layer('Line 1').text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
+    "if (_l1.length) { _cnt++; _ws.push(thisComp.layer('Line 1').sourceRectAtTime(time, false).width); }\n" +
+    "var _l2 = ('' + thisComp.layer('Line 2').text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
+    "if (_l2.length) { _cnt++; _ws.push(thisComp.layer('Line 2').sourceRectAtTime(time, false).width); }\n" +
+    "var _l3 = ('' + thisComp.layer('Line 3').text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
+    "if (_l3.length) { _cnt++; _ws.push(thisComp.layer('Line 3').sourceRectAtTime(time, false).width); }\n" +
+    "var L = _ws.length ? " + px + " : 0;\n" +
+    "var R = _ws.length ? " + px + " + Math.max.apply(null, _ws) : 0;\n" +
+    "var T = _ws.length ? " + (py - size) + " : 0;\n" +
+    "var B = _cnt ? " + py + " + (_cnt - 1) * " + lineH + " + " + Math.round(size * 0.35) + " : 0;\n";
+  sizeGroup(comp, ctl, layers, "" + px, "" + py,   // scales the block in place
+            txtBnd, px, py - size);
   protectRegions(comp, T.enter + (LINES - 1) * stagger, T.exit + (LINES - 1) * stagger);
   comp.motionGraphicsTemplateName = comp.name;
   // Essential Graphics lists controls in the REVERSE of the order they are added,
-  // so add them backwards to get Line 1, Line 2, Line 3, Size top-to-bottom in the
-  // panel. (buildLT does the same thing for the same reason: Size first, Name last.)
-  // Adding them 1,2,3 puts them on screen as 3,2,1, which reads as a bug to anyone
-  // opening Essential Graphics.
+  // so add them backwards to get Line 1, Line 2, Line 3, Size, Position X,
+  // Position Y top-to-bottom in the panel. (buildLT does the same thing for the
+  // same reason: Size first, Name last.) Adding them 1,2,3 puts them on screen
+  // as 3,2,1, which reads as a bug to anyone opening Essential Graphics.
+  addEGP(ctl.effect("Position Y").property(1), comp, "Position Y");
+  addEGP(ctl.effect("Position X").property(1), comp, "Position X");
   addEGP(ctl.effect("Size").property(1), comp, "Size");
   for (var k = LINES - 1; k >= 0; k--) {
     addEGP(layers[k].property("ADBE Text Properties").property("ADBE Text Document"),
@@ -696,38 +831,63 @@ function buildText(fmt) {
 // wipe clears the far end and the feather does the fade. Far more script-robust
 // than assembling gradient-fill colour stops, and it scales to any format because
 // completion is a percentage and the feather is derived from comp height.
+// "Middle" (0.42) = a SECOND wipe: wipe 1 clears above the band, wipe 2 below it,
+// so the scrim becomes feather-dark-feather across the centre (for captions/text
+// that sit mid-frame, e.g. the reels caption band). Two Linear Wipes on one solid
+// compose multiplicatively, which is exactly the band we want.
 function buildGradient(fmt) {
   var W = fmt.w, H = fmt.h, G = DATA.gradient;
   var DUR = 5;
   var comp = S.proj.items.addComp("OCHA Gradient - " + fmt.label, W, H, 1, DUR, 30);
   comp.parentFolder = S.root;
 
+  var MC = (G.mid_center || 0.5);                                    // band centre, frac of H
+  var MIDTOP = Math.round((MC - G.height_frac / 2) * 1000) / 10;     // % cleared above the band
+  var MIDBOT = Math.round((1 - MC - G.height_frac / 2) * 1000) / 10; // % cleared below it
+  var MIDF = Math.round(H * G.height_frac * G.feather_frac / 2);     // per-edge feather (half the
+                                                                     // one-sided fade: two edges)
+  var fsExpr = "var fs = thisComp.layer('Controls').effect('Full screen')('Checkbox') > 0;\n";
+  var midExpr = "var mid = thisComp.layer('Controls').effect('Middle')('Checkbox') > 0;\n";
+
   var sol = comp.layers.addSolid([0, 0, 0], "Scrim", W, H, 1, DUR);
   var wipe = sol.property("ADBE Effect Parade").addProperty("ADBE Linear Wipe");
   // Linear Wipe CLEARS the side the angle points away from. Measured in Premiere:
   // angle 0 left the scrim at the TOP, not the bottom - the opposite of what the
   // first cut assumed - so the mapping is inverted here. Angle 180 = scrim at the
-  // BOTTOM (the default), angle 0 = scrim at the TOP.
+  // BOTTOM (the default), angle 0 = scrim at the TOP. Middle forces 180 (this wipe
+  // then owns the TOP edge of the band; wipe 2 owns the bottom one).
   wipe.property("Transition Completion").setValue(Math.round((1 - G.height_frac) * 100));
   wipe.property("Feather").setValue(Math.round(H * G.height_frac * G.feather_frac));
-  wipe.property("Wipe Angle").expression =
-    "thisComp.layer('Controls').effect('Top')('Checkbox') > 0 ? 0 : 180;";
+  wipe.property("Wipe Angle").expression = midExpr +
+    "mid ? 180 : (thisComp.layer('Controls').effect('Top')('Checkbox') > 0 ? 0 : 180);";
   // "Full screen" bypasses the wipe entirely: an even scrim over the whole frame,
   // for text that sits anywhere. Completion 0 = nothing cleared.
-  wipe.property("Transition Completion").expression =
-    "thisComp.layer('Controls').effect('Full screen')('Checkbox') > 0 ? 0 : value;";
+  wipe.property("Transition Completion").expression = fsExpr + midExpr +
+    "fs ? 0 : (mid ? " + MIDTOP + " : value);";
+  wipe.property("Feather").expression = midExpr + "mid ? " + MIDF + " : value;";
+
+  // wipe 2 - inert (completion 0) except in Middle mode, where it clears BELOW the band
+  var wipe2 = sol.property("ADBE Effect Parade").addProperty("ADBE Linear Wipe");
+  wipe2.property("Wipe Angle").setValue(0);
+  wipe2.property("Feather").setValue(MIDF);
+  wipe2.property("Transition Completion").setValue(MIDBOT);
+  wipe2.property("Transition Completion").expression = fsExpr + midExpr +
+    "(mid && !fs) ? value : 0;";
+
   sol.transform.opacity.expression =
     "thisComp.layer('Controls').effect('Opacity')('Slider');";
 
   var ctl = ctlNull(comp);
   addCheckbox(ctl, "Top", false);
+  addCheckbox(ctl, "Middle", false);
   addCheckbox(ctl, "Full screen", false);
   addSlider(ctl, "Opacity", G.opacity);
   var mv = new MarkerValue("gradient"); mv.duration = DUR; mv.protectedRegion = true;
   comp.markerProperty.setValueAtTime(0, mv);     // fixed piece - protect it all
   comp.motionGraphicsTemplateName = comp.name;
-  addEGP(ctl.effect("Opacity").property(1), comp, "Opacity");   // display: Top, Full screen, Opacity
+  addEGP(ctl.effect("Opacity").property(1), comp, "Opacity");   // display: Top, Middle, Full screen, Opacity
   addEGP(ctl.effect("Full screen").property(1), comp, "Full screen");
+  addEGP(ctl.effect("Middle").property(1), comp, "Middle");
   addEGP(ctl.effect("Top").property(1), comp, "Top");
   return comp;
 }
