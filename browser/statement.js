@@ -51,15 +51,18 @@ function stModeChanged(full) {
   if (full) stMaybeOfferResume();                            // engine up → offer to restore an autosave
 }
 function stShowPanel(which) {
-  $st("#panel-titles").hidden = which !== "titles";
-  $st("#panel-edit").hidden = which !== "edit";
-  $st("#tab-titles").classList.toggle("is-active", which === "titles");
-  $st("#tab-edit").classList.toggle("is-active", which === "edit");
-  $st("#tab-titles").setAttribute("aria-selected", which === "titles");
-  $st("#tab-edit").setAttribute("aria-selected", which === "edit");
+  // three panels since the Toolbox tab (v0.13) — keep the sets in lockstep
+  [["titles", "#panel-titles", "#tab-titles"],
+   ["edit", "#panel-edit", "#tab-edit"],
+   ["toolbox", "#panel-toolbox", "#tab-toolbox"]].forEach(([k, panel, tab]) => {
+    const pEl = $st(panel), tEl = $st(tab);
+    if (pEl) pEl.hidden = which !== k;
+    if (tEl) { tEl.classList.toggle("is-active", which === k); tEl.setAttribute("aria-selected", which === k); }
+  });
 }
 $st("#tab-titles").onclick = () => stShowPanel("titles");
 $st("#tab-edit").onclick = () => stShowPanel("edit");
+$st("#tab-toolbox").onclick = () => stShowPanel("toolbox");
 
 // ---------- E0: OS-aware setup steps (auto-detected, manual toggle) ----------
 function stSetOS(win) {

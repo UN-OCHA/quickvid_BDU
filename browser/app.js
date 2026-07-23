@@ -35,7 +35,7 @@ const ENGINE_MIN = "0.5.0";
 // corrected from the repo's VERSION file at load — see trackLatestVersion below.
 // It used to be hardcoded only, which meant the banner quietly went stale every
 // release: it was still advertising 0.6.3 while main had moved on to 0.7.0.
-let ENGINE_LATEST = "0.12.0";
+let ENGINE_LATEST = "0.13.0";
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
@@ -73,7 +73,7 @@ function gate() {
   // the gate card shows whenever the app can't run: engine DOWN or too OLD
   $("#st-need-engine").hidden = up;
   document.querySelector(".mode-tabs").hidden = !up;
-  if (!up) { $("#panel-titles").hidden = true; $("#panel-edit").hidden = true; }
+  if (!up) { $("#panel-titles").hidden = true; $("#panel-edit").hidden = true; $("#panel-toolbox").hidden = true; }
   else if ($("#panel-titles").hidden && $("#panel-edit").hidden) {
     (typeof stShowPanel === "function") ? stShowPanel("edit") : ($("#panel-edit").hidden = false);
   }
@@ -109,6 +109,14 @@ function gate() {
   // …and the Look picker needs 0.12.0+ (`look` field) for the same reason.
   const lookOk = up && cmpVer(ver, "0.12.0") >= 0;
   document.querySelectorAll(".look-review").forEach((el) => { el.hidden = !lookOk; });
+  // The Toolbox tab needs 0.13.0+ (/api/compress). Older engine → the whole tab
+  // hides; if the user was ON it when the engine changed, fall back to Edit.
+  const tbOk = up && cmpVer(ver, "0.13.0") >= 0;
+  const tbTab = $("#tab-toolbox");
+  if (tbTab) {
+    tbTab.hidden = !tbOk;
+    if (!tbOk && up && !$("#panel-toolbox").hidden) stShowPanel("edit");
+  }
   if (typeof stModeChanged === "function") stModeChanged(up);     // Edit wizard shows/hides
 }
 

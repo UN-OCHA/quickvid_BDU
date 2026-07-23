@@ -224,6 +224,24 @@ def captions(req: CaptionsReq):
     return {"job_id": job.id}
 
 
+class CompressReq(BaseModel):
+    src: str
+    level: str = "balanced"                   # best | balanced | smallest
+
+
+@app.post("/api/compress")
+def compress(req: CompressReq):
+    """Toolbox: compress a heavy video to a distribution H.264/AAC MP4. Output
+    lands next to the original as <name>_compressed.mp4 (never overwrites)."""
+    if not Path(req.src).is_file():
+        raise HTTPException(400, f"Not a video file: {req.src}")
+    if req.level not in ("best", "balanced", "smallest"):
+        raise HTTPException(400, "level must be best, balanced or smallest.")
+    job = jobs.create("compress", {"src": req.src, "level": req.level})
+    jobs.run_async(job, engine_bridge.compress_video)
+    return {"job_id": job.id}
+
+
 @app.get("/api/look-preview")
 def look_preview(video: str, t: float = 1.0, preset: str = "none", phone_fix: bool = False):
     """One still frame with a Look applied — the picker's thumbnails. The frame gets
@@ -269,7 +287,7 @@ def job_status(jid: str):
 
 def _rendered_mp4(jid: str) -> str:
     job = jobs.get(jid)
-    if not job or job.kind not in ("finish", "statement") or job.status != "done":
+    if not job or job.kind not in ("finish", "statement", "compress") or job.status != "done":
         raise HTTPException(404, "No rendered video for that id.")
     return job.result["mp4"]
 
@@ -342,7 +360,8 @@ def st_probe(src: str):
     num, den = st["r_frame_rate"].split("/")
     return {"width": st["width"], "height": st["height"],
             "fps": round(float(num) / float(den), 2),
-            "duration": float(j["format"]["duration"])}
+            "duration": float(j["format"]["duration"]),
+            "bytes": Path(src).stat().st_size}
 
 
 @app.get("/api/statement/sync-preview")

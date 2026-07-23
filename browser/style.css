@@ -345,3 +345,29 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
 .look-card span { font-size: 11px; color: var(--ink-tertiary, #6e6e6e); }
 .look-card.is-active { border-color: var(--ocha-cyan); box-shadow: 0 0 0 1px var(--ocha-cyan); }
 .look-review .st-check { margin-top: 4px; }
+
+/* ---- Toolbox tab (utilities) — layout only ---- */
+.tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.tool-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 18px 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--card); cursor: pointer; font: inherit; text-align: center;
+}
+.tool-tile i { font-size: 26px; color: var(--ocha-cyan); }
+.tool-tile strong { font-size: 14px; }
+.tool-tile span { font-size: 12px; color: var(--ink-tertiary, #6e6e6e); }
+.tool-tile:hover { border-color: var(--ocha-cyan); }
+.tb-levels { display: grid; gap: 8px; margin: 12px 0; }
+.tb-level {
+  display: flex; flex-direction: column; gap: 3px; text-align: left;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--card); cursor: pointer; font: inherit;
+}
+.tb-level.is-active { border-color: var(--ocha-cyan); box-shadow: 0 0 0 1px var(--ocha-cyan); }
+.tb-level strong { font-size: 14px; }
+.tb-level span { font-size: 12px; color: var(--ink-tertiary, #6e6e6e); }
+.tb-reco {
+  font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: .4px;
+  color: var(--ocha-cyan); text-transform: uppercase; margin-left: 6px;
+}
+#tb-preview video { width: 100%; margin: 10px 0; }

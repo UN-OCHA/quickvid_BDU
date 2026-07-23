@@ -18,8 +18,9 @@
   <script src="lowerthird.js?v=1" defer></script>  <!-- shared lower-third rows: BOTH tabs -->
   <script src="captions.js?v=1" defer></script>    <!-- shared caption editor: BOTH tabs -->
   <script src="look.js?v=1" defer></script>        <!-- shared footage-look picker: BOTH tabs -->
-  <script src="app.js?v=24" defer></script>
-  <script src="statement.js?v=16" defer></script>
+  <script src="app.js?v=25" defer></script>
+  <script src="statement.js?v=17" defer></script>
+  <script src="toolbox.js?v=1" defer></script>
 </head>
 <body>
   <a class="cd-skip-link" href="#main">Skip to main content</a>
@@ -101,6 +102,7 @@
     <nav class="mode-tabs" role="tablist" aria-label="OCHA QuickVid modes">
       <button class="mode-tab is-active" id="tab-edit" role="tab" aria-selected="true" type="button"><i class="fa-solid fa-scissors" aria-hidden="true"></i> Edit a video</button>
       <button class="mode-tab" id="tab-titles" role="tab" aria-selected="false" type="button"><i class="fa-solid fa-heading" aria-hidden="true"></i> Titles &amp; branding</button>
+      <button class="mode-tab" id="tab-toolbox" role="tab" aria-selected="false" type="button" hidden><i class="fa-solid fa-toolbox" aria-hidden="true"></i> Toolbox</button>
     </nav>
 
     <div id="panel-titles" role="tabpanel" class="cd-flow" hidden>
@@ -635,6 +637,55 @@
 
       <div id="st-status" class="status-slot" aria-live="polite"></div>
     </div><!-- /panel-edit -->
+
+    <!-- ===================== TOOLBOX (utilities — no project folder) ===================== -->
+    <div id="panel-toolbox" role="tabpanel" class="cd-flow" hidden>
+      <section class="cd-card" aria-labelledby="tb-h">
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title" id="tb-h">Toolbox <span class="app-hint">— quick utilities, no project needed</span></h2>
+          <div class="tool-grid">
+            <button type="button" class="tool-tile" id="tb-tile-compress">
+              <i class="fa-solid fa-file-zipper" aria-hidden="true"></i>
+              <strong>Compress video</strong>
+              <span>Heavy file &rarr; light MP4 that plays everywhere</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="cd-card" id="tb-card-compress" hidden aria-labelledby="tbc-h">
+        <div class="cd-card__content cd-flow">
+          <h2 class="cd-block-title" id="tbc-h">Compress video</h2>
+          <p class="app-hint">Output is always <strong>MP4 (H.264)</strong> — the one format that plays everywhere, no codec installs. The compressed copy is saved <strong>next to the original</strong> (nothing is overwritten). HDR phone footage is converted so colours look right on every screen.</p>
+          <div class="dropzone" id="tb-drop" role="button" tabindex="0">
+            <i class="fa-solid fa-film" aria-hidden="true"></i>
+            <span id="tb-drop-text">Choose the heavy video — any size, any codec.</span>
+          </div>
+          <p class="app-hint" id="tb-src-info" hidden></p>
+          <div class="tb-levels" role="radiogroup" aria-label="Compression level">
+            <button type="button" class="tb-level" data-level="best">
+              <strong>Best quality</strong>
+              <span>Nearly indistinguishable from the original — for archiving or further editing. Biggest of the three.</span>
+            </button>
+            <button type="button" class="tb-level is-active" data-level="balanced">
+              <strong>Balanced <em class="tb-reco">Recommended</em></strong>
+              <span>Great quality at a fraction of the size — for sharing, uploads and presentations. Caps at 1080p.</span>
+            </button>
+            <button type="button" class="tb-level" data-level="smallest">
+              <strong>Smallest file</strong>
+              <span>Visibly lighter, for email and chat-app size limits. Reads fine on phones. Caps at 1080p.</span>
+            </button>
+          </div>
+          <button type="button" class="cd-button" id="tb-run" disabled><span class="cd-button__text">Compress</span></button>
+          <div id="tb-status" aria-live="polite"></div>
+          <div id="tb-done" class="cd-alert cd-alert--status" hidden><div class="cd-alert__message" id="tb-done-msg"></div></div>
+          <div id="tb-preview" hidden>
+            <video id="tb-player" class="app-player" controls playsinline></video>
+            <a id="tb-download" class="cd-button cd-button--export" download><span class="cd-button__text">Download the compressed copy</span></a>
+          </div>
+        </div>
+      </section>
+    </div><!-- /panel-toolbox -->
   </main>
 
   <footer class="app-footer">

@@ -1287,6 +1287,32 @@ filter graph, under every overlay, so captions/logos/strips are never re-graded.
 - Compatibility: engines < 0.12.0 ignore the `look` field → the page
   feature-gates the row by engine version (same pattern as the caption editor).
 
+## Toolbox tab + the video compressor (2026-07-22, v0.13.0)
+
+Third mode tab — quick utilities that deliberately need NO project folder. First
+tool: **Compress video** (a heavy file → the lightest H.264/AAC MP4 that still
+looks right; H.264 because a distribution copy must play everywhere).
+
+- `engine/compress.py`: single-pass libx264 **CRF** (constant quality — the
+  right tool for "best quality, lowest weight"), `+faststart`, AAC 160k, and the
+  shared `mediakit.normalize_709` gate first (HDR/wide-gamut phone footage must
+  look right on every screen). Levels named by OUTCOME, not jargon:
+  best (CRF 18, keeps res) · balanced (CRF 23, 1080p cap, recommended) ·
+  smallest (CRF 28, 1080p cap). The 1080p cap is on the SHORT side, so portrait
+  4K becomes 1080x1920, not a 607px sliver.
+- Output lands NEXT TO the original as `<name>_compressed.mp4`, numbered if
+  taken — never overwrites, no job folder. The result headline is the point:
+  "812 MB → 74 MB (91% smaller)".
+- `/api/compress` job + `/api/statement/probe` now reports `bytes`;
+  `/api/preview` learned the `compress` job kind.
+- The whole tab is feature-gated on engine ≥ 0.13.0 (same pattern as captions
+  and looks); `stShowPanel` grew a third panel.
+- Measured: 86 MB test → 34 / 4.3 / 1.5 MB across the three levels; 4K portrait
+  → 1080x1920; second run → `_compressed_2.mp4`.
+
+Premiere plugin gets the same tool next (AME `app.encoder.encodeFile` spike +
+three bundled .epr presets; fallback = hand the file to this web tool).
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the

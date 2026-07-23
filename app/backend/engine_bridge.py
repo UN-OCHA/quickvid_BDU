@@ -203,6 +203,21 @@ def statement_render(job) -> None:
     job.result = result
 
 
+def compress_video(job) -> None:
+    """Toolbox: compress a heavy video to a distribution H.264 MP4. A utility,
+    not a job-folder job — the output lands NEXT TO the original (never
+    overwriting), which is where people look for it."""
+    workdir = settings.WORKSPACE / job.id
+    workdir.mkdir(parents=True, exist_ok=True)
+    spec = {"src": job.meta["src"], "level": job.meta.get("level") or "balanced"}
+    spec_path = workdir / "compress.json"
+    spec_path.write_text(json.dumps(spec, indent=2))
+    job.progress = "Compressing…"
+    _run([sys.executable, settings.ENGINE_DIR / "compress.py", "--spec", spec_path], job)
+    res = _result_json(job)
+    job.result = {**res, "mp4": res.get("path")}       # "mp4" is what /api/preview serves
+
+
 def finish(job) -> None:
     """Titles & branding mode: add lower thirds + ending to an already-edited
     video. Plain branding runs engine/finish.py; with SUBTITLES ON the job routes
