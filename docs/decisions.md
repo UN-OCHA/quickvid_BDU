@@ -1497,6 +1497,46 @@ bottom-anchored growth and reflow stay pure), and **Centre align OWNS X** (the
 LT passes a `lockXExpr`; the X slider is inert while centred — uncheck to take
 manual control). Once moved, a slider is an absolute edge, clamped as before.
 
+## 2026-07-23 — Web app 2026.0.14: aligned with the plugin, Text on screen, starter rename
+
+The web-app half of the day's plugin standard (Javier's 5-priority list):
+
+**1. One caption + LT standard, both products.** `statement.py PRESETS` now
+carries the official-template numbers — captions Raleway Medium **48** at the
+guide bands (box bottom: reels 1320, square/event 980, feed45 970; no more
+bottom_hi lift — the LT sits ABOVE the captions in every format, portrait
+included: lt.bottom reels 1160 / feed45 815 / square+event 821). LT name/org
+sizes come from brand-lt.json ratios (per-format overrides deleted);
+`lower_third.py` draws PER-ROW title bands (each hugs its own line — `ows`);
+`finish.py profile()` gained the same `cap_clear` clamp the MOGRTs use; and
+engine_bridge's Titles-path caption spec now derives from `PRESETS` scaled to
+the video's real resolution (`preset_for()` = the plugin's aspect thresholds)
+instead of ad-hoc fractions. VERIFIED by pixel-measuring engine renders:
+square name band 688-741 / titles 744-819 / box 830-979; reels 986-1057 /
+1058-1159 / 1170-1319 — the official template, to the pixel.
+
+**2. Looks on the Edit tab** — already built (stLook mounts in the wizard,
+`.look-review` gates both tabs together at engine ≥0.12); it only LOOKED
+missing behind an old engine.
+
+**3. Starter renamed** "Start OCHA QuickVid" → **"OCHA QuickVid"** (.command,
+.bat, the get/ downloads, install.sh app bundle + CFBundle names, qv-doctor,
+README, page copy). install.sh removes old-named launchers on its next run;
+old deployed starters keep working and simply stop self-renaming.
+
+**4. Text on screen** — `engine/text_on.py` mirrors the plugin's OCHA Text
+(make_assets DATA.text: ratios, y_frac 0.52, rise/stagger/enter/exit, Raleway
+Bold) as PNG strip sequences, and social_brand drops the MID readability band
+(feather-dark-feather, the plugin's Middle gradient) behind it AUTOMATICALLY,
+fading with the block. Spec: `texts:[{lines,start,duration}]` — statement
+forwards it, engine_bridge routes texts-only Titles jobs through social_brand
+WITHOUT transcription (`subs_on` guard). UI: shared `browser/texton.js`
+mounted by BOTH tabs, gated `.texton-review` ≥2026.0.14. VERIFIED: reels
+render shows 3 lines at baselines 998/1114/1230, band luma 86→50→14→50→86.
+
+**5. Versioning** → **2026.0.14** (plugin-style CalVer; counter continues
+0.13). Starter's `sort -V` and app.js `cmpVer` both cross the boundary fine.
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the

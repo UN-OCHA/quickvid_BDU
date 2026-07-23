@@ -18,6 +18,7 @@
   <script src="lowerthird.js?v=1" defer></script>  <!-- shared lower-third rows: BOTH tabs -->
   <script src="captions.js?v=1" defer></script>    <!-- shared caption editor: BOTH tabs -->
   <script src="look.js?v=1" defer></script>        <!-- shared footage-look picker: BOTH tabs -->
+  <script src="texton.js?v=1" defer></script>      <!-- shared text-on-screen block: BOTH tabs -->
   <script src="app.js?v=25" defer></script>
   <script src="statement.js?v=17" defer></script>
   <script src="toolbox.js?v=1" defer></script>
@@ -74,11 +75,11 @@
               <button type="button" class="cd-button cd-button--small cd-button--outline cmd-box__copy" id="mac-install-copy"><i class="fa-solid fa-copy" aria-hidden="true"></i><span class="cd-button__text">Copy</span></button>
             </div>
             <div class="st-setup__note"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> <strong>This is safe — and it’s why there’s no “unverified developer / malware” warning.</strong> That scary macOS dialog only appears for files you <em>double-click after downloading</em>; running the command yourself in Terminal never triggers it. The command simply fetches OCHA’s own open-source code from GitHub (<code>github.com/UN-OCHA/quickvid_BDU</code>) and sets it up locally. Nothing is uploaded — your videos never leave your computer. Unsure, or it doesn’t work? Email <a href="mailto:ochavisual@un.org">ochavisual@un.org</a>.</div>
-            <p class="app-hint">When it’s done, <strong>Start OCHA QuickVid</strong> lives in your <strong>Applications</strong> folder (Launchpad + Spotlight) and on your <strong>Desktop</strong>.</p>
+            <p class="app-hint">When it’s done, <strong>OCHA QuickVid</strong> lives in your <strong>Applications</strong> folder (Launchpad + Spotlight) and on your <strong>Desktop</strong>.</p>
           </div>
           <div class="st-setup-block cd-flow">
             <h3 class="cd-block-title">Already installed?</h3>
-            <p class="app-hint">Open <strong>Start OCHA QuickVid</strong> — from <strong>Launchpad</strong>, <strong>Spotlight</strong> (<kbd>⌘</kbd>+<kbd>Space</kbd>, type “OCHA QuickVid”), your <strong>Applications</strong> folder, or the icon on your <strong>Desktop</strong>. The engine starts quietly in the background and this page <strong>unlocks in seconds</strong>. No security prompt, ever — it was built on your Mac, not downloaded.</p>
+            <p class="app-hint">Open <strong>OCHA QuickVid</strong> — from <strong>Launchpad</strong>, <strong>Spotlight</strong> (<kbd>⌘</kbd>+<kbd>Space</kbd>, type “OCHA QuickVid”), your <strong>Applications</strong> folder, or the icon on your <strong>Desktop</strong>. The engine starts quietly in the background and this page <strong>unlocks in seconds</strong>. No security prompt, ever — it was built on your Mac, not downloaded.</p>
             <p class="app-hint">Can’t find it? Re-run the command above — it’s quick when you’re already set up, and it puts the app back in Applications and on your Desktop.</p>
           </div>
         </div>
@@ -92,7 +93,7 @@
           </div>
           <div class="st-setup-block cd-flow">
             <h3 class="cd-block-title">Already installed?</h3>
-            <div class="st-btn-row"><a class="cd-button cd-button--outline" href="get/Start%20OCHA%20QuickVid.bat" download="Start OCHA QuickVid.bat"><i class="fa-solid fa-play" aria-hidden="true"></i><span class="cd-button__text">Download the starter</span></a></div>
+            <div class="st-btn-row"><a class="cd-button cd-button--outline" href="get/OCHA%20QuickVid.bat" download="OCHA QuickVid.bat"><i class="fa-solid fa-play" aria-hidden="true"></i><span class="cd-button__text">Download the starter</span></a></div>
             <p class="app-hint">Double-click it — the engine starts (a minimized window in your taskbar) and this page <strong>unlocks in seconds</strong>. It stays on until you shut down. <strong>Keep the file</strong> (Downloads or Desktop) — the same one works every time, no re-download.</p>
           </div>
         </div>
@@ -127,6 +128,20 @@
           <div id="t-look-grid" class="look-grid"></div>
           <label class="st-check"><input type="checkbox" id="t-look-fix" /> Fix phone colours <span class="app-hint">— force the colour correction when OCHA blue looks off on a phone clip. HDR and properly-tagged phone footage is corrected automatically; this is for clips whose tags got lost.</span></label>
           <button type="button" id="t-look-prev" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Preview on this video</span></button>
+        </div>
+
+        <div class="texton-review" hidden>
+          <h3 class="cd-block-title st-subsection">Text on screen <span class="app-hint">— up to 3 lines that rise in and out; a soft mid gradient goes behind them automatically</span></h3>
+          <label class="st-check"><input type="checkbox" id="t-tx-on" /> Add text on screen</label>
+          <div id="t-tx-fields" hidden>
+            <input id="t-tx-l1" class="cd-form__input" type="text" placeholder="Line 1" />
+            <input id="t-tx-l2" class="cd-form__input" type="text" placeholder="Line 2 (optional)" />
+            <input id="t-tx-l3" class="cd-form__input" type="text" placeholder="Line 3 (optional)" />
+            <div class="field-row">
+              <label class="fld-inline">Starts at <input id="t-tx-start" class="cd-form__input" type="number" min="0" step="0.5" value="1" /> s</label>
+              <label class="fld-inline">For <input id="t-tx-dur" class="cd-form__input" type="number" min="1.5" step="0.5" value="5" /> s</label>
+            </div>
+          </div>
         </div>
 
         <!-- Same job-folder contract as the Edit tab: name it, pick where it lives,
@@ -536,6 +551,20 @@
           <div id="st-look-grid" class="look-grid"></div>
           <label class="st-check"><input type="checkbox" id="st-look-fix" /> Fix phone colours <span class="app-hint">— force the colour correction when OCHA blue looks off on a phone clip. HDR and properly-tagged phone footage is corrected automatically; this is for clips whose tags got lost.</span></label>
           <button type="button" id="st-look-prev" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Preview on this video</span></button>
+        </div>
+
+        <div class="texton-review" hidden>
+          <h3 class="cd-block-title st-subsection">Text on screen <span class="app-hint">— up to 3 lines that rise in and out; a soft mid gradient goes behind them automatically</span></h3>
+          <label class="st-check"><input type="checkbox" id="st-tx-on" /> Add text on screen</label>
+          <div id="st-tx-fields" hidden>
+            <input id="st-tx-l1" class="cd-form__input" type="text" placeholder="Line 1" />
+            <input id="st-tx-l2" class="cd-form__input" type="text" placeholder="Line 2 (optional)" />
+            <input id="st-tx-l3" class="cd-form__input" type="text" placeholder="Line 3 (optional)" />
+            <div class="field-row">
+              <label class="fld-inline">Starts at <input id="st-tx-start" class="cd-form__input" type="number" min="0" step="0.5" value="1" /> s</label>
+              <label class="fld-inline">For <input id="st-tx-dur" class="cd-form__input" type="number" min="1.5" step="0.5" value="5" /> s</label>
+            </div>
+          </div>
         </div>
 
           <h3 class="cd-block-title st-subsection">Bug</h3>

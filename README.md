@@ -32,7 +32,7 @@ Everything happens from the web page — no ZIPs, no folders to keep track of,
   up by itself (~10 minutes: Python if missing, the video engine, the
   speech-recognition model), installs OCHA QuickVid into a system folder you never
   need to open, and **starts it when done** — the page unlocks on its own.
-- **Every time after** → download the tiny **starter** (`Start OCHA QuickVid`) once,
+- **Every time after** → download the tiny **starter** (`OCHA QuickVid`) once,
   keep it in Downloads or on your Desktop, and double-click it whenever you
   want to edit. The engine runs quietly in the background until you shut down;
   the page unlocks in seconds. **It updates itself** — each launch quietly pulls
@@ -50,8 +50,8 @@ Open → Open**); Windows shows SmartScreen (**More info → Run anyway**).
 <summary><strong>Manual / developer install</strong> (the old way — still works)</summary>
 
 [Grab the ZIP](https://github.com/UN-OCHA/quickvid_BDU/archive/refs/heads/main.zip),
-unzip anywhere, and run `Start OCHA QuickVid.command` (Mac; right-click → Open the
-first time) or `Start OCHA QuickVid.bat` (Windows). Same self-setup, but the engine
+unzip anywhere, and run `OCHA QuickVid.command` (Mac; right-click → Open the
+first time) or `OCHA QuickVid.bat` (Windows). Same self-setup, but the engine
 lives in your folder and the window stays open while you work.
 </details>
 
@@ -63,7 +63,7 @@ so OCHA QuickVid stays visually consistent with other BDU tools.
 
 ## For developers
 
-`Start OCHA QuickVid.command` is just: a Python venv from `requirements.txt` +
+`OCHA QuickVid.command` is just: a Python venv from `requirements.txt` +
 `uvicorn app.backend.main:app --host 127.0.0.1 --port 17870`. The UI is static
 files in `browser/`; the render engine is plain-Python scripts in `engine/`
 driven as subprocesses. Design decisions live in [`docs/decisions.md`](docs/decisions.md).

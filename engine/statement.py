@@ -36,22 +36,40 @@ import mediakit      # noqa: E402  (shared colour gate: HDR/wide-gamut → bt709
 
 FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 
-# Destination presets — the numbers we actually shipped (Ukraine 9:16, Venezuela 1:1).
-# Captions: boxed for social feeds; the EVENT look is no-box white over a bottom gradient.
-# Caption rows: bottom_hi/bottom_lo — captions sit at LO and LIFT to HI while a lower
-# third is up. Tall canvases (reels/4:5) have room for BOTH, so hi == lo there: one
-# constant position that clears the LT — no caption jump when the LT leaves (ASG Yemen
-# feedback). Square + event genuinely collide, so they keep the lift.
+# Destination presets — aligned with Javier's OFFICIAL template + the Premiere
+# plugin (2026-07-23): captions are Raleway Medium 48 (the plugin's "OCHA Boxed"
+# style) sitting at the per-format caption GUIDE band, and the LOWER THIRD is
+# ABOVE the captions in EVERY format (portrait included — the old reels layout
+# had it below at 1620). lt.bottom = the plugin's clamped block bottom
+# (H·(1−cap_clear): portrait 0.396, square/landscape 0.24). Because the LT no
+# longer collides, captions never LIFT: bottom_hi == bottom_lo everywhere (both
+# keys kept for the renderer's sake). LT name/org sizes come from
+# browser/brand-lt.json ratios (same source as the plugin's MOGRTs) — no more
+# per-format overrides here.
 PRESETS = {
-    "reels":  {"canvas": [1080, 1920], "sub": {"box": True,  "size": 46, "max_w": 920,  "bottom_hi": 1430, "bottom_lo": 1430},
-               "lt": {"bottom": 1620, "name_size": 46, "org_size": 30}},
-    "square": {"canvas": [1080, 1080], "sub": {"box": True,  "size": 44, "max_w": 800,  "bottom_hi": 806,  "bottom_lo": 900},
-               "lt": {"bottom": 972,  "name_size": 40, "org_size": 23}},
-    "feed45": {"canvas": [1080, 1350], "sub": {"box": True,  "size": 44, "max_w": 860,  "bottom_hi": 1050, "bottom_lo": 1050},
-               "lt": {"bottom": 1215, "name_size": 42, "org_size": 26}},
-    "event":  {"canvas": [1920, 1080], "sub": {"box": False, "size": 46, "max_w": 1500, "bottom_hi": 880,  "bottom_lo": 1000},
-               "lt": {"bottom": 960,  "name_size": 44, "org_size": 26}},
+    "reels":  {"canvas": [1080, 1920], "sub": {"box": True,  "size": 48, "max_w": 960,  "bottom_hi": 1320, "bottom_lo": 1320},
+               "lt": {"bottom": 1160}},
+    "square": {"canvas": [1080, 1080], "sub": {"box": True,  "size": 48, "max_w": 870,  "bottom_hi": 980,  "bottom_lo": 980},
+               "lt": {"bottom": 821}},
+    "feed45": {"canvas": [1080, 1350], "sub": {"box": True,  "size": 48, "max_w": 900,  "bottom_hi": 970,  "bottom_lo": 970},
+               "lt": {"bottom": 815}},
+    "event":  {"canvas": [1920, 1080], "sub": {"box": False, "size": 48, "max_w": 1560, "bottom_hi": 980,  "bottom_lo": 980},
+               "lt": {"bottom": 821}},
 }
+
+
+def preset_for(w, h):
+    """Preset key for a video's dimensions — same aspect thresholds the plugin
+    uses (ochaFmtFromSize in host.jsx), so both products bucket footage
+    identically."""
+    r = (w or 1) / (h or 1)
+    if r <= 0.66:
+        return "reels"
+    if r < 0.92:
+        return "feed45"
+    if r <= 1.12:
+        return "square"
+    return "event"
 END_BED = 2.6            # default footage kept after the last sentence (ending.tail overrides, 0-4s)
 LOGO_LEAD = 0.5          # logo snaps this long into the bed (a beat after the last word)
 JUMP_GAP = 1.5           # skipped source time (s) that counts as a real JUMP: new take + punch-in
@@ -381,6 +399,8 @@ def do_render(spec):
         # forwarded RAW (both shapes) — social_brand hands them to pin_locator.specs(),
         # the one place that normalizes them. Normalizing here too would just risk drift.
         "pins": spec.get("pins"), "pin": spec.get("pin") or {},
+        # text on screen (+ its automatic mid gradient) — social_brand renders it
+        "texts": spec.get("texts") or [],
         "ending": {"style": style, "at": round(footage_end + (LOGO_LEAD if style == "over_footage" else 0), 2),
                    "hold": float(ending.get("hold", 2.0)), "click": ending.get("click", True)},
     }

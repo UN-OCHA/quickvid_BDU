@@ -181,6 +181,7 @@ class FinishReq(BaseModel):
     subtitles: SubtitlesReq = SubtitlesReq()  # engine-only: transcribe + burn captions
     cues: Optional[list] = None               # reviewed captions [[start, text], …] — skips transcription
     look: Optional[dict] = None               # {"preset": "none|brighter|punchier|auto", "phone_fix": bool}
+    texts: Optional[list] = None              # text on screen [{"lines": [...], "start", "duration"}] — auto mid gradient behind
     dir: Optional[str] = None                 # job folder → final lands in <dir>/export/
 
 
@@ -202,6 +203,7 @@ def finish(req: FinishReq):
         "subtitles": req.subtitles.model_dump(),
         "cues": req.cues,                      # reviewed captions, verbatim (see caption editor)
         "look": req.look,                      # footage look + phone-colour fix (engine/look.py)
+        "texts": req.texts,                    # text on screen (+ automatic mid gradient)
         "dir": req.dir,                        # same job-folder contract as the Edit tab
     })
     jobs.run_async(job, engine_bridge.finish)
@@ -467,6 +469,7 @@ class StRenderReq(BaseModel):
     subtitles: Optional[dict] = None                   # {"on": bool, "style": "box"|"gradient"}
     cues: Optional[list] = None                        # reviewed captions [[start, text], …] — text as edited
     look: Optional[dict] = None                        # {"preset", "phone_fix"} — engine/look.py
+    texts: Optional[list] = None                       # text on screen [{"lines": [...], "start", "duration"}]
     bug: Optional[dict] = None                         # {"on": bool} — off by default, top-right vertical logo
     pins: Optional[list] = None                        # [{"on","place","date","icon","color","start","duration"}] — location strips
     pin: Optional[dict] = None                         # legacy single strip (old projects) — see _pins()

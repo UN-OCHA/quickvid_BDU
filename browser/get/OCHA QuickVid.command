@@ -12,9 +12,9 @@
 DEST="$HOME/Library/Application Support/OCHA QuickVid"
 APP=""
 [ -f "$DEST/home" ] && APP="$(cat "$DEST/home")"
-[ -f "$APP/Start OCHA QuickVid.command" ] || APP="$DEST/app"
+[ -f "$APP/OCHA QuickVid.command" ] || APP="$DEST/app"
 
-if [ ! -f "$APP/Start OCHA QuickVid.command" ]; then
+if [ ! -f "$APP/OCHA QuickVid.command" ]; then
   echo "OCHA QuickVid isn't installed on this Mac yet."
   echo "Go back to the OCHA QuickVid page and download the INSTALLER (first-time) instead."
   read -r -p "Press Enter to close…"
@@ -22,4 +22,4 @@ if [ ! -f "$APP/Start OCHA QuickVid.command" ]; then
 fi
 
 export QV_DETACH=1
-exec bash "$APP/Start OCHA QuickVid.command"
+exec bash "$APP/OCHA QuickVid.command"

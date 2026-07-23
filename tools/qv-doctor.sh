@@ -35,7 +35,7 @@ if [ -n "$QV" ] && [ -d "$QV" ]; then
   else
     echo "'.git' folder   : no (good)"
   fi
-  L="$QV/Start OCHA QuickVid.command"
+  L="$QV/OCHA QuickVid.command"
   if [ -f "$L" ]; then
     echo "launcher size   : $(wc -c < "$L" | tr -d ' ') bytes (exec=$([ -x "$L" ] && echo yes || echo NO))"
     echo "launcher fixed  : $(awk '/# --- Self-update\./{u=NR} /^# Already running\?/{a=NR} END{ if(u&&a&&u<a) print "YES - update runs before the early exit"; else print "NO  - still the OLD launcher (this is the bug)" }' "$L")"
@@ -52,7 +52,7 @@ echo "(if you double-click one of THESE instead of the registered folder above, 
 echo " still be running an old copy)"
 find "$HOME/Desktop" "$HOME/Downloads" "$HOME/Documents" "$HOME/Applications" \
      "$HOME/Library/Application Support/OCHA QuickVid" \
-     -maxdepth 3 -name "Start OCHA QuickVid.command" 2>/dev/null \
+     -maxdepth 3 -name "OCHA QuickVid.command" 2>/dev/null \
   | while read -r f; do
       echo "  $(wc -c < "$f" | tr -d ' ') bytes  $f"
     done

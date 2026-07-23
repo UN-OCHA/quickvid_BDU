@@ -220,13 +220,14 @@ def compress_video(job) -> None:
 
 def finish(job) -> None:
     """Titles & branding mode: add lower thirds + ending to an already-edited
-    video. Plain branding runs engine/finish.py; with SUBTITLES ON the job routes
-    through the statement renderer instead: transcribe the finished clip, then
-    social_brand burns captions + lower thirds + ending in one pass."""
+    video. Plain branding runs engine/finish.py; with SUBTITLES ON — or TEXT ON
+    SCREEN, which only social_brand knows how to burn — the job routes through
+    the social_brand path: (optionally) transcribe the finished clip, then burn
+    captions + text + lower thirds + ending in one pass."""
     workdir = settings.WORKSPACE / job.id
     workdir.mkdir(parents=True, exist_ok=True)
     out = workdir / "branded.mp4"
-    if (job.meta.get("subtitles") or {}).get("on"):
+    if (job.meta.get("subtitles") or {}).get("on") or (job.meta.get("texts") or []):
         _finish_with_subtitles(job, workdir, out)
     else:
         spec = {
@@ -289,10 +290,13 @@ def _finish_with_subtitles(job, workdir, out) -> None:
     import lower_third as LT                            # noqa: E402 — shared animation constants
 
     video = job.meta["video"]
+    subs_on = (job.meta.get("subtitles") or {}).get("on")
     # Reviewed captions from the caption editor ride in on the render request —
     # use them verbatim (their text, our timing) and skip the whole transcription.
     reviewed = job.meta.get("cues")
-    if isinstance(reviewed, list) and reviewed:
+    if not subs_on:
+        cues = []                                       # texts-only route: no captions, no Whisper
+    elif isinstance(reviewed, list) and reviewed:
         job.progress = "Using your reviewed captions…"
         cues = reviewed
     else:
@@ -305,11 +309,16 @@ def _finish_with_subtitles(job, workdir, out) -> None:
 
     pw, ph, _, dur = st._probe(video)
     style = (job.meta.get("subtitles") or {}).get("style", "box")
-    sub = {                                             # preset numbers as fractions → any canvas
-        "size": max(24, round(ph * 0.024)), "max_w": round(pw * 0.85),
-        "bottom_hi": round(ph * 0.6875), "bottom_lo": round(ph * 0.77),
-        "box": style != "gradient",
-    }
+    # ONE caption standard for both tabs: statement.py's PRESETS (the official-
+    # template numbers), scaled to this video's real resolution — a 2160-wide
+    # reel gets exactly 2× the 1080 values. Used to be ad-hoc fractions here,
+    # which drifted from the statement path.
+    pk = st.preset_for(pw, ph)
+    pre = st.PRESETS[pk]
+    scale = ph / pre["canvas"][1]
+    sub = {**{k: round(v * scale) if isinstance(v, (int, float)) and not isinstance(v, bool) else v
+              for k, v in pre["sub"].items()},
+           "box": style != "gradient"}
     lts = [{"name": l["name"],
             "titles": [t for t in [l.get("org"), l.get("org2")] if t],
             "align": l.get("align", "left"), "in": float(l.get("start", 1.0)),
@@ -332,6 +341,7 @@ def _finish_with_subtitles(job, workdir, out) -> None:
             "footage_end": round(footage_end, 2), "subtitle": sub, "cues": cues,
             "lower_thirds": lts, "bug": job.meta.get("bug", {}),
             "pins": job.meta.get("pins", []), "ending": ending,
+            "texts": job.meta.get("texts") or [],       # text on screen (+ auto mid gradient)
             "look": job.meta.get("look")}
     spec_path = workdir / "brand_spec.json"
     spec_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False))

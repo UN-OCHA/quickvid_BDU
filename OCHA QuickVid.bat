@@ -18,7 +18,7 @@ cd /d "%~dp0"
 set "PORT=17870"
 if defined QV_PORT set "PORT=%QV_PORT%"
 
-REM Self-register this install's location so the tiny "Start OCHA QuickVid" starter
+REM Self-register this install's location so the tiny "OCHA QuickVid" starter
 REM the web page hands out can find the engine wherever it lives.
 set "QV_SUPPORT=%LocalAppData%\OCHA QuickVid"
 if not exist "%QV_SUPPORT%" mkdir "%QV_SUPPORT%"
@@ -54,7 +54,7 @@ if not exist "%UTMP%\quickvid_BDU-main\VERSION" ( echo ^(couldn't unpack the upd
 REM Mirror the new code over this install; keep .venv and this running .bat (a file can't
 REM replace itself mid-run). /MIR clears anything dropped upstream; /IS re-copies even
 REM same-size/time files so VERSION can't be stranded (which would re-update every launch).
-robocopy "%UTMP%\quickvid_BDU-main" "%CD%" /MIR /IS /XD ".venv" ".git" /XF "Start OCHA QuickVid.bat" /NFL /NDL /NJH /NJS /NC /NS /NP >nul
+robocopy "%UTMP%\quickvid_BDU-main" "%CD%" /MIR /IS /XD ".venv" ".git" /XF "OCHA QuickVid.bat" /NFL /NDL /NJH /NJS /NC /NS /NP >nul
 copy /y "%UTMP%\quickvid_BDU-main\VERSION" "%CD%\VERSION" >nul 2>&1
 set "UPDATED=1"
 echo Updated to %REMOTE_V%.
@@ -113,7 +113,7 @@ if not defined PY (
   echo     1. The download page is opening now.
   echo     2. Near the TOP of the page, click "Latest Python install manager".
   echo     3. Run it. If it asks, TICK "Add python.exe to PATH".
-  echo     4. Double-click "Start OCHA QuickVid.bat" again.
+  echo     4. Double-click "OCHA QuickVid.bat" again.
   start "" "https://www.python.org/downloads/windows/"
   pause
   exit /b 1

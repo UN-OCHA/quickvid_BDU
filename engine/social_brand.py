@@ -71,6 +71,7 @@ def _mw(text, weight, size): return ImageFont.truetype(FONTS[weight], size).getb
 # logic: engine/lower_third.py. Do NOT re-implement the lower third here.
 import lower_third as LT
 import pin_locator as PIN
+import text_on as TX          # "Text on screen" + its automatic mid gradient
 import ending as ending_mod   # THE ending — shared with finish.py
 
 # ---------------- captions ----------------
@@ -161,8 +162,11 @@ def probe(src):
     return w, h, round(float(num) / float(den)) or 30, float(j["format"]["duration"])
 
 
-SUB_DEFAULTS = dict(size=44, max_w=800, box=True, box_color="#3F3F3F", opacity=0.75, radius=16,
-                    pad=[22, 14], line_h=1.28, weight=500, bottom_hi=806, bottom_lo=900,
+# Defaults = the SQUARE standard (statement.py PRESETS carries the per-format
+# table; 2026-07-23: size 48 = the plugin's "OCHA Boxed" style, captions at the
+# guide band, no lift — the LT sits ABOVE them in every format).
+SUB_DEFAULTS = dict(size=48, max_w=870, box=True, box_color="#3F3F3F", opacity=0.75, radius=16,
+                    pad=[22, 14], line_h=1.28, weight=500, bottom_hi=980, bottom_lo=980,
                     gradient_h_frac=0.42, gradient_opacity=0.80)
 
 
@@ -233,6 +237,27 @@ def render(spec: dict, log=print) -> str:
         PIN.render_seq(g, fps, g["dir"])
         pin_gs.append(g)
 
+    # Text on screen (the plugin's OCHA Text): each block renders like an LT —
+    # a full-width PNG strip sequence — and the MID readability band
+    # (feather-dark-feather) goes behind it AUTOMATICALLY, fading in and out
+    # with the text. One band PNG, one -loop input per block (an input stream
+    # can only feed the graph once).
+    txt_gs = []
+    tx_band = None
+    for i, tx in enumerate(spec.get("texts") or []):
+        t_lines = [str(l).strip() for l in (tx.get("lines") or []) if str(l or "").strip()][:3]
+        if not t_lines:
+            continue
+        g = TX.build(t_lines, W, H)
+        g["t_in"] = float(tx.get("start", 1.0))
+        g["dur"] = TX.total(float(tx.get("duration", 5.0)))
+        g["dir"] = os.path.join(work, f"txt{i}")
+        TX.render_seq(g, g["dur"], fps, g["dir"])
+        txt_gs.append(g)
+    if txt_gs:
+        tx_band = os.path.join(work, "txt_band.png")
+        TX.render_mid_gradient(W, H, tx_band)
+
     grad_png = None
     grad_h = round(H * sub["gradient_h_frac"])
     if subs and not sub.get("box", True):             # event look: bottom gradient scrim
@@ -295,6 +320,12 @@ def render(spec: dict, log=print) -> str:
     for g in pin_gs:
         inputs += ["-framerate", str(fps), "-start_number", "0", "-i", os.path.join(g["dir"], "%04d.png")]
         pin_idx.append(idx); idx += 1
+    txt_idx, txb_idx = [], []
+    for g in txt_gs:
+        inputs += ["-framerate", str(fps), "-start_number", "0", "-i", os.path.join(g["dir"], "%04d.png")]
+        txt_idx.append(idx); idx += 1
+        inputs += ["-loop", "1", "-i", tx_band]       # its own band copy per block
+        txb_idx.append(idx); idx += 1
     grad_idx = logo_idx = click_idx = bug_idx = None
     if grad_png:
         inputs += ["-loop", "1", "-i", grad_png]; grad_idx = idx; idx += 1
@@ -326,6 +357,16 @@ def render(spec: dict, log=print) -> str:
     if grad_png:                                       # under LT + captions
         fc.append(f"[{grad_idx}:v]format=rgba[grad]")
         fc.append(f"[{prev}][grad]overlay=0:{H - grad_h}[vg]"); prev = "vg"
+    for k, g in enumerate(txt_gs):                     # text on screen: mid band UNDER the text,
+        t0, t1 = g["t_in"], g["t_in"] + g["dur"]       # both fading with the block's envelope
+        fc.append(f"[{txb_idx[k]}:v]format=rgba,"
+                  f"fade=t=in:st={t0}:d={TX.ENTER}:alpha=1,"
+                  f"fade=t=out:st={t1 - TX.EXIT}:d={TX.EXIT}:alpha=1[txb{k}]")
+        fc.append(f"[{prev}][txb{k}]overlay=0:0:enable='gte(t,{t0})*lt(t,{t1})'[tbg{k}]")
+        prev = f"tbg{k}"
+        fc.append(f"[{txt_idx[k]}:v]setpts=PTS+{t0}/TB[txv{k}]")
+        fc.append(f"[{prev}][txv{k}]overlay=0:{g['top']}:eof_action=pass:enable='gte(t,{t0})'[txo{k}]")
+        prev = f"txo{k}"
     for k, g in enumerate(lts):
         x = ((g["left"] if g["left"] is not None else round(W * 0.06)) - g["pan"]) if g["align"] == "left" \
             else (W - g["W"]) // 2

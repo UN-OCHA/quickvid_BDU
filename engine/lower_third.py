@@ -90,14 +90,18 @@ def build(lt, canvas_h=None, orient="portrait"):
     npx, npy = round(nsize * _G["name_pad_x"]), round(nsize * _G["name_pad_y"])
     opx, opy, oline = round(osize * _G["org_pad_x"]), round(osize * _G["org_pad_y"]), round(osize * _G["org_line"])
     nw = _mw(name, 700, nsize) + 2 * npx
-    ow = (max(_mw(t, 500, osize) for t in titles) + 2 * opx) if titles else 0
+    # per-row title band widths (2026-07-23, matching the plugin templates): each
+    # cyan row hugs ITS OWN line's text — a single max-width band left the shorter
+    # line with a cyan overhang. `ow` (the max) still sizes the canvas + wipe clip.
+    ows = [_mw(t, 500, osize) + 2 * opx for t in titles]
+    ow = max(ows) if ows else 0
     nh = nsize + 2 * npy
     oh = (2 * opy + (len(titles) - 1) * oline + osize) if titles else 0
     pan = round(nsize * _G["pan"])
     bw = max(nw, ow)
     return dict(name=name, titles=titles, nsize=nsize, osize=osize,
                 align=lt.get("align", "center"), npx=npx, opx=opx, opy=opy, oline=oline,
-                nw=nw, ow=ow, nh=nh, oh=oh, pan=pan, BW=bw, W=bw + 2 * pan, H=nh + oh,
+                nw=nw, ow=ow, ows=ows, nh=nh, oh=oh, pan=pan, BW=bw, W=bw + 2 * pan, H=nh + oh,
                 hold=lt.get("hold", 3.6), t_in=lt.get("in", 1.5),
                 bottom=lt.get("bottom"), left=lt.get("left"))
 
@@ -118,8 +122,17 @@ def svg(g, nr, orr, panf):
         f'font-weight="{SPEC["fonts"]["org_weight"]}" font-size="{g["osize"]}" fill="{_C["org_text"]}" '
         f'text-anchor="{oa}">{esc(t)}</text>'
         for i, t in enumerate(g["titles"]))
-    org_group = (f'<g clip-path="url(#co)"><rect x="{ox:.2f}" y="{oy}" width="{g["ow"]}" height="{g["oh"]}" '
-                 f'fill="{_C["org_bg"]}"/>{org}</g>') if g["titles"] else ""
+    # PER-ROW cyan bands (each hugs its own line's text — matches the plugin
+    # templates); the wipe clip #co still spans the max width, like the AE matte.
+    rows = ""
+    if g["titles"]:
+        n_t = len(g["titles"])
+        row_h = g["oh"] / n_t
+        for i, w_i in enumerate(g["ows"]):
+            rx = (ox if g["align"] == "left" else (W - w_i) / 2 + p)
+            rows += (f'<rect x="{rx:.2f}" y="{oy + i * row_h:.2f}" width="{w_i}" '
+                     f'height="{row_h:.2f}" fill="{_C["org_bg"]}"/>')
+    org_group = f'<g clip-path="url(#co)">{rows}{org}</g>' if g["titles"] else ""
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}">'
             f'<defs><clipPath id="cn"><rect x="{nx:.2f}" y="0" width="{nrw:.2f}" height="{g["nh"]}"/></clipPath>'
             f'<clipPath id="co"><rect x="{ox:.2f}" y="{oy}" width="{orw:.2f}" height="{g["oh"]}"/></clipPath></defs>'

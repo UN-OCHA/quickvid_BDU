@@ -35,7 +35,7 @@ const ENGINE_MIN = "0.5.0";
 // corrected from the repo's VERSION file at load — see trackLatestVersion below.
 // It used to be hardcoded only, which meant the banner quietly went stale every
 // release: it was still advertising 0.6.3 while main had moved on to 0.7.0.
-let ENGINE_LATEST = "0.13.0";
+let ENGINE_LATEST = "2026.0.14";
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
@@ -109,6 +109,9 @@ function gate() {
   // …and the Look picker needs 0.12.0+ (`look` field) for the same reason.
   const lookOk = up && cmpVer(ver, "0.12.0") >= 0;
   document.querySelectorAll(".look-review").forEach((el) => { el.hidden = !lookOk; });
+  // Text on screen needs 2026.0.14+ (`texts` field + the engine renderer).
+  const txOk = up && cmpVer(ver, "2026.0.14") >= 0;
+  document.querySelectorAll(".texton-review").forEach((el) => { el.hidden = !txOk; });
   // The Toolbox tab needs 0.13.0+ (/api/compress). Older engine → the whole tab
   // hides; if the user was ON it when the engine changed, fall back to Edit.
   const tbOk = up && cmpVer(ver, "0.13.0") >= 0;
@@ -221,10 +224,11 @@ if (ftPick) ftPick.onclick = async () => {
 };
 
 // full mode: hand the job to the engine (real ffmpeg) and stream the result back over localhost
-async function renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look) {
+async function renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look, texts) {
   const body = { video: state.enginePath, lower_thirds: lowerThirds, ending: { style: ending.style },
                  subtitles: subtitles || { on: false, style: "box" }, bug: bug || { on: false },
-                 pins: pins || [], cues: cues || undefined, look: look || undefined, dir: state.jobDir };
+                 pins: pins || [], cues: cues || undefined, look: look || undefined,
+                 texts: (texts && texts.length) ? texts : undefined, dir: state.jobDir };
   const r = await fetch(ENGINE + "/api/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) { let m = "Engine error"; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
   const { job_id } = await r.json();
@@ -302,6 +306,7 @@ function ftRestore(p) {
     if (p.subtitles) { $("#t-subs-on").checked = !!p.subtitles.on; tSetSubStyle(p.subtitles.style || "box"); }
     if (p.bug) $("#t-bug-on").checked = !!p.bug.on;
     tLook.restore(p.look);
+    tTexts.restore(p.texts);
     tLoc.restore(p.pins || p.pin);        // `pin` = a project saved before Jul 2026
     document.querySelectorAll("#panel-titles input, #panel-titles select")
       .forEach((el) => el.dispatchEvent(new Event("change", { bubbles: true })));
@@ -322,15 +327,16 @@ function ftCollect() {
     bug: { on: $("#t-bug-on").checked },
     pins: tLoc.collect(),
     look: tLook.collect(),
+    texts: tTexts.collect(),
   };
 }
 
 $("#run").onclick = async () => {
   if (!state.enginePath) return setStatus("Choose a video first.", "warn");
   if (OchaFolder.block($("#f-folder"), state.jobDir, (m) => setStatus(m, "error"))) return;
-  const { lowerThirds, ending, subtitles, bug, pins, look } = ftCollect();
-  if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on && !pins.length)
-    return setStatus("Add at least one lower third, subtitles, the bug, a location strip, or pick an ending.", "warn");
+  const { lowerThirds, ending, subtitles, bug, pins, look, texts } = ftCollect();
+  if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on && !pins.length && !texts.length)
+    return setStatus("Add at least one lower third, subtitles, text on screen, the bug, a location strip, or pick an ending.", "warn");
 
   // Reviewed captions ride along only while they still match the chosen video —
   // otherwise the engine transcribes fresh (never burn one clip's text on another).
@@ -342,7 +348,7 @@ $("#run").onclick = async () => {
   const t0 = performance.now();
   try {
     setStatus("Rendering with the OCHA engine…" + staleNote, "busy");
-    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look);  // real ffmpeg, no limits
+    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look, texts);  // real ffmpeg, no limits
     if (state.url) URL.revokeObjectURL(state.url);
     state.url = URL.createObjectURL(blob);
     $("#player").src = state.url;
@@ -388,6 +394,11 @@ const tLook = OchaLook.mount({
   grid: $("#t-look-grid"), fix: $("#t-look-fix"), previewBtn: $("#t-look-prev"),
   getVideo: () => state.enginePath, getTime: () => 1, engine: ENGINE,
   onChange: () => ftSave(),
+});
+// Text on screen — the SHARED component (browser/texton.js); Edit tab mounts the same one.
+const tTexts = OchaTextOn.mount({
+  on: "t-tx-on", fields: "t-tx-fields", l1: "t-tx-l1", l2: "t-tx-l2", l3: "t-tx-l3",
+  start: "t-tx-start", dur: "t-tx-dur", onChange: () => ftSave(),
 });
 $("#t-caps-gen").onclick = async () => {
   if (!state.enginePath) return setStatus("Choose a video first.", "warn");

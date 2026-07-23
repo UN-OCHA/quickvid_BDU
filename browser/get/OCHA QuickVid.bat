@@ -13,9 +13,9 @@ REM ============================================================================
 set "DEST=%LocalAppData%\OCHA QuickVid"
 set "APP="
 if exist "%DEST%\home.txt" set /p APP=<"%DEST%\home.txt"
-if not exist "%APP%\Start OCHA QuickVid.bat" set "APP=%DEST%\app"
+if not exist "%APP%\OCHA QuickVid.bat" set "APP=%DEST%\app"
 
-if not exist "%APP%\Start OCHA QuickVid.bat" (
+if not exist "%APP%\OCHA QuickVid.bat" (
   echo OCHA QuickVid isn't installed on this PC yet.
   echo Go back to the OCHA QuickVid page and download the INSTALLER ^(first-time^) instead.
   pause
@@ -23,5 +23,5 @@ if not exist "%APP%\Start OCHA QuickVid.bat" (
 )
 
 set "QV_DETACH=1"
-call "%APP%\Start OCHA QuickVid.bat"
+call "%APP%\OCHA QuickVid.bat"
 exit /b %errorlevel%

@@ -102,23 +102,31 @@ def profile(W, H):
     r = W / H
     # LT sizes now come from the shared spec (browser/brand-lt.json) per
     # orientation — profiles only carry placement safe areas.
+    # cap_clear = bottom fraction reserved for captions (mirrors the plugin's
+    # premiere/ae/make_assets.py table, 2026-07-23): the LT block bottom clamps
+    # to H·(1−cap_clear) so it always sits ABOVE the caption band — portrait
+    # captions live mid-frame (reels band 1190-1300), square/landscape in the
+    # bottom zone (832-974 on 1080-tall).
     if r > 1.25:                                     # 16:9-ish landscape
-        return {"orient": "landscape",
+        return {"orient": "landscape", "cap_clear": .24,
                 # right=.06 (not .045 like left/LT) — matches the bug's real-world
                 # margin in references/videos/HNPW2026_USG_remarks.mp4 (measured ~6.6%);
                 # "right"/"top" here are consumed only by the bug, not by LT placement.
                 "safe": {"top": .06, "bottom": .09, "left": .045, "right": .06}}
     if r < 0.85:                                     # 9:16 / 4:5 portrait
-        return {"orient": "portrait",
+        return {"orient": "portrait", "cap_clear": .396,
                 "safe": {"top": .11, "bottom": .20, "left": .06, "right": .06}}
-    return {"orient": "square",                       # 1:1
+    return {"orient": "square", "cap_clear": .24,     # 1:1
             "safe": {"top": .08, "bottom": .10, "left": .08, "right": .08}}
 
 
 def place(g, W, H, prof, align):
     """Overlay x,y for a rendered LT block. Bottom-anchored in the lower band,
-    just above the bottom safe line; centred or at the left safe margin."""
-    bottom = H - prof["safe"]["bottom"] * H - 0.02 * H
+    just above the bottom safe line — CLAMPED above the caption band
+    (cap_clear), same rule as the plugin's MOGRT defaults; centred or at the
+    left safe margin."""
+    bottom = min(H - prof["safe"]["bottom"] * H - 0.02 * H,
+                 H * (1 - prof.get("cap_clear", 0)))
     y = round(bottom - g["H"])
     if align == "left":
         x = round(prof["safe"]["left"] * W - g["block_left"])

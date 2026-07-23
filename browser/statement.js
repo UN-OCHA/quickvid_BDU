@@ -593,6 +593,12 @@ const stLook = OchaLook.mount({
   engine: ENGINE, onChange: () => stSave(),
 });
 
+// Text on screen — the SHARED component (browser/texton.js); Titles tab mounts the same one.
+const stTexts = OchaTextOn.mount({
+  on: "st-tx-on", fields: "st-tx-fields", l1: "st-tx-l1", l2: "st-tx-l2", l3: "st-tx-l3",
+  start: "st-tx-start", dur: "st-tx-dur", onChange: () => stSave(),
+});
+
 $st("#st-caps-gen").onclick = async () => {
   const segs = stCapsSegs();
   if (!segs.length) return stStatus("Tick at least one sentence first (step 5).", "warn");
@@ -644,6 +650,7 @@ $st("#st-render").onclick = async () => {
     // reviewed caption text — only while it still matches the selection + format
     cues: $st("#st-captions").checked ? (stCaps.collect(stCapsFp()) || undefined) : undefined,
     look: stLook.collect(),
+    texts: stTexts.collect(),
     bug: { on: $st("#st-bug-on").checked },
     pins: stLoc.collect(),
     dir: ST.jobDir,
@@ -831,6 +838,7 @@ function stSnapshot() {
     tail: parseFloat(($st("#st-tail") || {}).value),
     lts: stCollectLts(),
     look: stLook.collect(),
+    texts: stTexts.collect(),
   };
 }
 const stWorthResuming = (p) => !!(p && (p.src || (p.segments && p.segments.length) || p.jobDir));
@@ -890,6 +898,7 @@ function stRestore(p) {
     if (Number.isFinite(p.tail)) $st("#st-tail").value = p.tail;
     stTailVis();
     stLook.restore(p.look);
+    stTexts.restore(p.texts);
     let lts = p.lts;
     if (!lts && p.lt && p.lt.name)                             // old single-LT projects
       lts = [{ name: p.lt.name, org: p.lt.title, org2: p.lt.title2, start: 2, duration: 5, align: p.lt.align }];

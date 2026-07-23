@@ -95,13 +95,13 @@ echo %APP%> "%DEST%\home.txt"
 echo.
 echo Setting up and starting OCHA QuickVid...
 set "QV_DETACH=1"
-call "%APP%\Start OCHA QuickVid.bat"
+call "%APP%\OCHA QuickVid.bat"
 exit /b %errorlevel%
 
 REM ---------------------------------------------------------------------------
 :stopengine
 REM Kill whatever is listening on the engine port, then wait for it to let go of
-REM its file handles. Mirrors the same subroutine in "Start OCHA QuickVid.bat".
+REM its file handles. Mirrors the same subroutine in "OCHA QuickVid.bat".
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr /r /c:":%PORT% .*LISTENING"') do (
   echo Stopping the running OCHA QuickVid engine...
   taskkill /f /pid %%p >nul 2>&1

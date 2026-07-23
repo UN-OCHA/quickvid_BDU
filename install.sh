@@ -17,7 +17,7 @@
 #   1. Download OCHA QuickVid into ~/Library/Application Support/OCHA QuickVid.
 #   2. Set everything up (Python env, video engine, brand font, speech model)
 #      — ~10 minutes the first time.
-#   3. Install a "Start OCHA QuickVid" app into your Applications folder (shows
+#   3. Install a "OCHA QuickVid" app into your Applications folder (shows
 #      in Launchpad + Spotlight) AND on your Desktop. Both are WRITTEN locally,
 #      so they open with no security prompt, ever.
 #   4. Start the engine and open OCHA QuickVid in your browser.
@@ -122,7 +122,7 @@ echo "$APP" > "$DEST/home"
 
 # ---------------------------------------------------------------------------
 # The launcher = a proper .app bundle. It carries the OCHA "Film" icon, shows as
-# "Start OCHA QuickVid" (no extension), and because it is WRITTEN HERE on the Mac
+# "OCHA QuickVid" (no extension), and because it is WRITTEN HERE on the Mac
 # (not downloaded) it is never quarantined → double-clicks with no Gatekeeper
 # prompt. We put it in ~/Applications (Launchpad + Spotlight, no admin needed)
 # AND on the Desktop (findable for everyone). Delete either — re-running this
@@ -139,8 +139,8 @@ build_launcher() {                          # $1 = full path of the .app to (re)
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Start OCHA QuickVid</string>
-  <key>CFBundleDisplayName</key><string>Start OCHA QuickVid</string>
+  <key>CFBundleName</key><string>OCHA QuickVid</string>
+  <key>CFBundleDisplayName</key><string>OCHA QuickVid</string>
   <key>CFBundleIdentifier</key><string>org.unocha.quickvid.starter</string>
   <key>CFBundleVersion</key><string>1.0</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
@@ -157,12 +157,12 @@ PLIST
 # seconds later). Made on your Mac at install, so it opens with no security prompt.
 DEST="$HOME/Library/Application Support/OCHA QuickVid"
 APP="$DEST/app"; [ -f "$DEST/home" ] && APP="$(cat "$DEST/home")"
-if [ ! -f "$APP/Start OCHA QuickVid.command" ]; then
+if [ ! -f "$APP/OCHA QuickVid.command" ]; then
   osascript -e 'display dialog "OCHA QuickVid is not installed on this Mac yet. Open the OCHA QuickVid page and run the one-line install command it shows at the top. Questions? ochavisual@un.org" buttons {"OK"} default button "OK" with icon caution with title "OCHA QuickVid"'
   exit 1
 fi
 export QV_DETACH=1
-exec bash "$APP/Start OCHA QuickVid.command"
+exec bash "$APP/OCHA QuickVid.command"
 RUN
   chmod +x "$appdir/Contents/MacOS/startocha"
   [ -f "$ICNS" ] && cp "$ICNS" "$appdir/Contents/Resources/AppIcon.icns"
@@ -176,16 +176,21 @@ RUN
 # admin dialog. Both show in Launchpad + Spotlight.
 if [ -w "/Applications" ]; then
   APPS_DIR="/Applications"
-  rm -rf "$HOME/Applications/Start OCHA QuickVid.app"   # drop any stale per-user duplicate
+  rm -rf "$HOME/Applications/OCHA QuickVid.app"   # drop any stale per-user duplicate
 else
   APPS_DIR="$HOME/Applications"; mkdir -p "$APPS_DIR"
 fi
-rm -f "$HOME/Desktop/Start OCHA QuickVid.command"        # sweep away the old plain-script launcher, if any
-build_launcher "$APPS_DIR/Start OCHA QuickVid.app"
-build_launcher "$HOME/Desktop/Start OCHA QuickVid.app"
-echo "Installed 'Start OCHA QuickVid' in $APPS_DIR (Launchpad + Spotlight) and on your Desktop."
+rm -f "$HOME/Desktop/OCHA QuickVid.command"        # sweep away the old plain-script launcher, if any
+# Pre-rename cleanup (the launcher was called "Start OCHA QuickVid" until
+# 2026-07-23): remove old-named copies so users don't end up with two apps.
+rm -rf "$HOME/Applications/Start OCHA QuickVid.app" "$HOME/Desktop/Start OCHA QuickVid.app"
+[ -w "/Applications" ] && rm -rf "/Applications/Start OCHA QuickVid.app"
+rm -f "$HOME/Desktop/Start OCHA QuickVid.command" "$APP/Start OCHA QuickVid.command"
+build_launcher "$APPS_DIR/OCHA QuickVid.app"
+build_launcher "$HOME/Desktop/OCHA QuickVid.app"
+echo "Installed 'OCHA QuickVid' in $APPS_DIR (Launchpad + Spotlight) and on your Desktop."
 
 echo ""
 echo "Setting up and starting OCHA QuickVid…"
 export QV_DETACH=1
-exec bash "$APP/Start OCHA QuickVid.command"
+exec bash "$APP/OCHA QuickVid.command"

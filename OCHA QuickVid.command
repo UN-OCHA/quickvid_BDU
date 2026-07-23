@@ -53,7 +53,7 @@ qv_stop_engine() {
   return 0
 }
 
-# Self-register this install's location so the tiny "Start OCHA QuickVid" starter the
+# Self-register this install's location so the tiny "OCHA QuickVid" starter the
 # web page hands out can find the engine wherever it lives (no buried folders).
 QV_SUPPORT="$HOME/Library/Application Support/OCHA QuickVid"
 mkdir -p "$QV_SUPPORT"
@@ -84,7 +84,7 @@ if [ -z "$QV_NO_UPDATE" ] && [ ! -d .git ]; then
           # still reading it — it's swapped safely by rename just below. --delete clears
           # anything dropped upstream; -c (checksum) avoids the same-size/same-mtime skip
           # that would strand VERSION and make it re-update every launch.
-          if rsync -ac --delete --exclude='.venv' --exclude='Start OCHA QuickVid.command' \
+          if rsync -ac --delete --exclude='.venv' --exclude='OCHA QuickVid.command' \
                    "$UTMP/quickvid_BDU-main/" "./"; then
             cp -f "$UTMP/quickvid_BDU-main/VERSION" ./VERSION   # guarantee the marker (belt + suspenders)
             UPDATED=1
@@ -93,10 +93,10 @@ if [ -z "$QV_NO_UPDATE" ] && [ ! -d .git ]; then
             # keeps reading the old inode, the next launch picks up the new file.
             # Without this a bug in the launcher (like the ordering one above) could
             # never be fixed remotely — every user would need a manual re-download.
-            NEWSTART="$UTMP/quickvid_BDU-main/Start OCHA QuickVid.command"
-            if [ -f "$NEWSTART" ] && ! cmp -s "$NEWSTART" "./Start OCHA QuickVid.command"; then
+            NEWSTART="$UTMP/quickvid_BDU-main/OCHA QuickVid.command"
+            if [ -f "$NEWSTART" ] && ! cmp -s "$NEWSTART" "./OCHA QuickVid.command"; then
               if cp "$NEWSTART" "./.qv-starter.new" && chmod +x "./.qv-starter.new" \
-                 && mv -f "./.qv-starter.new" "./Start OCHA QuickVid.command"; then
+                 && mv -f "./.qv-starter.new" "./OCHA QuickVid.command"; then
                 echo "(launcher updated too — takes effect next time you start it)"
               else
                 rm -f "./.qv-starter.new"
