@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "0.40.7";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "0.41.0";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -160,6 +160,17 @@ function clampNum(v, dflt) {
 }
 
 const EL_LABEL = { lt: "Lower third", loc: "Location", bug: "OCHA logo", ending: "Ending", text: "Text" };
+
+// The companion web app — referenced from the Toolbox tile and the menu, so
+// Premiere users discover the tools that DON'T need Premiere (compress, cut
+// by transcript, captions).
+const WEBAPP_URL = "https://un-ocha.github.io/quickvid_BDU/";
+function openExternal(url) {
+  try {
+    if (window.cep && window.cep.util) window.cep.util.openURLInDefaultBrowser(url);
+    else window.open(url);
+  } catch (e) { try { window.open(url); } catch (e2) {} }
+}
 
 /* The readability scrim is a template of its own (OCHA Gradient), added by its own
    button + modal rather than riding along with the Text CTA — Text, Captions and the
@@ -532,6 +543,17 @@ const TOOLS = {
       + `Pick one under <strong>Track Style</strong> when you make captions.`,
     action: () => jsx(`ochaInstallCaptionStyles(${lit(EXT_ROOT)})`).then((r) => r || ""),
   },
+  webapp: {
+    title: "Compress a video",
+    explain: "<ul><li>Compression lives in the free <strong>OCHA QuickVid web app</strong> — drop a heavy file, pick a quality, get a light <strong>MP4 (H.264)</strong> that plays everywhere.</li>"
+      + "<li>The web app also <strong>cuts statement clips by transcript</strong>, burns captions and brands video — no Premiere needed.</li>"
+      + "<li>Runs on your computer; files never leave it.</li></ul>",
+    ready: "Opens in your browser — the Toolbox tab has the compressor.",
+    cta: () => "Open OCHA QuickVid",
+    working: "Opening your browser…",
+    done: () => "Opened. Look for the <strong>Toolbox</strong> tab.",
+    action: () => { openExternal(WEBAPP_URL); return Promise.resolve("OK|"); },
+  },
   clean: {
     title: "Clean unused MOGRTs",
     explain: "<ul><li>Removes OCHA templates sitting in the project but <strong>not on any timeline</strong> — leftovers from trying options.</li>"
@@ -677,6 +699,7 @@ document.querySelectorAll(".ext-link").forEach((a) => {
     const url = a.dataset.url;
     if (!url) return;
     if (url.indexOf("crisisrelief") !== -1) { try { Analytics.ping("donate:click"); } catch (er) {} }
+    if (url.indexOf("quickvid_BDU") !== -1) { try { Analytics.ping("webapp:open"); } catch (er) {} }
     try {
       if (window.cep && window.cep.util) window.cep.util.openURLInDefaultBrowser(url);
       else window.open(url);
