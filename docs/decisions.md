@@ -1557,7 +1557,7 @@ fix), **Donate** → crisisrelief. The one-liner also still sits on the
 engine-down gate card. Footer is blue in light + dark (brand, like the
 reference), stacks on mobile. VERIFIED via computed styles: bg #009EDB, white
 text, inverted logo, live chip, modal opens with the exact install command,
-mobile stacks to column, engine-down → amber dot. Version → 2026.0.15.
+mobile stacks to column, engine-down → amber dot. Version → 2026.0.15. **Colour follow-up (v0.2.1 / web 2026.0.16):** the band is the DS-standard **dark blue** `--ocha-blue-footer` #1f69b3 with the 8px `--ocha-cyan` bar on top (matching the wordmark-generator footer) — white text went from ~2.6:1 on the bright cyan to 5.63:1 (AA). Kit token added; synced to all apps.
 
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.

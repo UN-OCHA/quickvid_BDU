@@ -16,6 +16,7 @@
   --ocha-cyan:      #009EDB;   /* signature UN Blue — accents, borders, primary buttons, logo */
   --ocha-blue:      #0077B8;   /* AA text blue — links / blue text on white */
   --ocha-blue-dark: #004987;   /* headings, hover */
+  --ocha-blue-footer: #1f69b3; /* DS footer band — dark enough for AA white text, cyan sits on top as the 8px bar (brand.unocha.org) */
   --ink:            #4D4D4D;   /* body text */
   --muted:          #737373;   /* secondary text */
   --line:           #E2E5E8;   /* hairline borders / dividers */
@@ -251,7 +252,8 @@ textarea.cd-form__input { resize: vertical; }
        </div>
      </footer> */
 .cd-footer {
-  background: var(--ocha-cyan); color: #fff;
+  background: var(--ocha-blue-footer); color: #fff;   /* dark blue band for readable white text… */
+  border-top: 8px solid var(--ocha-cyan);             /* …with the signature cyan bar on top (the DS standard) */
   font-weight: 300; font-size: 0.75rem; line-height: 1.5;
   padding: 2.5rem 1.5rem; margin-top: 2rem;
 }
