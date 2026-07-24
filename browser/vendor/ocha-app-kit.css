@@ -227,3 +227,88 @@ textarea.cd-form__input { resize: vertical; }
 .cd-help__panel strong { color: var(--ocha-blue-dark); }
 
 @media (min-width: 768px) { .app-main { padding: 2rem 1.5rem; } }
+
+/* ===== Footer (cd-footer) ===== */
+/* The OCHA institutional footer: a UN-blue band with the "Service provided by"
+   OCHA lockup, the mandate tagline, and the Creative Commons licence — the
+   brand.unocha.org / 2026 BDU-tools standard. An OPTIONAL utility row
+   (.cd-footer__utility) sits above the band for app links + a status chip
+   (About / What's new / Help / donate / engine status …), divided by the same
+   hairline. Reproduces the wordmark-generator footer.
+   Markup:
+     <footer class="cd-footer">
+       <div class="cd-footer__utility">                         (optional)
+         <div class="cd-footer__status"><span class="dot"></span>…</div>
+         <nav class="cd-footer__links"> <button>…</button> <a>…</a> </nav>
+       </div>
+       <div class="cd-footer__inner">
+         <div class="cd-footer__col--ocha">
+           <span class="cd-footer__mandate-heading">Service provided by</span>
+           <img class="cd-footer__logo" src="…OCHA logo (any colour)…" alt="OCHA">
+         </div>
+         <div class="cd-footer__col--tagline"><p>…mandate…</p></div>
+         <div class="cd-footer__col--cc">…CC BY 4.0…</div>
+       </div>
+     </footer> */
+.cd-footer {
+  background: var(--ocha-cyan); color: #fff;
+  font-weight: 300; font-size: 0.75rem; line-height: 1.5;
+  padding: 2.5rem 1.5rem; margin-top: 2rem;
+}
+.cd-footer a { color: #fff; text-decoration: none; }
+.cd-footer a:hover, .cd-footer a:focus-visible { text-decoration: underline; }
+/* optional utility row — app links + a status chip, above the institutional band */
+.cd-footer__utility {
+  max-width: 68rem; margin: 0 auto 1.5rem;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem 1.5rem; flex-wrap: wrap;
+  padding-bottom: 1.25rem; border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+}
+.cd-footer__links { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+.cd-footer__links button, .cd-footer__links a {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: #fff; font: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem;
+}
+.cd-footer__links button:hover, .cd-footer__links a:hover { text-decoration: underline; }
+.cd-footer__links button:focus-visible, .cd-footer__links a:focus-visible {
+  outline: 2px solid #fff; outline-offset: 2px; border-radius: 2px;
+}
+.cd-footer__status {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.25rem 0.65rem; border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-pill); font-size: 0.7rem; white-space: nowrap;
+}
+.cd-footer__status .dot { inline-size: 0.5rem; block-size: 0.5rem; border-radius: 50%; background: #fff; flex: none; }
+.cd-footer__status.is-down { opacity: 0.85; }
+.cd-footer__status.is-down .dot { background: #FFC800; }
+/* institutional band (the DS standard) */
+.cd-footer__inner { max-width: 68rem; margin: 0 auto; display: flex; align-items: center; gap: 0; }
+.cd-footer__col--ocha {
+  flex-shrink: 0; padding-inline-end: 1.5rem;
+  border-inline-end: 1px solid rgba(255, 255, 255, 0.35);
+}
+.cd-footer__mandate-heading { display: block; font-size: 0.6875rem; font-weight: 300; margin-bottom: 0.375rem; }
+.cd-footer__logo { width: 149px; height: 37px; filter: brightness(0) invert(1); }  /* any-colour logo → white */
+.cd-footer__col--tagline { flex: 1; padding-inline: 1.5rem; }
+.cd-footer__col--tagline p { margin: 0; }
+.cd-footer__col--cc {
+  flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+  padding-inline-start: 1.5rem; border-inline-start: 1px solid rgba(255, 255, 255, 0.35);
+  text-align: end; max-width: 340px;
+}
+.cd-footer__col--cc svg { flex: 0 0 38px; width: 38px; height: 38px; fill: #fff; }
+.cd-footer__cc-link { line-height: 0; }
+.cd-footer__cc-link:hover { opacity: 0.8; text-decoration: none; }
+@media (max-width: 767px) {
+  .cd-footer__inner { flex-direction: column; align-items: flex-start; gap: 1.5rem; }
+  .cd-footer__col--ocha {
+    border-inline-end: none; padding-inline-end: 0;
+    padding-bottom: 1.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.35); width: 100%;
+  }
+  .cd-footer__col--tagline { padding-inline: 0; }
+  .cd-footer__col--cc {
+    border-inline-start: none; padding-inline-start: 0;
+    padding-top: 1.5rem; border-top: 1px solid rgba(255, 255, 255, 0.35);
+    max-width: 100%; width: 100%; text-align: start;
+  }
+}

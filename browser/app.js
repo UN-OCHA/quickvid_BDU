@@ -35,7 +35,7 @@ const ENGINE_MIN = "0.5.0";
 // corrected from the repo's VERSION file at load — see trackLatestVersion below.
 // It used to be hardcoded only, which meant the banner quietly went stale every
 // release: it was still advertising 0.6.3 while main had moved on to 0.7.0.
-let ENGINE_LATEST = "2026.0.14";
+let ENGINE_LATEST = "2026.0.15";
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
@@ -87,6 +87,16 @@ function gate() {
       `Your engine is <strong>v${esc(ver)}</strong>, but this page needs <strong>v${ENGINE_MIN}</strong> or newer — an old engine would quietly produce wrong output. ` +
       `<strong>Re-run the installer below to update it</strong> (~2 min, your projects are safe). If it says the engine is already running, close it first (Mac: quit “OCHA QuickVid engine”; Windows: close the minimized engine window), then run the installer. <em>After this one update, OCHA QuickVid keeps itself current automatically — you won’t need to do this again.</em>`;
   } else { al.hidden = true; }
+  // footer engine-status chip (always visible; the reinstall path lives beside it)
+  const fe = $("#foot-engine"), fet = $("#foot-engine-txt");
+  if (fe && fet) {
+    const ff = state.engine && state.engine.ffmpeg;
+    fe.classList.toggle("is-down", !up);
+    fet.textContent = up ? `Engine ${ver}${ff ? " · ffmpeg ✓" : ""}`
+                         : outdated ? `Engine ${ver} — update needed`
+                                    : "Engine not running";
+  }
+  if ($("#news-ver")) $("#news-ver").textContent = ver ? `v${ver}` : "";
   // chip
   const el = $("#mode-chip");
   el.className = "mode-chip " + (up ? "mode-chip--full" : "mode-chip--browser");
@@ -443,6 +453,25 @@ document.addEventListener("click", (e) => {
   panel.hidden = !open;
   b.setAttribute("aria-expanded", String(open));
 });
+
+/* ---- footer: Help & reinstall + What's new (reachable in every state) ---- */
+function footModal(id, open) { const m = $("#" + id); if (m) m.hidden = !open; }
+$("#foot-help").onclick = () => footModal("help-modal", true);
+$("#foot-whatsnew").onclick = () => footModal("news-modal", true);
+$("#help-close").onclick = () => footModal("help-modal", false);
+$("#news-close").onclick = () => footModal("news-modal", false);
+["help-modal", "news-modal"].forEach((id) =>
+  $("#" + id).addEventListener("click", (e) => { if (e.target === $("#" + id)) footModal(id, false); }));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { footModal("help-modal", false); footModal("news-modal", false); }
+});
+$("#help-copy").onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($("#help-cmd").textContent.trim());
+    $("#help-copied").textContent = "Copied — paste it into Terminal.";
+  } catch (e) { $("#help-copied").textContent = "Press ⌘C to copy the selected command."; }
+  setTimeout(() => { $("#help-copied").textContent = ""; }, 4000);
+};
 
 detectEngine();     // gate the app on the engine
 

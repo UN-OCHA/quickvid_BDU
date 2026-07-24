@@ -1537,6 +1537,28 @@ render shows 3 lines at baselines 998/1114/1230, band luma 86→50→14→50→8
 **5. Versioning** → **2026.0.14** (plugin-style CalVer; counter continues
 0.13). Starter's `sort -V` and app.js `cmpVer` both cross the boundary fine.
 
+## 2026-07-23 — Web app 2026.0.15: OCHA footer + Help & reinstall (the deleted-launcher fix)
+
+Javi deleted the launcher to pick up the rename, then couldn't get it back: the
+engine kept running, so the page unlocked and HID the install flow — a dead end.
+Root cause is by-design (engine up = "you're set"), so the fix is a persistent
+place to reinstall from, in every state.
+
+Chosen (AskUserQuestion): a **footer**, following the OCHA DS, using the
+wordmark-generator's `cd-footer` as the reference (Javi: better than the
+Storybook standard). Kit-first (his call): added **`cd-footer`** to the shared
+app-kit — institutional band (Service provided by + OCHA logo / mandate tagline
+/ CC BY 4.0) + an optional `.cd-footer__utility` row for app links + a
+`.cd-footer__status` chip — synced to QuickVid, CHANGELOG v0.2.0, HANDOFF h8 for
+the DS session. QuickVid fills the utility row with **Engine status** (live from
+/api/health), **What's new** (modal, plugin parity), **Help & reinstall**
+(modal: the `curl … | bash` one-liner + copy + "engine won't start" steps — THE
+fix), **Donate** → crisisrelief. The one-liner also still sits on the
+engine-down gate card. Footer is blue in light + dark (brand, like the
+reference), stacks on mobile. VERIFIED via computed styles: bg #009EDB, white
+text, inverted logo, live chip, modal opens with the exact install command,
+mobile stacks to column, engine-down → amber dot. Version → 2026.0.15.
+
 ## Still open
 - Location pins (feature 3 of Titles & branding) — new SVG animation, same framework.
 - Promote the `style.css` OCHA app kit token block into `…/OCHA_design_system` as the

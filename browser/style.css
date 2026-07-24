@@ -371,3 +371,11 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
   color: var(--ocha-cyan); text-transform: uppercase; margin-left: 6px;
 }
 #tb-preview video { width: 100%; margin: 10px 0; }
+
+/* Help & reinstall — the install one-liner as a copyable command block */
+#help-cmd {
+  display: block; width: 100%; box-sizing: border-box;
+  font-family: var(--mono-font); font-size: 0.8rem; line-height: 1.5;
+  background: #161616; color: #f2f2f2; border-radius: var(--radius-sm);
+  padding: 0.7rem 0.85rem; overflow-x: auto; white-space: pre; user-select: all;
+}

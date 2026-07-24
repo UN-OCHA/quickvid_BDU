@@ -717,8 +717,75 @@
     </div><!-- /panel-toolbox -->
   </main>
 
-  <footer class="app-footer">
-    <p>Made by the OCHA Brand and Design Unit · <a href="mailto:ochavisual@un.org">ochavisual@un.org</a> · your video never leaves your device.</p>
+  <!-- OCHA cd-footer (shared app-kit component). Utility row = QuickVid links +
+       live engine status; institutional band = the brand.unocha.org standard.
+       Shown in EVERY state, so a deleted launcher is never a dead end. -->
+  <footer class="cd-footer">
+    <div class="cd-footer__utility">
+      <div class="cd-footer__status" id="foot-engine" title="The local OCHA QuickVid engine on your computer">
+        <span class="dot"></span><span id="foot-engine-txt">Checking the engine…</span>
+      </div>
+      <nav class="cd-footer__links" aria-label="About and help">
+        <button type="button" id="foot-whatsnew"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> What’s new</button>
+        <button type="button" id="foot-help"><i class="fa-solid fa-life-ring" aria-hidden="true"></i> Help &amp; reinstall</button>
+        <a href="https://crisisrelief.un.org/en/" target="_blank" rel="noopener"><i class="fa-solid fa-heart" aria-hidden="true"></i> Donate</a>
+      </nav>
+    </div>
+    <div class="cd-footer__inner">
+      <div class="cd-footer__col--ocha">
+        <span class="cd-footer__mandate-heading">Service provided by</span>
+        <img class="cd-footer__logo" src="vendor/ocha-logo.svg" alt="OCHA" />
+      </div>
+      <div class="cd-footer__col--tagline">
+        <p>OCHA coordinates the global emergency response to save lives and protect people in humanitarian crises. We advocate for effective and principled humanitarian action by all, for all. <strong>OCHA QuickVid is public domain &amp; free</strong> — made by the OCHA Brand and Design Unit (<a href="mailto:ochavisual@un.org">ochavisual@un.org</a>). Your videos never leave your device.</p>
+      </div>
+      <div class="cd-footer__col--cc">
+        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" class="cd-footer__cc-link" aria-label="Creative Commons BY 4.0">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512" aria-hidden="true"><path d="M245.8 214.9l-33.2 17.3c-9.4-19.6-25.7-20-27.4-20-36.5 0-40.6 33-40.6 47.4 0 33.9 18.4 49 42.5 49 18.9 0 33-11.5 37.6-22.4l30.8 15.8c-6.6 11.7-25.5 36.3-71.2 36.3-42.1 0-80-25.8-80-79.3 0-44.5 30.3-81.4 80.5-81.4 30.2 0 55.6 12.8 61 37.3zM371 214.9l-33.2 17.3c-9.4-19.6-25.7-20-27.4-20-36.5 0-40.6 33-40.6 47.4 0 33.9 18.4 49 42.5 49 18.9 0 33-11.5 37.6-22.4l30.8 15.8c-6.6 11.7-25.5 36.3-71.2 36.3-42.1 0-80-25.8-80-79.3 0-44.5 30.3-81.4 80.5-81.4 30.2 0 55.6 12.8 61 37.3zM248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm0 449.3C137.4 457.3 46.7 366.6 46.7 256S137.4 54.7 248 54.7 449.3 145.4 449.3 256 358.6 457.3 248 457.3z"/></svg>
+        </a>
+        <span>Except where noted, content is licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.</span>
+      </div>
+    </div>
   </footer>
+
+  <!-- Help & reinstall — reachable from the footer in every state. THE fix for a
+       deleted launcher: the engine keeps running, the page unlocks, but the app
+       is gone; this is where people get it back. -->
+  <div class="cd-modal" id="help-modal" hidden>
+    <div class="cd-modal__panel cd-flow" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <button class="cd-modal__close" id="help-close" type="button" aria-label="Close">&times;</button>
+      <h2 class="cd-block-title" id="help-title">Help &amp; reinstall</h2>
+      <p><strong>Deleted the app, or it won’t open?</strong> Reinstall the launcher — your projects and settings are safe. Paste this into <strong>Terminal</strong> (Mac) and press return:</p>
+      <div class="st-btn-row">
+        <code id="help-cmd">curl -fsSL https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/install.sh | bash</code>
+      </div>
+      <div class="st-btn-row">
+        <button class="cd-button cd-button--small" id="help-copy" type="button"><i class="fa-solid fa-copy" aria-hidden="true"></i><span class="cd-button__text">Copy the command</span></button>
+        <span class="app-hint" id="help-copied" aria-live="polite"></span>
+      </div>
+      <p class="app-hint">It re-creates <strong>OCHA QuickVid</strong> in your Applications folder and on the Desktop. If it says the engine is already running, that’s fine — the command doesn’t need it.</p>
+      <h3 class="cd-block-title st-subsection">Engine won’t start?</h3>
+      <ul>
+        <li>Quit any running <strong>OCHA QuickVid engine</strong> (Mac: it’s in your menu bar / Activity Monitor; Windows: close the minimized engine window), then open <strong>OCHA QuickVid</strong> again.</li>
+        <li>Still stuck? Re-run the command above — it repairs the setup without touching your videos.</li>
+      </ul>
+      <p class="app-hint">Windows or questions? Email <a href="mailto:ochavisual@un.org">ochavisual@un.org</a>.</p>
+    </div>
+  </div>
+
+  <!-- What's new — mirrors the plugin's menu. Version is injected live from the engine. -->
+  <div class="cd-modal" id="news-modal" hidden>
+    <div class="cd-modal__panel cd-flow" role="dialog" aria-modal="true" aria-labelledby="news-title">
+      <button class="cd-modal__close" id="news-close" type="button" aria-label="Close">&times;</button>
+      <h2 class="cd-block-title" id="news-title">What’s new <span class="app-hint" id="news-ver"></span></h2>
+      <ul>
+        <li><strong>Text on screen</strong> — up to three lines that rise in and out, with a soft readability gradient placed behind them automatically. On both tabs.</li>
+        <li><strong>Captions &amp; lower thirds</strong> now match the Premiere plugin and the official OCHA template exactly — sizes, weights and positions.</li>
+        <li><strong>Footage looks</strong> (Brighter, Punchier, Auto-balance) and the phone-colour fix, on both tabs.</li>
+        <li><strong>Toolbox</strong> — compress a heavy video to a light MP4.</li>
+      </ul>
+      <p class="app-hint">OCHA QuickVid keeps itself up to date automatically — no reinstall needed for new versions.</p>
+    </div>
+  </div>
 </body>
 </html>
