@@ -1633,3 +1633,30 @@ second pass in Copilot.
 first — mouth most likely closed) stay, plus "Use the frame I'm viewing": it
 reads the preview's playhead and maps CUT time back to SOURCE time through the
 same runs the engine builds, so any frame in the clip can be the thumbnail.
+
+## 2026-07-27 — RTL is a LAYOUT setting, not per-element detection (2026.0.24)
+
+Javi: RTL has to apply to every element, not just the lower third — "it should
+all go to the right". Two findings shaped the design:
+
+1. **The OCHA bug has no text**, so per-element auto-detection can never mirror
+   it; and a mixed-language video would come out half-mirrored. So the direction
+   is ONE video-level setting resolved once per render (`spec["rtl"]`), explicit
+   value wins, otherwise inferred from any Arabic across captions / lower thirds
+   / text / location strips. The UI exposes it as a checkbox that auto-ticks when
+   Arabic is typed OR transcribed, and stops auto-ticking once touched.
+2. **The bug MUST take the opposite corner** — not for style. The location strip
+   moves to the top-right in RTL, which is exactly where the bug already sits;
+   leaving it there stacks two elements in one corner. (Arabic broadcasters land
+   on the same split: content right, channel mark opposite.)
+
+Mirrored: lower third (right margin + internal mirror + reversed wipe), text on
+screen (right margin, right-aligned), location strip (top-right, pin on the
+right of the bands, wipe reversed), bug (opposite corner). Unchanged: captions
+and the ending logo — both centred. Applies to BOTH tabs (social_brand and
+finish share the rule). Latin verified unchanged: LT x=70 and bug x=924 exactly
+as before, only the rtl branch differs.
+
+PLUGIN FOLLOW-UP grows: the AE templates need the same treatment for the Lower
+Third, Text, Location AND Bug — plus a panel-level RTL toggle, since the MOGRTs
+can't infer a video-wide direction either.

@@ -182,6 +182,7 @@ class FinishReq(BaseModel):
     cues: Optional[list] = None               # reviewed captions [[start, text], …] — skips transcription
     look: Optional[dict] = None               # {"preset": "none|brighter|punchier|auto", "phone_fix": bool}
     texts: Optional[list] = None              # text on screen [{"lines": [...], "start", "duration"}] — auto mid gradient behind
+    rtl: Optional[bool] = None                # right-to-left LAYOUT for the whole video; None = auto-detect Arabic
     dir: Optional[str] = None                 # job folder → final lands in <dir>/export/
 
 
@@ -204,6 +205,7 @@ def finish(req: FinishReq):
         "cues": req.cues,                      # reviewed captions, verbatim (see caption editor)
         "look": req.look,                      # footage look + phone-colour fix (engine/look.py)
         "texts": req.texts,                    # text on screen (+ automatic mid gradient)
+        "rtl": req.rtl,                        # right-to-left layout (None = auto-detect)
         "dir": req.dir,                        # same job-folder contract as the Edit tab
     })
     jobs.run_async(job, engine_bridge.finish)
@@ -472,6 +474,7 @@ class StRenderReq(BaseModel):
     cues: Optional[list] = None                        # reviewed captions [[start, text], …] — text as edited
     look: Optional[dict] = None                        # {"preset", "phone_fix"} — engine/look.py
     texts: Optional[list] = None                       # text on screen [{"lines": [...], "start", "duration"}]
+    rtl: Optional[bool] = None                         # right-to-left LAYOUT (whole video); None = auto
     bug: Optional[dict] = None                         # {"on": bool} — off by default, top-right vertical logo
     pins: Optional[list] = None                        # [{"on","place","date","icon","color","start","duration"}] — location strips
     pin: Optional[dict] = None                         # legacy single strip (old projects) — see _pins()

@@ -33,7 +33,7 @@ import threading
 import traceback
 import shutil
 
-from svgpng import svg2png as _svg2png   # cairosvg, or portable resvg on Macs without Homebrew
+from svgpng import svg2png as _svg2png, has_arabic as _has_arabic   # cairosvg, or portable resvg on Macs without Homebrew
 from PIL import Image
 import lower_third
 import pin_locator
@@ -128,7 +128,9 @@ def place(g, W, H, prof, align):
     bottom = min(H - prof["safe"]["bottom"] * H - 0.02 * H,
                  H * (1 - prof.get("cap_clear", 0)))
     y = round(bottom - g["H"])
-    if align == "left":
+    if align == "left" and g.get("rtl"):
+        x = round(W - prof["safe"]["right"] * W - g["block_left"] - g["BW"])
+    elif align == "left":
         x = round(prof["safe"]["left"] * W - g["block_left"])
     else:
         x = round((W - g["W"]) / 2)
@@ -145,10 +147,11 @@ def render_bug(H, tmp):
     return png, im.size[0], im.size[1]
 
 
-def bug_pos(W, H, prof, bw, bh):
+def bug_pos(W, H, prof, bw, bh, rtl=False):
     """Top-right corner, inset by the format's own social safe-area margins —
-    the same convention lower thirds are placed against."""
-    x = round(W - prof["safe"]["right"] * W - bw)
+    the same convention lower thirds are placed against. RTL mirrors it to the
+    LEFT, because the location strip takes the top-right there (they'd collide)."""
+    x = round(prof["safe"]["left"] * W) if rtl else round(W - prof["safe"]["right"] * W - bw)
     y = round(prof["safe"]["top"] * H)
     return x, y
 
@@ -164,6 +167,15 @@ def run(spec, bitrate=12.0):
           f"{' (HDR→SDR)' if info['hdr'] else ''}")
     print("PROGRESS 0", flush=True)                  # show the bar immediately (PNG prep precedes ffmpeg)
     tmp = tempfile.mkdtemp(prefix="ocha_finish_")
+    # ONE layout direction for the whole video (see social_brand for the rationale):
+    # explicit spec wins, else inferred from any Arabic in the copy.
+    rtl = spec.get("rtl")
+    if rtl is None:
+        _copy = [x for lt in (spec.get("lower_thirds") or [])
+                 for x in (lt.get("name", ""), lt.get("org", ""), lt.get("org2", ""))]
+        _copy += [p_.get(k, "") for p_ in (spec.get("pins") or []) for k in ("place", "date")]
+        rtl = any(_has_arabic(t or "") for t in _copy)
+    rtl = bool(rtl)
 
     # HDR → tonemap; tagged wide-gamut (iPhone Display-P3) → remap; user-forced
     # "Fix phone colours" → remap assuming P3. One shared gate (mediakit).
@@ -183,7 +195,7 @@ def run(spec, bitrate=12.0):
 
     if (spec.get("bug") or {}).get("on"):                # persistent corner watermark, on for the whole clip
         bug_png, bw, bh = render_bug(H, tmp)
-        bx, by = bug_pos(W, H, prof, bw, bh)
+        bx, by = bug_pos(W, H, prof, bw, bh, rtl)
         inputs += ["-loop", "1", "-i", bug_png]
         filt.append(f"[{idx}:v]format=rgba[bug]")
         filt.append(f"[{prev}][bug]overlay={bx}:{by}[v{idx}]")
@@ -197,9 +209,11 @@ def run(spec, bitrate=12.0):
         seqdir = os.path.join(tmp, f"pin{i}")
         r = pin_locator.render(pin["place"], pin["date"], H, fps,
                                pin_locator.hold_for(pin["duration"]), seqdir,
-                               icon=pin["icon"], color=pin["color"], orient=prof["orient"])
+                               icon=pin["icon"], color=pin["color"], orient=prof["orient"], rtl=rtl)
         pad = r.get("pad", 0)                             # undo the anti-crop headroom (bleeds into the safe margin)
-        px = max(0, round(prof["safe"]["left"] * W) - pad)
+        # RTL: the strip takes the top-RIGHT (and the bug moves to the left)
+        px = max(0, (W - round(prof["safe"]["right"] * W) - r["W"] + pad) if rtl
+                    else round(prof["safe"]["left"] * W) - pad)
         py = max(0, round(prof["safe"]["top"] * H) - pad)
         pstart = pin["start"]
         inputs += ["-framerate", str(fps), "-start_number", "0", "-i", os.path.join(seqdir, "%04d.png")]
@@ -215,7 +229,7 @@ def run(spec, bitrate=12.0):
         hold = max(0.5, float(lt.get("duration", 4.0)) - lower_third.ENTER_END - lower_third.EXIT_DUR)
         seqdir = os.path.join(tmp, f"lt{i}")
         g = lower_third.render(lt["name"], lt["org"], H, align, fps, hold, seqdir,
-                               orient=prof["orient"], org2=lt.get("org2"))
+                               orient=prof["orient"], org2=lt.get("org2"), rtl=rtl)
         x, y = place(g, W, H, prof, align)
         start = float(lt["start"])
         inputs += ["-framerate", str(fps), "-start_number", "0",

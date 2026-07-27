@@ -241,6 +241,7 @@ def finish(job) -> None:
             "pins": job.meta.get("pins", []),      # list; pin_locator.specs() reads it
             "ending": job.meta.get("ending", {"style": "none"}),
             "look": job.meta.get("look"),          # footage look + phone-colour fix
+            "rtl": job.meta.get("rtl"),            # right-to-left layout (None = auto)
         }
         spec_path = workdir / "spec.json"
         spec_path.write_text(json.dumps(spec, indent=2))
@@ -345,6 +346,7 @@ def _finish_with_subtitles(job, workdir, out) -> None:
             "lower_thirds": lts, "bug": job.meta.get("bug", {}),
             "pins": job.meta.get("pins", []), "ending": ending,
             "texts": job.meta.get("texts") or [],       # text on screen (+ auto mid gradient)
+            "rtl": job.meta.get("rtl"),                 # right-to-left layout (None = auto)
             "look": job.meta.get("look")}
     spec_path = workdir / "brand_spec.json"
     spec_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False))

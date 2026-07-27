@@ -358,6 +358,7 @@ $st("#st-transcribe").onclick = async () => {
     const { job_id } = await r.json();
     await stJob(job_id, (jj) => stStatus(jj.progress || "Transcribing…", "busy", jj.percent));
     const segs = (await (await fetch(`${ENGINE}/api/statement/segments/${job_id}`)).json()).segments;
+    setTimeout(stAutoRtl, 0);                              // Arabic speech -> tick RTL
     ST.segments = segs.map((s) => ({ ...s, sel: false, userShot: null }));
     stRenderSegList();
     stStatus(`Found ${segs.length} sentences. Tick the ones to keep.`, "ok");
@@ -597,6 +598,23 @@ const stLook = OchaLook.mount({
 });
 
 // Text on screen — the SHARED component (browser/texton.js); Titles tab mounts the same one.
+// Auto-tick RTL when Arabic shows up — in the transcript or anything typed here.
+// Still a checkbox: the OCHA bug has no text to detect from, and a mixed-language
+// video has to mirror as ONE layout rather than element by element.
+const ST_AR_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+function stAutoRtl() {
+  const box = $st("#st-rtl");
+  if (!box || box.dataset.touched) return;                // never fight a manual choice
+  const typed = [...document.querySelectorAll("#panel-edit input[type=text]")]
+    .map((el) => el.value).join(" ");
+  const spoken = (ST.segments || []).map((x) => x.text || "").join(" ");
+  if (ST_AR_RE.test(typed + " " + spoken)) box.checked = true;
+}
+document.addEventListener("input", (e) => {
+  if (e.target.closest && e.target.closest("#panel-edit")) stAutoRtl();
+});
+$st("#st-rtl").addEventListener("change", (e) => { e.target.dataset.touched = "1"; });
+
 const stTexts = OchaTextOn.mount({
   on: "st-tx-on", fields: "st-tx-fields", l1: "st-tx-l1", l2: "st-tx-l2", l3: "st-tx-l3",
   start: "st-tx-start", dur: "st-tx-dur", onChange: () => stSave(),
@@ -672,6 +690,7 @@ $st("#st-render").onclick = async () => {
     cues: $st("#st-captions").checked ? (stCaps.collect(stCapsFp()) || undefined) : undefined,
     look: stLook.collect(),
     texts: stTexts.collect(),
+    rtl: $st("#st-rtl").checked || undefined,   // undefined = engine auto-detects
     bug: { on: $st("#st-bug-on").checked },
     pins: stLoc.collect(),
     dir: ST.jobDir,
@@ -908,6 +927,7 @@ function stSnapshot() {
     lts: stCollectLts(),
     look: stLook.collect(),
     texts: stTexts.collect(),
+    rtl: $st("#st-rtl").checked,
   };
 }
 const stWorthResuming = (p) => !!(p && (p.src || (p.segments && p.segments.length) || p.jobDir));
@@ -968,6 +988,7 @@ function stRestore(p) {
     stTailVis();
     stLook.restore(p.look);
     stTexts.restore(p.texts);
+    $st("#st-rtl").checked = !!p.rtl;
     let lts = p.lts;
     if (!lts && p.lt && p.lt.name)                             // old single-LT projects
       lts = [{ name: p.lt.name, org: p.lt.title, org2: p.lt.title2, start: 2, duration: 5, align: p.lt.align }];

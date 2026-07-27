@@ -28,7 +28,8 @@ import shutil
 
 from PIL import ImageFont
 
-from svgpng import svg2png as _svg2png, font_path as _font_path
+from svgpng import (svg2png as _svg2png, font_path as _font_path,
+                    font_for as _font_for, has_arabic as _has_arabic)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPEC_FILE = os.path.join(ROOT, "browser", "brand-pin.json")
@@ -145,11 +146,18 @@ def build(lt, canvas_h=None, orient="portrait"):
     # into the safe margin) so the box's on-screen position is unchanged.
     pad = (math.ceil(pin_h * (_peak_scale(_T["pin_overshoot"]) - 1)) + max(4, round(pin_h * 0.03))) if icon_on else 0
     box_x = pad + pin_w + pin_gap                 # 0 when the icon is off → text shifts left
+    # (RTL swaps which side the pin takes — applied in svg()/_pin_group via g["rtl"])
     box_y = pad + round((core_h - box_h) / 2)
     # where the top band meets the bottom band; with no date the bottom band is empty
     split_y = (box_y + pady + s1 + round(gap / 2)) if two else (box_y + box_h)
 
-    return dict(place=place, date=date, icon_on=icon_on,
+    # RTL: pin sits to the RIGHT of the bands and the text right-aligns, mirroring
+    # the whole strip. Explicit `rtl` wins (one video-level setting, so text-free
+    # elements mirror too); otherwise auto-detect from the copy.
+    rtl = lt.get("rtl")
+    if rtl is None:
+        rtl = _has_arabic(place) or _has_arabic(date)
+    return dict(place=place, date=date, icon_on=icon_on, rtl=bool(rtl),
                 color=_C["pin_blue"] if lt.get("color") == "blue" else _C["pin_red"],
                 s1=s1, s2=s2, padx=padx, pady=pady, gap=gap,
                 box_x=box_x, box_y=box_y, box_w=box_w, box_h=box_h, split_y=split_y,
@@ -164,10 +172,12 @@ def _pin_group(g, pin_s):
     left of the box and vertically centred on the full element."""
     rs = g["pin_h"] / _PIN_H                       # viewBox units → pixels
     pw, ph = g["pin_w"], g["pin_h"]
-    px, py = g["pad"], g["pad"] + round((g["core_h"] - ph) / 2)   # inside the headroom, vertically centred
+    # mirrored: the pin sits to the RIGHT of the bands instead of the left
+    px = (g["W"] - g["pad"] - pw) if g.get("rtl") else g["pad"]
+    py = g["pad"] + round((g["core_h"] - ph) / 2)                 # inside the headroom, vertically centred
     tipx, tipy = pw / 2, ph                         # bottom-centre = the teardrop point
     # right-to-left: scale to px → move tip to origin → scale about tip → move back → position
-    tf = (f"translate({px + 0:.2f},{py:.2f}) translate({tipx:.2f},{tipy:.2f}) "
+    tf = (f"translate({px:.2f},{py:.2f}) translate({tipx:.2f},{tipy:.2f}) "
           f"scale({pin_s:.4f}) translate({-tipx:.2f},{-tipy:.2f}) scale({rs:.5f})")
     return f'<g transform="{tf}"><path d="{_PIN_D}" fill="{g["color"]}"/></g>'
 
@@ -181,15 +191,28 @@ def svg(g, pin_s, l1r, l2r):
     # each line centred vertically in its own band-worth of space
     y1 = by + g["pady"] + g["s1"] / 2
     y2 = by + g["pady"] + g["s1"] + g["gap"] + g["s2"] / 2
-    tx = bx + g["padx"]
+    # RTL: bands hug the RIGHT of the element (the pin takes the left slot in the
+    # PNG, which the compositor then anchors to the frame's right margin), and the
+    # text right-aligns inside them.
+    if g.get("rtl"):
+        bx = g["pad"]                                  # bands first, pin after them
+        tx = bx + bw - g["padx"]
+        anchor = "end"
+    else:
+        tx = bx + g["padx"]
+        anchor = "start"
     t1 = (f'<text x="{tx:.1f}" y="{y1:.1f}" font-family="{fam}" font-weight="{_F["line1_weight"]}" '
-          f'font-size="{g["s1"]}" fill="{tc}" text-anchor="start" dominant-baseline="central" '
+          f'font-size="{g["s1"]}" fill="{tc}" text-anchor="{anchor}" dominant-baseline="central" '
           f'letter-spacing="{_G["letter_spacing"]}">{esc(g["place"])}</text>') if g["place"] else ""
     t2 = (f'<text x="{tx:.1f}" y="{y2:.1f}" font-family="{fam}" font-weight="{_F["line2_weight"]}" '
-          f'font-size="{g["s2"]}" fill="{tc}" text-anchor="start" dominant-baseline="central">'
+          f'font-size="{g["s2"]}" fill="{tc}" text-anchor="{anchor}" dominant-baseline="central">'
           f'{esc(g["date"])}</text>') if g["date"] else ""
     band1 = (f'<g clip-path="url(#p1)"><rect x="{bx}" y="{by}" width="{bw}" height="{band1_h}" fill="{bg}"/>{t1}</g>')
     band2 = (f'<g clip-path="url(#p2)"><rect x="{bx}" y="{sy}" width="{bw}" height="{band2_h}" fill="{bg}"/>{t2}</g>')
+    # wipe ORIGIN: grows from the left normally, from the right when mirrored, so
+    # the motion is the same gesture and the exit is still its exact reverse.
+    c1x = (bx + bw - l1r * bw) if g.get("rtl") else bx
+    c2x = (bx + bw - l2r * bw) if g.get("rtl") else bx
     pin = _pin_group(g, pin_s) if g["icon_on"] and pin_s > 0.001 else ""
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}">'
             f'<defs>'
@@ -210,10 +233,10 @@ def render_seq(g, fps, outdir):
     return n
 
 
-def render(place, date, canvas_h, fps, hold, outdir, icon=True, color="red", orient="portrait"):
+def render(place, date, canvas_h, fps, hold, outdir, icon=True, color="red", orient="portrait", rtl=None):
     """finish.py-compatible API: returns {dir, frames, W, H, total}."""
-    g = build({"place": place, "date": date, "icon": icon, "color": color, "hold": hold},
-              canvas_h=canvas_h, orient=orient)
+    g = build({"place": place, "date": date, "icon": icon, "color": color, "hold": hold,
+               "rtl": rtl}, canvas_h=canvas_h, orient=orient)
     n = render_seq(g, fps, outdir)
     return {"dir": outdir, "frames": n, "W": g["W"], "H": g["H"], "total": total(hold),
             "pad": g["pad"]}         # compositor shifts the overlay up-left by this to undo the headroom

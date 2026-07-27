@@ -12,6 +12,7 @@ import os
 import shutil
 
 from lower_third import ease, esc, _svg2png  # same brand plumbing (cairosvg + real Raleway)
+from svgpng import has_arabic as _has_arabic
 
 # ---- the plugin's DATA.text numbers (premiere/ae/make_assets.py) ----
 RATIO = {"portrait": 0.052, "square": 0.058, "landscape": 0.062}
@@ -37,20 +38,24 @@ def orient_of(w, h):
     return "landscape" if r > 1.25 else ("portrait" if r < 0.85 else "square")
 
 
-def build(lines, W, H):
+def build(lines, W, H, rtl=None):
     """Geometry for a text block. `lines` = 1..3 non-empty strings (already
     compacted — the web UI drops blanks, so there is no gap-close logic)."""
+    # RTL mirrors the block to the RIGHT safe margin, right-aligned. Explicit flag
+    # wins (one video-level setting); otherwise auto-detect from the copy.
+    if rtl is None:
+        rtl = any(_has_arabic(l) for l in lines)
     orient = orient_of(W, H)
     size = round(H * RATIO[orient])
     line_h = round(size * LINE_GAP)
     rise = round(H * RISE_FRAC)
-    x = round(W * SAFE_LEFT[orient])
+    x = round(W * (1 - SAFE_LEFT[orient])) if rtl else round(W * SAFE_LEFT[orient])
     y0 = round(H * Y_FRAC)                      # line-1 baseline (comp coords)
     # strip: full width; from a size above line 1 to below the last line + rise
     top = y0 - size - 4
     bot = y0 + (len(lines) - 1) * line_h + round(size * 0.35) + rise + 4
     return dict(lines=list(lines), size=size, line_h=line_h, rise=rise,
-                x=x, y0=y0, top=top, H_strip=bot - top, W=W)
+                x=x, y0=y0, top=top, H_strip=bot - top, W=W, rtl=bool(rtl))
 
 
 def total(duration):
@@ -84,7 +89,7 @@ def svg(g, t, dur):
             continue
         y = (g["y0"] - g["top"]) + i * g["line_h"] + dyf * g["rise"]
         parts.append(
-            f'<text x="{g["x"]}" y="{y:.1f}" font-family="Raleway" '
+            f'<text x="{g["x"]}" y="{y:.1f}" text-anchor="{"end" if g.get("rtl") else "start"}" font-family="Raleway" '
             f'font-weight="{WEIGHT}" font-size="{g["size"]}" fill="{COLOR}" '
             f'fill-opacity="{a:.3f}">{esc(line)}</text>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{g["W"]}" '

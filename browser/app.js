@@ -35,7 +35,7 @@ const ENGINE_MIN = "0.5.0";
 // corrected from the repo's VERSION file at load — see trackLatestVersion below.
 // It used to be hardcoded only, which meant the banner quietly went stale every
 // release: it was still advertising 0.6.3 while main had moved on to 0.7.0.
-let ENGINE_LATEST = "2026.0.23";
+let ENGINE_LATEST = "2026.0.24";
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
@@ -234,11 +234,12 @@ if (ftPick) ftPick.onclick = async () => {
 };
 
 // full mode: hand the job to the engine (real ffmpeg) and stream the result back over localhost
-async function renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look, texts) {
+async function renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look, texts, rtl) {
   const body = { video: state.enginePath, lower_thirds: lowerThirds, ending: { style: ending.style },
                  subtitles: subtitles || { on: false, style: "box" }, bug: bug || { on: false },
                  pins: pins || [], cues: cues || undefined, look: look || undefined,
-                 texts: (texts && texts.length) ? texts : undefined, dir: state.jobDir };
+                 texts: (texts && texts.length) ? texts : undefined,
+                 rtl: rtl, dir: state.jobDir };
   const r = await fetch(ENGINE + "/api/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) { let m = "Engine error"; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
   const { job_id } = await r.json();
@@ -317,6 +318,7 @@ function ftRestore(p) {
     if (p.bug) $("#t-bug-on").checked = !!p.bug.on;
     tLook.restore(p.look);
     tTexts.restore(p.texts);
+    $("#t-rtl").checked = !!p.rtl;
     tLoc.restore(p.pins || p.pin);        // `pin` = a project saved before Jul 2026
     document.querySelectorAll("#panel-titles input, #panel-titles select")
       .forEach((el) => el.dispatchEvent(new Event("change", { bubbles: true })));
@@ -338,13 +340,14 @@ function ftCollect() {
     pins: tLoc.collect(),
     look: tLook.collect(),
     texts: tTexts.collect(),
+    rtl: $("#t-rtl").checked || undefined,   // undefined = let the engine auto-detect
   };
 }
 
 $("#run").onclick = async () => {
   if (!state.enginePath) return setStatus("Choose a video first.", "warn");
   if (OchaFolder.block($("#f-folder"), state.jobDir, (m) => setStatus(m, "error"))) return;
-  const { lowerThirds, ending, subtitles, bug, pins, look, texts } = ftCollect();
+  const { lowerThirds, ending, subtitles, bug, pins, look, texts, rtl } = ftCollect();
   if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on && !pins.length && !texts.length)
     return setStatus("Add at least one lower third, subtitles, text on screen, the bug, a location strip, or pick an ending.", "warn");
 
@@ -358,7 +361,7 @@ $("#run").onclick = async () => {
   const t0 = performance.now();
   try {
     setStatus("Rendering with the OCHA engine…" + staleNote, "busy");
-    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look, texts);  // real ffmpeg, no limits
+    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look, texts, rtl);  // real ffmpeg, no limits
     if (state.url) URL.revokeObjectURL(state.url);
     state.url = URL.createObjectURL(blob);
     $("#player").src = state.url;
@@ -406,6 +409,22 @@ const tLook = OchaLook.mount({
   onChange: () => ftSave(),
 });
 // Text on screen — the SHARED component (browser/texton.js); Edit tab mounts the same one.
+// Auto-tick RTL the moment Arabic is typed anywhere in this tab. It stays a
+// CHECKBOX (not pure detection) because the OCHA bug has no text to detect and a
+// mixed-language video must mirror as ONE layout, not per element.
+const AR_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+function tAutoRtl() {
+  const box = $("#t-rtl");
+  if (!box || box.dataset.touched) return;               // never fight a manual choice
+  const txt = [...document.querySelectorAll("#panel-titles input[type=text]")]
+    .map((el) => el.value).join(" ");
+  if (AR_RE.test(txt)) box.checked = true;
+}
+document.addEventListener("input", (e) => {
+  if (e.target.closest && e.target.closest("#panel-titles")) tAutoRtl();
+});
+$("#t-rtl").addEventListener("change", (e) => { e.target.dataset.touched = "1"; });
+
 const tTexts = OchaTextOn.mount({
   on: "t-tx-on", fields: "t-tx-fields", l1: "t-tx-l1", l2: "t-tx-l2", l3: "t-tx-l3",
   start: "t-tx-start", dur: "t-tx-dur", onChange: () => ftSave(),

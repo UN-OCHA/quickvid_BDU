@@ -418,6 +418,7 @@ def do_render(spec):
         "pins": spec.get("pins"), "pin": spec.get("pin") or {},
         # text on screen (+ its automatic mid gradient) — social_brand renders it
         "texts": spec.get("texts") or [],
+        "rtl": spec.get("rtl"),                        # None = auto-detect from the copy
         "ending": {"style": style, "at": round(footage_end + (LOGO_LEAD if style == "over_footage" else 0), 2),
                    "hold": float(ending.get("hold", 2.0)), "click": ending.get("click", True)},
     }

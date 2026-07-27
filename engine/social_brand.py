@@ -57,7 +57,8 @@ import look as look_mod   # shared footage looks (eq presets) + the phone-colour
 
 
 OGO_SVG = os.path.join(ROOT, "assets", "OCHA_logo_horizontal_white.svg")
-from svgpng import font_path as _font_path, font_for as _font_for             # bundled fonts first - identical on every machine
+from svgpng import (font_path as _font_path, font_for as _font_for,
+                    has_arabic as _has_arabic)             # bundled fonts first - identical on every machine
 FONTS = {700: _font_path("Raleway-Bold.ttf"), 600: _font_path("Raleway-SemiBold.ttf"),
          500: _font_path("Raleway-Medium.ttf")}
 CYAN, WHITE, BLACK = "#009EDB", "#FFFFFF", "#000000"
@@ -197,7 +198,21 @@ def render(spec: dict, log=print) -> str:
     cues = [(float(s), float(raw[i + 1][0]) if i + 1 < len(raw) else footage_end, texts[i])
             for i, (s, _) in enumerate(raw)]
 
-    lts = [LT.build(lt, canvas_h=H, orient=LT.orient_of(W, H))
+    # ---- RTL: ONE setting for the whole video -------------------------------
+    # Per-element auto-detection can't work for the bug (no text) and leaves mixed
+    # videos half-mirrored, so the layout direction is decided once here: the spec's
+    # explicit `rtl` wins, otherwise it's inferred from any Arabic in the copy.
+    rtl = spec.get("rtl")
+    if rtl is None:
+        _copy = [t for _, t in (spec.get("cues") or [])]
+        _copy += [x for lt in (spec.get("lower_thirds") or [])
+                  for x in [lt.get("name", "")] + list(lt.get("titles") or [])]
+        _copy += [x for tx in (spec.get("texts") or []) for x in (tx.get("lines") or [])]
+        _copy += [p_.get(k, "") for p_ in (spec.get("pins") or []) for k in ("place", "date")]
+        rtl = any(_has_arabic(t or "") for t in _copy)
+    rtl = bool(rtl)
+
+    lts = [LT.build({**lt, "rtl": rtl}, canvas_h=H, orient=LT.orient_of(W, H))
            for lt in (spec.get("lower_thirds") or []) if lt.get("name")]
     windows = [(g["t_in"], g["t_in"] + LT.total(g["hold"])) for g in lts]
 
@@ -233,7 +248,7 @@ def render(spec: dict, log=print) -> str:
     for i, p in enumerate(pin_specs):
         g = PIN.build({"place": p["place"], "date": p["date"], "icon": p["icon"],
                        "color": p["color"], "hold": PIN.hold_for(p["duration"]),
-                       "in": p["start"]},
+                       "in": p["start"], "rtl": rtl},
                       canvas_h=H, orient=LT.orient_of(W, H))
         g["dir"] = os.path.join(work, f"pin{i}")
         PIN.render_seq(g, fps, g["dir"])
@@ -250,7 +265,7 @@ def render(spec: dict, log=print) -> str:
         t_lines = [str(l).strip() for l in (tx.get("lines") or []) if str(l or "").strip()][:3]
         if not t_lines:
             continue
-        g = TX.build(t_lines, W, H)
+        g = TX.build(t_lines, W, H, rtl=rtl)
         g["t_in"] = float(tx.get("start", 1.0))
         g["dur"] = TX.total(float(tx.get("duration", 5.0)))
         g["dir"] = os.path.join(work, f"txt{i}")
@@ -279,7 +294,10 @@ def render(spec: dict, log=print) -> str:
         from PIL import Image
         bw, bh = Image.open(bug_png).size
         safe = SAFE_AREA[LT.orient_of(W, H)]
-        bx, by = round(W - safe["right"] * W - bw), round(safe["top"] * H)
+        # RTL puts the location strip in the top-RIGHT, so the bug takes the corner
+        # it vacates — otherwise the two land on top of each other.
+        bx = round(safe["left"] * W) if rtl else round(W - safe["right"] * W - bw)
+        by = round(safe["top"] * H)
 
     logo_png = None; lw = lh_ = 0; click_mov = None
     if style == "over_footage":                   # over_black's logo+click live in pass 2
@@ -370,7 +388,9 @@ def render(spec: dict, log=print) -> str:
         fc.append(f"[{prev}][txv{k}]overlay=0:{g['top']}:eof_action=pass:enable='gte(t,{t0})'[txo{k}]")
         prev = f"txo{k}"
     for k, g in enumerate(lts):
-        x = ((g["left"] if g["left"] is not None else round(W * 0.06)) - g["pan"]) if g["align"] == "left" \
+        x = ((W - (g["left"] if g["left"] is not None else round(W * 0.06)) - g["BW"] - g["pan"])
+             if g.get("rtl") else
+             ((g["left"] if g["left"] is not None else round(W * 0.06)) - g["pan"])) if g["align"] == "left" \
             else (W - g["W"]) // 2
         y = (g["bottom"] if g["bottom"] is not None else round(H * 0.90)) - g["H"]
         fc.append(f"[{lt_idx[k]}:v]setpts=PTS+{g['t_in']}/TB[ltv{k}]")
@@ -379,7 +399,9 @@ def render(spec: dict, log=print) -> str:
     for k, g in enumerate(pin_gs):                     # top-left location strips
         so = SAFE_AREA[LT.orient_of(W, H)]
         pad = g.get("pad", 0)                           # undo the anti-crop headroom (bleeds into the safe margin)
-        px, py = max(0, round(W * so["left"]) - pad), max(0, round(H * so["top"]) - pad)
+        py = max(0, round(H * so["top"]) - pad)
+        px = (W - round(W * so["right"]) - g["W"] + pad) if rtl else max(0, round(W * so["left"]) - pad)
+        px = max(0, px)
         t_in = g["t_in"]
         fc.append(f"[{pin_idx[k]}:v]setpts=PTS+{t_in}/TB[pnv{k}]")
         fc.append(f"[{prev}][pnv{k}]overlay={px}:{py}:eof_action=pass:enable='gte(t,{t_in})'[pnb{k}]")
