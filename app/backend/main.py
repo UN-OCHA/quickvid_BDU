@@ -406,6 +406,8 @@ class StTranscribeReq(BaseModel):
     start: Optional[float] = None
     end: Optional[float] = None
     ranges: Optional[list[list[float]]] = None         # several [start, end] windows (speaker talks in blocks)
+    translate: bool = False                            # Whisper task="translate": ANY spoken language -> ENGLISH
+                                                       # text (one direction only — never English -> other).
 
 
 @app.post("/api/statement/transcribe")

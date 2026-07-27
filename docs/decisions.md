@@ -1595,3 +1595,41 @@ lower third renders, and a full ffmpeg render composites both.
 
 STILL OPEN: the lower third stays LEFT-anchored for Arabic — an RTL layout
 would normally flip the whole block to the right of the frame. Javi's call.
+
+## 2026-07-27 — Omission marker, Arabic RTL, translation, unlimited thumbnails (2026.0.23)
+
+**The "[...]" marker now means "words were removed", not "there was a gap."**
+It fired on a TIME gap (>=1.5s), so a 1.6s breath between two sentences kept
+back-to-back produced a false marker. It now counts DROPPED SENTENCES: the UI
+owns the full transcript, counts the unselected spoken sentences before each
+kept one and sends them as `dropped`; the engine marks at
+`OMIT_MIN_SENTENCES = 2` (Javi: one dropped sentence is usually a false start or
+filler, not a break in the argument). `JUMP_GAP` still drives the punch-in —
+the two used to share it, which was the bug. The very first cue is never marked
+(the clip simply starts there). Verified: 2s pause + nothing removed -> no mark;
+1 dropped -> no mark; 3 dropped -> mark; first cue -> never. Per-cue control
+already exists: the caption editor lets you type or delete the "[...]" yourself.
+
+**Arabic lower thirds MIRROR.** `lower_third.build()` detects Arabic in the copy
+(no user flag to get wrong) and sets `rtl`; `svg()` then anchors the bands to the
+RIGHT of the block, right-aligns the text, and — importantly — REVERSES the wipe
+so the reveal travels right-to-left with the exit still its exact reverse. Latin
+is untouched (guarded on the flag).
+
+**PLUGIN FOLLOW-UP (Javi asked to note this):** the AE templates must get the
+same treatment — an RTL variant of the OCHA Lower Third whose wipe runs
+right-to-left and whose bands anchor right, so the Premiere plugin matches the
+web app for Arabic. Not built yet; needs `premiere/ae/src/builder_template.jsx`
+(buildLT) + a panel toggle or auto-detection on the typed text.
+
+**Translation.** Whisper's `task="translate"` turns speech in ANY language into
+ENGLISH text (one direction only — it cannot translate INTO other languages).
+Wired end to end as a "Translate to English" checkbox by Transcribe; the result
+lands in the normal caption editor so it is reviewed and edited like any
+captions, and the existing "Use AI" copy/paste loop still applies for a
+second pass in Copilot.
+
+**Thumbnails are now unlimited.** The 3-at-a-time suggestions (sentence ends
+first — mouth most likely closed) stay, plus "Use the frame I'm viewing": it
+reads the preview's playhead and maps CUT time back to SOURCE time through the
+same runs the engine builds, so any frame in the clip can be the thumbnail.

@@ -72,10 +72,19 @@ def preset_for(w, h):
     return "event"
 END_BED = 2.6            # default footage kept after the last sentence (ending.tail overrides, 0-4s)
 LOGO_LEAD = 0.5          # logo snaps this long into the bed (a beat after the last word)
-JUMP_GAP = 1.5           # skipped source time (s) that counts as a real JUMP: new take + punch-in
-                         # + "[...]" caption marker. Below this it's just a pause — same take,
-                         # pause kept. (0.25s was wrong: natural pauses are 0.3-1.0s.)
+JUMP_GAP = 1.5           # skipped source time (s) that counts as a real JUMP: new take + a
+                         # punch-in. Below this it's just a pause — same take, pause kept.
+                         # (0.25s was wrong: natural pauses are 0.3-1.0s.)
                          # Mirrored in browser/statement.js stAutoShots — keep in sync.
+                         # NOTE: this drives the SHOT change only. The "[...]" marker has its
+                         # own rule below — they used to share this one, which marked a mere
+                         # 1.6s breath as removed speech.
+OMIT_MIN_SENTENCES = 2   # "[...]" appears when at least this many SPOKEN sentences were
+                         # dropped before a kept one. Counting sentences (not seconds) is the
+                         # honest signal: a long pause removes no words, and a single dropped
+                         # sentence is usually a false start or filler, not a break in the
+                         # argument. The UI counts the drops (it owns the full transcript) and
+                         # sends them per segment as `dropped`.
 
 
 def _probe(src):
@@ -160,7 +169,11 @@ def cues_from_runs(runs, sub, min_show=1.2):
             text = (seg.get("text") or "").strip()
             if not text:
                 continue
-            mark = "[...] " if (ri and first_in_run) else ""
+            # `dropped` = spoken sentences removed immediately before this one
+            # (counted by the UI). Never on the very first cue: the clip simply
+            # starts there, nothing is being implied about continuity.
+            mark = "[...] " if (ri and first_in_run
+                                and int(seg.get("dropped") or 0) >= OMIT_MIN_SENTENCES) else ""
             first_in_run = False
             words = seg.get("words") or []
             if words and len(mark + text) > budget:
@@ -263,7 +276,11 @@ def do_transcribe(spec):
                         "-i", src, "-vn", "-ac", "1", "-ar", "16000", wav], check=True)
         print(f"Transcribing window {i + 1}/{len(ranges)} with Whisper — a few minutes for a long window…", flush=True)
         print("PROGRESS 0", flush=True)
-        segs, info = model.transcribe(wav, language=spec.get("lang"), beam_size=5, word_timestamps=True)
+        # task="translate" makes Whisper output ENGLISH for any spoken language
+        # (it only ever translates INTO English — there is no reverse direction).
+        segs, info = model.transcribe(wav, language=spec.get("lang"), beam_size=5,
+                                      word_timestamps=True,
+                                      task=spec.get("task") or "transcribe")
         lang = lang or info.language
         wdur = info.duration or (end - start) or 1       # window audio length, for the % bar
         lastp = -1

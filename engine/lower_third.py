@@ -27,7 +27,8 @@ import shutil
 
 from PIL import ImageFont
 
-from svgpng import svg2png as _svg2png, font_path as _font_path, font_for as _font_for
+from svgpng import (svg2png as _svg2png, font_path as _font_path,
+                    font_for as _font_for, has_arabic as _has_arabic)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPEC_FILE = os.path.join(ROOT, "browser", "brand-lt.json")
@@ -100,7 +101,11 @@ def build(lt, canvas_h=None, orient="portrait"):
     oh = (2 * opy + (len(titles) - 1) * oline + osize) if titles else 0
     pan = round(nsize * _G["pan"])
     bw = max(nw, ow)
-    return dict(name=name, titles=titles, nsize=nsize, osize=osize,
+    # RTL: Arabic reads right-to-left, so the whole strip mirrors — it anchors to
+    # the RIGHT safe margin and the wipe travels right-to-left (exit reversed).
+    # Detected from the copy itself; no flag for the user to get wrong.
+    rtl = _has_arabic(name) or any(_has_arabic(t) for t in titles)
+    return dict(name=name, titles=titles, nsize=nsize, osize=osize, rtl=rtl,
                 align=lt.get("align", "center"), npx=npx, opx=opx, opy=opy, oline=oline,
                 nw=nw, ow=ow, ows=ows, nh=nh, oh=oh, pan=pan, BW=bw, W=bw + 2 * pan, H=nh + oh,
                 hold=lt.get("hold", 3.6), t_in=lt.get("in", 1.5),
@@ -110,13 +115,22 @@ def build(lt, canvas_h=None, orient="portrait"):
 def svg(g, nr, orr, panf):
     W, H, pan, oy = g["W"], g["H"], g["pan"], g["nh"]
     p = panf * pan
-    if g["align"] == "left":
+    if g["align"] == "left" and g.get("rtl"):
+        # mirrored: bands hug the RIGHT edge of the block, text right-aligned,
+        # and the settle-pan comes from the right (so it reverses with the wipe)
+        nx, ox = W - g["nw"] - pan, W - g["ow"] - pan - p
+        na = oa = "end"; ntx, otx = nx + g["nw"] - g["npx"], ox + g["ow"] - g["opx"]
+    elif g["align"] == "left":
         nx, ox = pan, pan + p
         na = oa = "start"; ntx, otx = nx + g["npx"], ox + g["opx"]
     else:
         nx, ox = (W - g["nw"]) / 2, (W - g["ow"]) / 2 + p
         na = oa = "middle"; ntx, otx = W / 2, ox + g["ow"] / 2
     nrw, orw = nr * g["nw"], orr * g["ow"]
+    # clip ORIGIN: the reveal grows from the left for Latin, from the right for
+    # Arabic — same motion, mirrored, so the exit stays the exact reverse.
+    ncx = (nx + g["nw"] - nrw) if g.get("rtl") else nx
+    ocx = (ox + g["ow"] - orw) if g.get("rtl") else ox
     ty0 = oy + g["opy"] + g["osize"] * 0.82
     org = "".join(
         f'<text x="{otx:.1f}" y="{ty0 + i * g["oline"]:.0f}" font-family="{SPEC["fonts"]["family"]}" '
@@ -130,13 +144,14 @@ def svg(g, nr, orr, panf):
         n_t = len(g["titles"])
         row_h = g["oh"] / n_t
         for i, w_i in enumerate(g["ows"]):
-            rx = (ox if g["align"] == "left" else (W - w_i) / 2 + p)
+            rx = ((ox + g["ow"] - w_i) if g.get("rtl") else ox) if g["align"] == "left" \
+                 else (W - w_i) / 2 + p
             rows += (f'<rect x="{rx:.2f}" y="{oy + i * row_h:.2f}" width="{w_i}" '
                      f'height="{row_h:.2f}" fill="{_C["org_bg"]}"/>')
     org_group = f'<g clip-path="url(#co)">{rows}{org}</g>' if g["titles"] else ""
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}">'
-            f'<defs><clipPath id="cn"><rect x="{nx:.2f}" y="0" width="{nrw:.2f}" height="{g["nh"]}"/></clipPath>'
-            f'<clipPath id="co"><rect x="{ox:.2f}" y="{oy}" width="{orw:.2f}" height="{g["oh"]}"/></clipPath></defs>'
+            f'<defs><clipPath id="cn"><rect x="{ncx:.2f}" y="0" width="{nrw:.2f}" height="{g["nh"]}"/></clipPath>'
+            f'<clipPath id="co"><rect x="{ocx:.2f}" y="{oy}" width="{orw:.2f}" height="{g["oh"]}"/></clipPath></defs>'
             f'<g clip-path="url(#cn)"><rect x="{nx:.2f}" y="0" width="{g["nw"]}" height="{g["nh"]}" fill="{_C["name_bg"]}"/>'
             f'<text x="{ntx:.1f}" y="{g["nh"] / 2:.1f}" font-family="{SPEC["fonts"]["family"]}" '
             f'font-weight="{SPEC["fonts"]["name_weight"]}" font-size="{g["nsize"]}" fill="{_C["name_text"]}" '

@@ -346,6 +346,9 @@ $st("#st-transcribe").onclick = async () => {
     $st("#st-transcribe").disabled = true;
     stStatus("Transcribing — grab a coffee for a long window…", "busy");
     const body = { src: ST.src };
+    // Whisper can output ENGLISH for any spoken language (it only translates
+    // INTO English). The user reviews/edits the result like any caption.
+    if (($st("#st-translate") || {}).checked) body.translate = true;
     const ranges = stCollectRanges();
     if (ranges.length) body.ranges = ranges;                 // else: whole video
     const r = await fetch(`${ENGINE}/api/statement/transcribe`, {
@@ -599,8 +602,25 @@ const stTexts = OchaTextOn.mount({
   start: "st-tx-start", dur: "st-tx-dur", onChange: () => stSave(),
 });
 
+// How many SPOKEN sentences were dropped immediately before each kept one.
+// The engine turns this into the "[...]" marker (>= OMIT_MIN_SENTENCES there):
+// counting sentences is the honest signal — a long pause removes no words, and a
+// single dropped sentence is usually a false start, not a break in the argument.
+// Only the UI can count this: it owns the FULL transcript, the engine only ever
+// receives the selection.
+function stWithDropped(list) {
+  let pending = 0;
+  return (list || []).map((s) => {
+    if (!s.sel) { if ((s.text || "").trim()) pending++; return null; }
+    const out = { ...s, dropped: pending };
+    pending = 0;
+    return out;
+  }).filter(Boolean);
+}
+
 $st("#st-caps-gen").onclick = async () => {
-  const segs = stCapsSegs();
+  const segs = stWithDropped(ST.segments).filter((x) => x.sel).length
+    ? stWithDropped(ST.segments) : stCapsSegs();
   if (!segs.length) return stStatus("Tick at least one sentence first (step 5).", "warn");
   try {
     const r = await fetch(`${ENGINE}/api/statement/cues`, {
@@ -638,7 +658,8 @@ $st("#st-render").onclick = async () => {
   if (!sel.length) return stStatus("Tick at least one sentence.", "warn");
   const body = {
     src: ST.src,
-    segments: sel.map((s) => ({ in: s.in, out: s.out, shot: s.shot, userShot: s.userShot, text: s.text, words: s.words })),
+    segments: stWithDropped(ST.segments).map((s) => ({ in: s.in, out: s.out, shot: s.shot,
+      userShot: s.userShot, text: s.text, words: s.words, dropped: s.dropped })),
     framing: ST.framing,
     subject: { x: ST.framing.general.x, y: ST.framing.general.y },   // legacy field for old engine copies
     preset: document.querySelector('input[name="st-preset"]:checked').value,
@@ -734,6 +755,54 @@ function stThumbs(preset, reshuffle) {
   $st("#st-thumb-more").hidden = pool.length <= 3;           // nothing new to shuffle to
 }
 $st("#st-thumb-more").onclick = () => stThumbs(null, true);
+
+// "Use the frame I'm viewing" — ANY frame of the clip, so the thumbnail choice is
+// unlimited rather than the 3-at-a-time suggestions. The preview plays the CUT
+// clip while stills are grabbed from the SOURCE, so map cut-time -> source-time
+// through the same runs the engine builds (JUMP_GAP must match statement.py).
+function stRunsJS() {
+  const sel = ST.segments.filter((s) => s.sel).sort((a, b) => a.in - b.in);
+  const runs = [];
+  for (const s of sel) {
+    const last = runs[runs.length - 1];
+    if (last && s.in - last.out < 1.5) last.out = Math.max(last.out, s.out);
+    else runs.push({ in: s.in, out: s.out });
+  }
+  return runs;
+}
+function stCutToSource(tCut) {
+  let acc = 0;
+  const runs = stRunsJS();
+  for (const r of runs) {
+    const len = r.out - r.in;
+    if (tCut < acc + len) return r.in + (tCut - acc);
+    acc += len;
+  }
+  return runs.length ? runs[runs.length - 1].out : 0;
+}
+$st("#st-thumb-here").onclick = () => {
+  const v = $st("#st-player");
+  if (!v || !v.src) return stStatus("Render the clip first, then scrub the preview to the frame you want.", "warn");
+  const t = +stCutToSource(v.currentTime || 0).toFixed(2);
+  const fg = ST.framing.general;
+  const url = (w, d) => `${ENGINE}/api/statement/still?src=${encodeURIComponent(ST.src)}&t=${t}` +
+    `&shot=general&preset=${ST.thumbPreset}&sx=${fg.x.toFixed(3)}&sy=${fg.y.toFixed(3)}&zoom=${(fg.zoom || 1).toFixed(2)}&width=${w}` +
+    (d ? `&download=1&dir=${encodeURIComponent(ST.jobDir || "")}` : "");
+  const wrap = $st("#st-thumbs");
+  wrap.querySelectorAll(".st-thumb").forEach((x) => x.classList.remove("is-on"));
+  const img = document.createElement("img");
+  img.src = url(300, 0);
+  img.className = "st-thumb is-on";
+  img.onclick = () => {
+    wrap.querySelectorAll(".st-thumb").forEach((x) => x.classList.remove("is-on"));
+    img.classList.add("is-on");
+    $st("#st-thumb-dl").href = url(0, 1);
+  };
+  wrap.prepend(img);
+  $st("#st-thumb-dl").href = url(0, 1);
+  stStatus(`Thumbnail taken from the frame at ${mmss(v.currentTime || 0)} of the clip.`, "ok");
+};
+
 
 // ---------- E5: Use AI (copy prompt → any LLM → paste selection back) ----------
 function stAIPrompt() {

@@ -177,6 +177,9 @@ def statement_transcribe(job) -> None:
     _statement_action(job, "transcribe", {
         "src": job.meta["src"], "start": job.meta.get("start"),
         "end": job.meta.get("end"), "ranges": job.meta.get("ranges"),
+        # translate = Whisper's task="translate": speech in ANY language comes back
+        # as ENGLISH text (one direction only). The user reviews it like any caption.
+        "task": "translate" if job.meta.get("translate") else "transcribe",
         "model": settings.DEFAULT_MODEL, "out_json": str(out_json)})
     segments = json.loads(out_json.read_text())
     job.result = {"workdir": str(workdir), "segments": segments,
