@@ -35,12 +35,75 @@ except Exception:                                   # fresh Mac: no Homebrew lib
     _cairo = None
 
 
+# Arabic (incl. Presentation Forms) — the trigger for the RTL path below.
+_ARABIC_RE = re.compile(r"[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]")
+ARABIC_FAMILY = "Almarai"       # OCHA's Arabic brand face (bundled, OFL)
+
+
+def has_arabic(s):
+    return bool(_ARABIC_RE.search(s or ""))
+
+
+# Latin weight -> the Almarai file that stands in for it. Almarai ships
+# Light/Regular/Bold/ExtraBold (no Medium/SemiBold), so 500/600 round to the
+# nearest real weight rather than letting Pillow synthesise one.
+_ARABIC_FILES = {400: "Almarai-Regular.ttf", 500: "Almarai-Regular.ttf",
+                 600: "Almarai-Bold.ttf", 700: "Almarai-Bold.ttf",
+                 800: "Almarai-ExtraBold.ttf"}
+
+
+def font_for(text, weight, latin_path):
+    """Path of the font that will ACTUALLY render `text` — so layout measures
+    the same face the renderer draws with. Measuring Arabic against Raleway is
+    how a caption box came out sized for .notdef boxes (1111px measured vs
+    664px drawn). Needs Pillow built with Raqm for true shaped widths; without
+    it Arabic still renders correctly, the box is just approximate."""
+    if has_arabic(text):
+        return font_path(_ARABIC_FILES.get(weight, "Almarai-Regular.ttf"))
+    return latin_path
+
+
+def _arabize(svg):
+    """Append the Arabic family to every font-family so ONE text run can mix
+    scripts: Raleway keeps the Latin (identical output), Almarai supplies the
+    glyphs Raleway simply doesn't have."""
+    return re.sub(r'font-family="([^"]*)"',
+                  lambda m: 'font-family="%s, %s"' % (m.group(1), ARABIC_FAMILY)
+                  if ARABIC_FAMILY not in m.group(1) else m.group(0),
+                  svg)
+
+
 def svg2png(bytestring=None, url=None, write_to=None, output_width=None, output_height=None):
+    svg_txt = None
+    if bytestring is not None:
+        svg_txt = bytestring.decode("utf-8")
+    elif url is not None and str(url).lower().endswith(".svg"):
+        try:
+            svg_txt = open(url, encoding="utf-8").read()
+        except Exception:
+            svg_txt = None
+
+    # THE ARABIC GATE — one place, like mediakit's colour gate.
+    # cairosvg cannot SHAPE Arabic: it draws the isolated letterforms in visual
+    # order, so the result is disconnected and reads backwards (measured
+    # 2026-07-27 — and with a Latin-only family it draws .notdef tofu boxes).
+    # resvg shapes through rustybuzz and applies the bidi algorithm, so any SVG
+    # containing Arabic goes to resvg with the Arabic family appended, whatever
+    # cairosvg is available. Latin-only SVGs keep the proven cairosvg path
+    # untouched. If you make cairosvg handle Arabic one day, delete this branch,
+    # never "simplify" it away.
+    if svg_txt is not None and has_arabic(svg_txt):
+        return _resvg(_arabize(svg_txt), write_to, output_width, output_height)
+
     if _cairo is not None:
         return _cairo.svg2png(bytestring=bytestring, url=url, write_to=write_to,
                               output_width=output_width, output_height=output_height)
+    svg = svg_txt if svg_txt is not None else open(url, encoding="utf-8").read()
+    return _resvg(svg, write_to, output_width, output_height)
+
+
+def _resvg(svg, write_to, output_width=None, output_height=None):
     import resvg_py
-    svg = bytestring.decode("utf-8") if bytestring is not None else open(url, encoding="utf-8").read()
     # Pass width/height (ints) instead of zoom: resvg scales proportionally from
     # either one, and resvg_py 0.3.2 (what Python 3.9 installs — stock-macOS
     # colleagues) declares zoom as int-only, so a float zoom crashes every

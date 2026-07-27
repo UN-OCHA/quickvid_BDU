@@ -57,13 +57,15 @@ import look as look_mod   # shared footage looks (eq presets) + the phone-colour
 
 
 OGO_SVG = os.path.join(ROOT, "assets", "OCHA_logo_horizontal_white.svg")
-from svgpng import font_path as _font_path             # bundled fonts first - identical on every machine
+from svgpng import font_path as _font_path, font_for as _font_for             # bundled fonts first - identical on every machine
 FONTS = {700: _font_path("Raleway-Bold.ttf"), 600: _font_path("Raleway-SemiBold.ttf"),
          500: _font_path("Raleway-Medium.ttf")}
 CYAN, WHITE, BLACK = "#009EDB", "#FFFFFF", "#000000"
 
 esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-def _mw(text, weight, size): return ImageFont.truetype(FONTS[weight], size).getbbox(text)[2]
+def _mw(text, weight, size):
+    # measure with the face that will RENDER it (Arabic -> Almarai) - see svgpng.font_for
+    return ImageFont.truetype(_font_for(text, weight, FONTS[weight]), size).getbbox(text)[2]
 
 
 # ---------------- lower third: THE canonical module renders it ----------------
@@ -113,7 +115,7 @@ def _wrap_lines(text, f, maxw):
 
 def _sub_png(text, sub, path):
     weight = sub.get("weight", 500); size = sub["size"]; maxw = sub["max_w"]
-    f = ImageFont.truetype(FONTS[weight], size)
+    f = ImageFont.truetype(_font_for(text, weight, FONTS[weight]), size)
     lines = _wrap_lines(text, f, maxw)
     px, py = sub["pad"]; lh = int(size * sub["line_h"])
     tw = max(f.getbbox(l)[2] for l in lines)

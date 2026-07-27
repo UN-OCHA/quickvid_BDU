@@ -106,7 +106,7 @@ def state(t, hold):
 
 
 def _mw(text, weight, size):
-    return ImageFont.truetype(FONTS[weight], size).getbbox(text)[2]
+    return ImageFont.truetype(_font_for(text, weight, FONTS[weight]), size).getbbox(text)[2]
 
 
 def build(lt, canvas_h=None, orient="portrait"):

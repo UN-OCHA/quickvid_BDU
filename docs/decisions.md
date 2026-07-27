@@ -1568,3 +1568,30 @@ mobile stacks to column, engine-down → amber dot. Version → 2026.0.15. **Col
   the white logo onto white). The PNG used now is identical at 70px height.
 - ~~Caption-vs-name-strip rule~~ — **resolved 2026-07-09** (captions lift while a lower
   third is up; see the social-branding entry above).
+
+## 2026-07-27 — Arabic rendering (2026.0.22)
+
+Javi asked whether the web app does Arabic subtitles. Measured: it produced
+**.notdef tofu boxes** — the engine bundles only Raleway, which has no Arabic
+glyphs. Two independent failures behind that:
+
+1. **cairosvg cannot SHAPE Arabic.** Given the right font it still draws the
+   isolated letterforms in visual order — disconnected and reading backwards.
+   **resvg** (already the no-Homebrew fallback) shapes via rustybuzz and applies
+   bidi, so it renders correctly. Hence the ARABIC GATE in `svgpng.svg2png`: any
+   SVG containing Arabic routes to resvg with the Arabic family appended to every
+   `font-family` (`Raleway, Almarai`), whatever cairosvg is available. Latin-only
+   SVGs keep the proven cairosvg path — verified byte-identical.
+2. **Layout measured the wrong face.** Pillow measured Arabic against Raleway
+   (1111px) while the render was 664px, so boxes and wrapping were sized for
+   tofu. `svgpng.font_for(text, weight, latin_path)` now returns the face that
+   will actually draw the text, used by all three `_mw()`s and `_sub_png`'s font.
+   Pillow here has Raqm, so widths are properly shaped.
+
+Almarai (OCHA's Arabic brand face, OFL) bundled in `engine/assets/fonts/` —
+Regular/Bold/ExtraBold, mapped from the Latin weights (Almarai has no
+Medium/SemiBold). Verified end-to-end: captions wrap and box correctly, the
+lower third renders, and a full ffmpeg render composites both.
+
+STILL OPEN: the lower third stays LEFT-anchored for Arabic — an RTL layout
+would normally flip the whole block to the right of the frame. Javi's call.

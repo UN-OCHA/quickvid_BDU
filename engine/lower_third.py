@@ -27,7 +27,7 @@ import shutil
 
 from PIL import ImageFont
 
-from svgpng import svg2png as _svg2png, font_path as _font_path
+from svgpng import svg2png as _svg2png, font_path as _font_path, font_for as _font_for
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPEC_FILE = os.path.join(ROOT, "browser", "brand-lt.json")
@@ -60,7 +60,8 @@ def orient_of(w, h):
 
 
 def _mw(text, weight, size):
-    return ImageFont.truetype(FONTS[weight], size).getbbox(text)[2]
+    # Arabic measures against Almarai, the face resvg actually draws it with
+    return ImageFont.truetype(_font_for(text, weight, FONTS[weight]), size).getbbox(text)[2]
 
 
 def state(t, hold):
