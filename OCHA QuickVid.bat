@@ -14,6 +14,16 @@ REM  Windows may show "Windows protected your PC" the FIRST time (SmartScreen,
 REM  normal for files from the internet): click "More info" -> "Run anyway".
 REM  You only do that once.
 REM ============================================================================
+REM  ALWAYS write parentheses in echo as ^( and ^) - ALWAYS, even where it looks
+REM  unnecessary. Inside an if/for block cmd treats a bare ")" as the END OF THE
+REM  BLOCK, so one unescaped paren silently swallows the rest of the block and
+REM  the script dies later with ": was unexpected at this time." This shipped
+REM  broken on 2026-07-27: two "echo (couldn't pre-download ...)" lines lived
+REM  inside the ffmpeg / speech-model blocks. Those blocks only RUN on a first
+REM  install (assets missing), so the very first launch worked and EVERY launch
+REM  after it failed - the assets were cached, cmd skipped the blocks, hit the
+REM  mangled parens and never reached the engine. Hard to spot precisely because
+REM  the install itself looked perfect.
 cd /d "%~dp0"
 set "PORT=17870"
 if defined QV_PORT set "PORT=%QV_PORT%"
@@ -137,7 +147,7 @@ where ffmpeg >nul 2>&1
 if errorlevel 1 if not exist ".venv\Scripts\ffmpeg.exe" (
   echo One-time: downloading the portable video engine ^(~80 MB, no admin needed^)...
   "%VPY%" -c "from static_ffmpeg import run; run.get_or_fetch_platform_executables_else_raise(); print('Video engine ready.')"
-  if errorlevel 1 echo (couldn't pre-download - OCHA QuickVid will fetch it on first use instead)
+  if errorlevel 1 echo ^(couldn't pre-download - OCHA QuickVid will fetch it on first use instead^)
 )
 
 REM 4) Speech-recognition model (one-time, ~500 MB) so the first transcription
@@ -146,7 +156,7 @@ if not exist "%USERPROFILE%\.cache\huggingface\hub\models--Systran--faster-whisp
   echo One-time: downloading the speech-recognition model ^(~500 MB^).
   echo This is the longest step - a few minutes on office wifi. Progress below...
   "%VPY%" -c "from faster_whisper import WhisperModel; WhisperModel('small', device='cpu', compute_type='int8'); print('Speech model ready.')"
-  if errorlevel 1 echo (couldn't pre-download - the first transcription will fetch it instead)
+  if errorlevel 1 echo ^(couldn't pre-download - the first transcription will fetch it instead^)
 )
 
 REM 5) Launch and open the browser. 127.0.0.1 on purpose - the app treats it as
@@ -182,7 +192,7 @@ if defined QV_DETACH (
   )
 
   echo.
-  echo The engine didn't start. Here's what it said (full log: %QV_SUPPORT%\engine.log):
+  echo The engine didn't start. Here's what it said ^(full log: %QV_SUPPORT%\engine.log^):
   echo ----------------------------------------------------------------------
   powershell -NoProfile -Command "if (Test-Path '%QV_SUPPORT%\engine.log') { Get-Content -Path '%QV_SUPPORT%\engine.log' -Tail 25 }"
   echo ----------------------------------------------------------------------
@@ -190,7 +200,7 @@ if defined QV_DETACH (
   pause
   exit /b 1
 )
-echo Starting OCHA QuickVid at http://127.0.0.1:%PORT%   (leave this window open)
+echo Starting OCHA QuickVid at http://127.0.0.1:%PORT%   ^(leave this window open^)
 start "" "http://127.0.0.1:%PORT%"
 "%VPY%" -m uvicorn app.backend.main:app --host 127.0.0.1 --port %PORT%
 pause
