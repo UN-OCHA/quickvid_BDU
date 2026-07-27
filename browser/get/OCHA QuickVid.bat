@@ -22,6 +22,5 @@ if not exist "%APP%\OCHA QuickVid.bat" (
   exit /b 1
 )
 
-set "QV_DETACH=1"
-call "%APP%\OCHA QuickVid.bat"
+call "%APP%\OCHA QuickVid.bat" --detach
 exit /b %errorlevel%

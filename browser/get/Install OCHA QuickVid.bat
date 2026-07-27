@@ -92,10 +92,45 @@ if errorlevel 1 ( echo Could not put the new version in place. & pause & exit /b
 rmdir /s /q "%TMPD%" >nul 2>&1
 echo %APP%> "%DEST%\home.txt"
 
+REM ---------------------------------------------------------------------------
+REM  Shortcuts. Windows had NONE until 2026-07-27: the app installs into a
+REM  hidden system folder, so after installing there was literally nothing to
+REM  click - people could not find OCHA QuickVid at all (the Mac installer has
+REM  always built a real .app in Applications + Desktop).
+REM
+REM  PowerShell resolves the REAL folders via GetFolderPath. Never build these
+REM  paths by hand from %USERPROFILE%: Desktop is routinely redirected - OneDrive
+REM  Known Folder Move, and under Parallels it maps to the MAC's desktop
+REM  (measured: C:\Mac\Home\Desktop), so a hand-built path puts the icon
+REM  somewhere the user never looks. Start Menu is the dependable one; Desktop is
+REM  a bonus, and a failure on either must never fail the install.
+REM ---------------------------------------------------------------------------
+echo Creating the Start Menu and Desktop shortcuts...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$app = '%APP%';" ^
+  "$ico = Join-Path $app 'assets\ocha-quickvid.ico';" ^
+  "$sh = New-Object -ComObject WScript.Shell;" ^
+  "foreach ($dir in @([Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('Desktop'))) {" ^
+  "  try {" ^
+  "    if (-not $dir -or -not (Test-Path $dir)) { continue }" ^
+  "    $s = $sh.CreateShortcut((Join-Path $dir 'OCHA QuickVid.lnk'));" ^
+  "    $s.TargetPath = (Join-Path $app 'OCHA QuickVid.bat');" ^
+  "    $s.Arguments = '--detach';" ^
+  "    $s.WorkingDirectory = $app;" ^
+  "    $s.WindowStyle = 7;" ^
+  "    $s.Description = 'OCHA QuickVid - OCHA-branded videos in a few clicks';" ^
+  "    if (Test-Path $ico) { $s.IconLocation = $ico }" ^
+  "    $s.Save();" ^
+  "    Write-Host ('  ' + $dir + '\OCHA QuickVid.lnk')" ^
+  "  } catch { Write-Host ('  (could not create the shortcut in ' + $dir + ')') }" ^
+  "}" 2>nul
+
 echo.
 echo Setting up and starting OCHA QuickVid...
 set "QV_DETACH=1"
 call "%APP%\OCHA QuickVid.bat"
+echo.
+echo Done. Start OCHA QuickVid any time: press the Windows key and type OCHA.
 exit /b %errorlevel%
 
 REM ---------------------------------------------------------------------------
