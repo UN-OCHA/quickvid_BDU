@@ -35,7 +35,7 @@ const ENGINE_MIN = "0.5.0";
 // corrected from the repo's VERSION file at load — see trackLatestVersion below.
 // It used to be hardcoded only, which meant the banner quietly went stale every
 // release: it was still advertising 0.6.3 while main had moved on to 0.7.0.
-let ENGINE_LATEST = "2026.0.18";
+let ENGINE_LATEST = "2026.0.19";
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
@@ -465,6 +465,19 @@ $("#news-close").onclick = () => footModal("news-modal", false);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { footModal("help-modal", false); footModal("news-modal", false); }
 });
+// Help modal is OS-aware, same pattern as the gate card's setup steps
+// (statement.js stSetOS): auto-detect, with a manual toggle — people help
+// colleagues on the other platform, and the detection can be wrong.
+function helpSetOS(win) {
+  $("#help-mac").hidden = win;
+  $("#help-win").hidden = !win;
+  $("#help-os-mac").classList.toggle("cd-button--outline", win);
+  $("#help-os-win").classList.toggle("cd-button--outline", !win);
+}
+$("#help-os-mac").onclick = () => helpSetOS(false);
+$("#help-os-win").onclick = () => helpSetOS(true);
+helpSetOS(/Windows/i.test(navigator.userAgent));
+
 $("#help-copy").onclick = async () => {
   try {
     await navigator.clipboard.writeText($("#help-cmd").textContent.trim());

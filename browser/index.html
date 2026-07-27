@@ -755,21 +755,38 @@
     <div class="cd-modal__panel cd-flow" role="dialog" aria-modal="true" aria-labelledby="help-title">
       <button class="cd-modal__close" id="help-close" type="button" aria-label="Close">&times;</button>
       <h2 class="cd-block-title" id="help-title">Help &amp; reinstall</h2>
-      <p><strong>Deleted the app, or it won’t open?</strong> Reinstall the launcher — your projects and settings are safe. Paste this into <strong>Terminal</strong> (Mac) and press return:</p>
-      <div class="st-btn-row">
-        <code id="help-cmd">curl -fsSL https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/install.sh | bash</code>
+      <p><strong>Deleted the app, or it won’t open?</strong> Reinstall it — your projects and settings are safe.</p>
+      <div class="st-btn-row" role="tablist" aria-label="Choose your system">
+        <button class="cd-button cd-button--small" id="help-os-mac" type="button"><i class="fa-brands fa-apple" aria-hidden="true"></i><span class="cd-button__text">Mac</span></button>
+        <button class="cd-button cd-button--small cd-button--outline" id="help-os-win" type="button"><i class="fa-brands fa-windows" aria-hidden="true"></i><span class="cd-button__text">Windows</span></button>
       </div>
-      <div class="st-btn-row">
-        <button class="cd-button cd-button--small" id="help-copy" type="button"><i class="fa-solid fa-copy" aria-hidden="true"></i><span class="cd-button__text">Copy the command</span></button>
-        <span class="app-hint" id="help-copied" aria-live="polite"></span>
+
+      <div id="help-mac">
+        <p class="app-hint">Paste this into <strong>Terminal</strong> (<kbd>⌘</kbd>+<kbd>Space</kbd>, type <em>Terminal</em>) and press <kbd>Enter</kbd>:</p>
+        <div class="st-btn-row">
+          <code id="help-cmd">curl -fsSL https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/install.sh | bash</code>
+        </div>
+        <div class="st-btn-row">
+          <button class="cd-button cd-button--small" id="help-copy" type="button"><i class="fa-solid fa-copy" aria-hidden="true"></i><span class="cd-button__text">Copy the command</span></button>
+          <span class="app-hint" id="help-copied" aria-live="polite"></span>
+        </div>
+        <p class="app-hint">It re-creates <strong>OCHA QuickVid</strong> in your Applications folder and on the Desktop. If it says the engine is already running, that’s fine — the command doesn’t need it.</p>
       </div>
-      <p class="app-hint">It re-creates <strong>OCHA QuickVid</strong> in your Applications folder and on the Desktop. If it says the engine is already running, that’s fine — the command doesn’t need it.</p>
+
+      <div id="help-win" hidden>
+        <p class="app-hint">Download the installer and double-click it in your Downloads — it repairs the setup without touching your videos, and starts OCHA QuickVid when it finishes.</p>
+        <div class="st-btn-row"><a class="cd-button" href="get/Install%20OCHA%20QuickVid.bat" download="Install OCHA QuickVid.bat"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span class="cd-button__text">Download the installer</span></a></div>
+        <div class="st-setup__note"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Windows may show <em>“Windows protected your PC”</em> (SmartScreen) — the standard notice for any installer from the internet, not a virus warning: click <strong>More info → Run anyway</strong>.</div>
+        <p class="app-hint">Just need to start it again? Grab the starter instead and keep it somewhere handy — the same file works every time:</p>
+        <div class="st-btn-row"><a class="cd-button cd-button--outline" href="get/OCHA%20QuickVid.bat" download="OCHA QuickVid.bat"><i class="fa-solid fa-play" aria-hidden="true"></i><span class="cd-button__text">Download the starter</span></a></div>
+      </div>
+
       <h3 class="cd-block-title st-subsection">Engine won’t start?</h3>
       <ul>
-        <li>Quit any running <strong>OCHA QuickVid engine</strong> (Mac: it’s in your menu bar / Activity Monitor; Windows: close the minimized engine window), then open <strong>OCHA QuickVid</strong> again.</li>
-        <li>Still stuck? Re-run the command above — it repairs the setup without touching your videos.</li>
+        <li>Quit any running <strong>OCHA QuickVid engine</strong> (Mac: Activity Monitor; Windows: close the minimized engine window in your taskbar), then open <strong>OCHA QuickVid</strong> again.</li>
+        <li>Still stuck? Re-run the installer above — it repairs the setup without touching your videos.</li>
       </ul>
-      <p class="app-hint">Windows or questions? Email <a href="mailto:ochavisual@un.org">ochavisual@un.org</a>.</p>
+      <p class="app-hint">Questions? Email <a href="mailto:ochavisual@un.org">ochavisual@un.org</a>.</p>
     </div>
   </div>
 
