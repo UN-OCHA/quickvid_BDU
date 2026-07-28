@@ -203,12 +203,32 @@ def cues_from_runs(runs, sub, min_show=1.2):
     return merged
 
 
-def sub_config(preset, style=None):
+def _bitrate_for(cw, ch):
+    """Encode bitrate for the output canvas. 12M is tuned for 1080-class; leaving
+    it there at 4K produces a mushy 4K file that looks WORSE than the 1080 one,
+    which is exactly how "4K support" earns a bad name."""
+    px = (cw or 0) * (ch or 0)
+    if px >= 3840 * 2160 * 0.8:
+        return "45M"
+    if px >= 2560 * 1440 * 0.8:
+        return "25M"
+    return "12M"
+
+
+def sub_config(preset, style=None, scale=1.0):
     """Caption styling for a preset, with the UI's Social/Event override applied.
     ONE place, because both the render and the caption-editor preview derive the
     two-line budget from it — if they drifted, the reviewed text wouldn't match
     what burns."""
-    return {**preset["sub"], **({"box": style == "box"} if style else {})}
+    sub = {**preset["sub"], **({"box": style == "box"} if style else {})}
+    if scale and abs(scale - 1.0) > 1e-6:
+        # Captions are the ONE element sized in fixed pixels (the rest are ratios
+        # of canvas height, so they scale themselves). Scale them with the canvas
+        # or a 4K export renders captions at half their designed size.
+        # `box` is a bool and bool IS an int in Python — exclude it explicitly.
+        sub = {k: (round(v * scale) if isinstance(v, (int, float)) and not isinstance(v, bool) else v)
+               for k, v in sub.items()}
+    return sub
 
 
 def cues_preview(segments, preset_key=None, style=None):
@@ -331,6 +351,10 @@ def do_render(spec):
     sw, sh, sfps, sdur = _probe(src)
     preset = PRESETS.get(spec.get("preset") or "reels", PRESETS["reels"])
     cw, ch = spec.get("canvas") or preset["canvas"]
+    # A bigger canvas than the preset (4K event export) scales every FIXED-pixel
+    # number by the same factor, so the composition is identical, just larger.
+    # Everything else (LT/pin/text/bug/logo) is already a ratio of canvas height.
+    csc = ch / preset["canvas"][1]
     fps = 30
     runs = build_runs(sorted(spec["segments"], key=lambda s: s["in"]))
     general, close = crops(sw, sh, cw, ch, spec.get("subject") or {}, spec.get("framing"))
@@ -389,11 +413,15 @@ def do_render(spec):
             continue
         titles = [t for t in [l.get("org") or l.get("title"), l.get("org2") or l.get("title2")] if t]
         hold = max(0.5, float(l.get("duration", 5)) - lower_third.ENTER_END - lower_third.EXIT_DUR)
-        lts.append({**preset["lt"], "name": l["name"], "titles": titles,
+        lts.append({**{k: (round(v * csc) if isinstance(v, (int, float)) and not isinstance(v, bool) else v)
+                       for k, v in preset["lt"].items()},          # lt.bottom is fixed px — scale it too
+                    "name": l["name"], "titles": titles,
                     "align": l.get("align", "center"), "in": float(l.get("start", 1.5)), "hold": hold})
     # Subtitles: {"on": bool, "style": "box"|"gradient"} — style overrides the
     # preset default (boxed social vs clean-over-gradient event look).
-    sub_cfg = sub_config(preset, (spec.get("subtitles") or {}).get("style"))
+    # A bigger canvas than the preset (4K event export) scales every FIXED-pixel
+    # number by the same factor, so the composition is identical, just larger.
+    sub_cfg = sub_config(preset, (spec.get("subtitles") or {}).get("style"), csc)
     # Caption text: the user may have REVIEWED the cues (the caption editor sends
     # them back in spec["cues"], text fixed, timing untouched). Use those verbatim;
     # otherwise build them fresh from the Whisper words. An empty/absent list means
@@ -401,7 +429,7 @@ def do_render(spec):
     reviewed = spec.get("cues")
     bspec = {
         "src": base, "out": out, "canvas": [cw, ch], "fps": fps,
-        "bitrate": "12M",                              # 6M default reads soft on 1080x1920
+        "bitrate": _bitrate_for(cw, ch),               # 6M default reads soft on 1080x1920; 4K needs far more
         "footage_end": round(footage_end, 2),
         "subtitle": sub_cfg,
         "cues": (reviewed if isinstance(reviewed, list) and reviewed

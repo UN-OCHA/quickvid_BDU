@@ -466,6 +466,8 @@ class StRenderReq(BaseModel):
     subject: dict = {"x": 0.5, "y": 0.40}               # legacy single-point framing (kept for old projects)
     framing: Optional[dict] = None                      # {"general": {x,y,zoom}, "close": {x,y,zoom}}
     preset: str = "reels"
+    canvas: Optional[list[int]] = None                 # [w,h] override — the 4K event export;
+                                                       # None = the preset's own 1080-class canvas
     lower_third: dict = {}                              # legacy single LT (old projects)
     lower_thirds: Optional[list] = None                 # [{name,org,org2,start,duration,align}] — the multi-row UI
     ending: dict = {"style": "over_footage"}           # {"style", "tail"?} — tail = footage secs after last sentence

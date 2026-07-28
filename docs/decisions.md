@@ -1660,3 +1660,31 @@ as before, only the rtl branch differs.
 PLUGIN FOLLOW-UP grows: the AE templates need the same treatment for the Lower
 Third, Text, Location AND Bug — plus a panel-level RTL toggle, since the MOGRTs
 can't infer a video-wide direction either.
+
+## 2026-07-27 — 4K export for Event screen only, never upscaled (2026.0.25)
+
+Javi: 4K is only ever wanted for EVENT videos, never social, and "the sizes of
+the text should remain the same" — plus no upscaling.
+
+**Most of it was already true.** Every branded element except the captions is
+sized as a RATIO of canvas height (LT `name_ratio`, pin `line1_ratio`, text
+`RATIO`, bug `BUG_HEIGHT_FRAC`, ending `logo_frac`), so a larger canvas keeps
+identical proportions for free. Captions were the ONE fixed-pixel element, so
+`sub_config(preset, style, scale)` now scales them (and `lt.bottom`) by
+`csc = canvas_h / preset_canvas_h`. MEASURED on the same clip rendered both
+ways: the caption band occupies 0.644–0.888 of frame height at 1080 and
+0.644–0.897 at 4K — the same composition, larger.
+
+**Bitrate had to move with it.** 12M is tuned for 1080; at 4K it would produce a
+bigger file that looks WORSE than the 1080 one. `_bitrate_for(cw, ch)` returns
+12M / 25M / 45M by pixel count.
+
+**Gated on the source, hard.** The toggle only enables for the Event preset AND
+a source ≥3840×2160 — QuickVid never upscales 1080 to 4K and calls it an
+upgrade. The hint says which condition failed. UN Web TV was ruled out as a 4K
+source by Javi (it never casts 4K), so the download-quality work was dropped.
+
+KNOWN, stated in the UI: the punch-in crops the source, so at 4K the CLOSE
+shots are enlarged ~1.5x from the crop (the wide shots are true native 4K). At
+1080 output both shots downscale. Accepted over exporting an odd 2560x1440 or
+dropping punch-ins entirely.

@@ -87,6 +87,7 @@ async function stUseSource(path, opts = {}) {
   info.hidden = false;
   info.innerHTML = `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> <strong>${esc(path.split("/").pop())}</strong> · ${p.width}×${p.height} · ${mmss(p.duration)}`;
   stStatus("");
+  st4kSync();                                    // source dims known → enable/disable 4K
   stInitSync();
   $st("#st-card-sync").hidden = false;
   $st("#st-card-sync").scrollIntoView({ behavior: "smooth" });
@@ -681,6 +682,7 @@ $st("#st-render").onclick = async () => {
     framing: ST.framing,
     subject: { x: ST.framing.general.x, y: ST.framing.general.y },   // legacy field for old engine copies
     preset: document.querySelector('input[name="st-preset"]:checked').value,
+    canvas: ($st("#st-4k") || {}).checked ? [3840, 2160] : undefined,   // 4K event export
     lower_thirds: stCollectLts(),
     ending: { style: document.querySelector('input[name="st-ending"]:checked').value,
               tail: (() => { const v = parseFloat(($st("#st-tail") || {}).value); return Number.isFinite(v) ? v : undefined; })() },
@@ -823,6 +825,33 @@ $st("#st-thumb-here").onclick = () => {
 };
 
 
+// ---------- 4K export (Event screen only, real 4K sources only) ----------
+// The engine accepts any canvas; everything except the captions is already a
+// RATIO of canvas height, so a bigger canvas keeps identical proportions — the
+// caption numbers are scaled by the same factor engine-side (statement.py csc).
+// Gated hard on the SOURCE having the pixels: upscaling 1080 to 4K would just
+// make a bigger, softer file and call it an upgrade.
+function st4kSync() {
+  const box = $st("#st-4k"), hint = $st("#st-4k-hint");
+  if (!box) return;
+  const preset = (document.querySelector('input[name="st-preset"]:checked') || {}).value;
+  const p = ST.probe || {};
+  const isEvent = preset === "event";
+  const src4k = (p.width || 0) >= 3840 && (p.height || 0) >= 2160;
+  const ok = isEvent && src4k;
+  box.disabled = !ok;
+  if (!ok) box.checked = false;
+  $st("#st-4k-wrap").style.opacity = ok ? "" : "0.55";
+  hint.innerHTML = !isEvent
+    ? "— Event screen only. Social formats stay 1080: Instagram, TikTok and X re-encode to 1080 anyway."
+    : !src4k
+      ? `— needs a 4K source; this one is ${p.width || "?"}×${p.height || "?"}. QuickVid never upscales.`
+      : "— your source is 4K, so this exports true 4K (3840×2160). Same proportions, larger canvas. Punch-in shots are enlarged from the crop.";
+}
+document.addEventListener("change", (e) => {
+  if (e.target && e.target.name === "st-preset") st4kSync();
+});
+
 // ---------- E5: Use AI (copy prompt → any LLM → paste selection back) ----------
 function stAIPrompt() {
   const lines = ST.segments.map((s) => `${s.id} (${(s.out - s.in).toFixed(1)}s): ${s.text.trim()}`);
@@ -928,6 +957,7 @@ function stSnapshot() {
     look: stLook.collect(),
     texts: stTexts.collect(),
     rtl: $st("#st-rtl").checked,
+    is4k: ($st("#st-4k") || {}).checked,
   };
 }
 const stWorthResuming = (p) => !!(p && (p.src || (p.segments && p.segments.length) || p.jobDir));
@@ -989,6 +1019,8 @@ function stRestore(p) {
     stLook.restore(p.look);
     stTexts.restore(p.texts);
     $st("#st-rtl").checked = !!p.rtl;
+    st4kSync();
+    if (p.is4k && !$st("#st-4k").disabled) $st("#st-4k").checked = true;
     let lts = p.lts;
     if (!lts && p.lt && p.lt.name)                             // old single-LT projects
       lts = [{ name: p.lt.name, org: p.lt.title, org2: p.lt.title2, start: 2, duration: 5, align: p.lt.align }];
@@ -1004,7 +1036,8 @@ function stRestore(p) {
       const info = $st("#st-src-info"); info.hidden = false;
       info.innerHTML = `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> <strong>${esc(ST.src.split("/").pop())}</strong> · ${ST.probe.width}×${ST.probe.height} · ${mmss(ST.probe.duration)}`;
       $st("#st-card-sync").hidden = false;
-      stInitSync();
+      st4kSync();                                    // source dims known → enable/disable 4K
+  stInitSync();
       $st("#st-card-tr").hidden = false;
       $st("#st-ranges").innerHTML = "";
       const rows = (p.ranges && p.ranges.length) ? p.ranges : [{ from: "", to: "" }];
