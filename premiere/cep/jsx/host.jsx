@@ -723,19 +723,63 @@ var OCHA_UNUSED = [];
 function ochaUnusedDelete(idxCsv) {
   try {
     if (!OCHA_UNUSED || !OCHA_UNUSED.length) return "ERR|Run the scan again - the list has gone stale.";
-    var want = {}, parts = String(idxCsv || "").split(",");
-    for (var i = 0; i < parts.length; i++) {
+    var want = {}, parts = String(idxCsv || "").split(","), i;
+    for (i = 0; i < parts.length; i++) {
       var n = parseInt(parts[i], 10);
       if (!isNaN(n)) want[n] = 1;
     }
-    var gone = 0, kept = 0, failed = 0;
-    // delete back-to-front: removing an item can renumber the collection
-    for (var j = OCHA_UNUSED.length - 1; j >= 0; j--) {
-      if (!want[j]) { kept++; continue; }
-      try { OCHA_UNUSED[j].deleteBin(); gone++; } catch (e) { failed++; }
+
+    // Which media files do the SURVIVORS still need? Anything on that list is
+    // never deleted from disk, even if another (removed) item pointed at it too.
+    var keepPaths = {};
+    ochaEachItem(app.project.rootItem, function (it) {
+      var mp = ""; try { mp = it.getMediaPath(); } catch (e2) {}
+      if (!mp) return;
+      var isGoing = false;
+      for (var j = 0; j < OCHA_UNUSED.length; j++) {
+        if (want[j] && OCHA_UNUSED[j] === it) { isGoing = true; break; }
+      }
+      if (!isGoing) keepPaths[mp] = 1;      // something staying still needs this file
+    });
+
+    // deleteBin() only works on BINS - calling it on a clip item silently does
+    // nothing, which is why Clean MOGRTs moved each item into a throwaway bin and
+    // deleted THAT. Same pattern here.
+    var gone = 0, kept = 0, failed = 0, rmPaths = [];
+    var trash = null;
+    try { trash = app.project.rootItem.createBin("__ocha_unused__"); } catch (e3) { trash = null; }
+    for (var k = OCHA_UNUSED.length - 1; k >= 0; k--) {
+      if (!want[k]) { kept++; continue; }
+      var mp2 = ""; try { mp2 = OCHA_UNUSED[k].getMediaPath(); } catch (e4) { mp2 = ""; }
+      try {
+        if (trash) { OCHA_UNUSED[k].moveBin(trash); gone++; }
+        else { OCHA_UNUSED[k].deleteBin(); gone++; }
+        if (mp2) rmPaths.push(mp2);
+      } catch (e5) { failed++; }
     }
+    if (trash) { try { trash.deleteBin(); } catch (e6) { failed += 0; } }
+
+    // Delete the leftover .mogrt FILES too - but ONLY inside the project's OCHA
+    // templates folder, and only ones nothing still uses. Never anything else on
+    // disk: the user's own footage is only ever unlinked from the project.
+    var filesDeleted = 0, projPath = "";
+    try { projPath = app.project.path; } catch (e7) {}
+    if (projPath) {
+      var assetDir = new Folder(new File(projPath).parent.fsName + "/" + OCHA_ASSET_DIR);
+      for (var m = 0; m < rmPaths.length; m++) {
+        var pth = rmPaths[m];
+        if (keepPaths[pth]) continue;
+        var f = new File(pth);
+        if (assetDir.exists && f.exists && f.fsName.indexOf(assetDir.fsName) === 0) {
+          try { if (f.remove()) filesDeleted++; } catch (e8) {}
+        }
+      }
+    }
+
     OCHA_UNUSED = [];
-    var msg = "Removed " + gone + " unused item(s).";
+    var msg = "Removed " + gone + " unused item(s) from the project";
+    if (filesDeleted) msg += " and deleted " + filesDeleted + " leftover OCHA template file(s)";
+    msg += ".";
     if (kept) msg += " " + kept + " left in place.";
     if (failed) msg += " " + failed + " couldn't be removed.";
     return "OK|" + gone + "|" + msg;
@@ -1383,21 +1427,6 @@ function ochaAllSequences() {
   if (!seqs.length) { try { var a = app.project.activeSequence; if (a) seqs.push(a); } catch (e) {} }
   return seqs;
 }
-function ochaUsedItemIds() {
-  var used = {}, seqs = ochaAllSequences(), s, t, c;
-  for (s = 0; s < seqs.length; s++) {
-    var seq = seqs[s];
-    try {
-      for (t = 0; t < seq.videoTracks.numTracks; t++) {
-        var clips = seq.videoTracks[t].clips;
-        for (c = 0; c < clips.numItems; c++) {
-          try { var pi = clips[c].projectItem; if (pi) { var id = pi.nodeId; if (id) used["n" + id] = 1; } } catch (e) {}
-        }
-      }
-    } catch (e) {}
-  }
-  return used;
-}
 function ochaIsBin(it) { try { return !!(it.children && it.children.numItems !== undefined); } catch (e) { return false; } }
 function ochaIsSequence(it) { try { return !!(it.isSequence && it.isSequence()); } catch (e) { return false; } }
 // a real footage/media item to collect: not a bin, not a sequence, not an OCHA template
@@ -1420,77 +1449,6 @@ function ochaReelInfo() {
 }
 
 // ---- Clean unused MOGRTs ----
-function ochaCleanInfo() {
-  try {
-    var used = ochaUsedItemIds(), total = 0, unused = 0, names = [];
-    ochaEachItem(app.project.rootItem, function (it) {
-      var nm = ""; try { nm = it.name; } catch (e) {}
-      if (OCHA_EL_RE.test(nm)) {
-        total++;
-        var id = null; try { id = it.nodeId; } catch (e) {}
-        if (!id || !used["n" + id]) { unused++; if (names.length < 6) names.push(nm); }
-      }
-    });
-    return "OK|" + total + " OCHA template(s) in the project, " + unused + " not used in any sequence.|" + unused;
-  } catch (e) { return "ERR|" + e.toString(); }
-}
-function ochaCleanMogrts() {
-  try {
-    var used = ochaUsedItemIds();
-
-    // 1) collect the UNUSED OCHA template project items, and remember every media
-    //    path that a USED item still needs (never delete those files).
-    var toRemove = [], usedPaths = {}, rmPaths = [];
-    ochaEachItem(app.project.rootItem, function (it) {
-      var nm = ""; try { nm = it.name; } catch (e) { return; }
-      if (!OCHA_EL_RE.test(nm)) return;
-      var id = null; try { id = it.nodeId; } catch (e) {}
-      var mp = ""; try { mp = it.getMediaPath(); } catch (e) {}
-      if (id && used["n" + id]) { if (mp) usedPaths[mp] = 1; }
-      else { toRemove.push(it); if (mp) rmPaths.push(mp); }
-    });
-
-    // 2) remove the items. deleteBin() only works on BINS, which is why the old
-    //    code silently failed on clip items - the reliable pattern is to move each
-    //    into a throwaway bin and delete THAT bin (contents and all).
-    var removed = 0, err = "";
-    if (toRemove.length) {
-      var trash = null;
-      try { trash = app.project.rootItem.createBin("__ocha_clean__"); } catch (e0) { trash = null; }
-      for (var i = 0; i < toRemove.length; i++) {
-        var it = toRemove[i];
-        try {
-          if (trash) { it.moveBin(trash); removed++; }
-          else { it.deleteBin(); removed++; }               // fallback (bin items)
-        } catch (e1) { if (!err) err = e1.toString(); }
-      }
-      if (trash) { try { trash.deleteBin(); } catch (e2) { if (!err) err = e2.toString(); } }
-    }
-
-    // 3) delete the actual .mogrt FILES for the removed items from the project's
-    //    "OCHA Branding Elements" folder - but ONLY files no used item still needs,
-    //    and ONLY inside that folder (never touch anything else on disk).
-    var filesDeleted = 0;
-    var projPath = ""; try { projPath = app.project.path; } catch (e) {}
-    if (projPath) {
-      var assetDir = new Folder(new File(projPath).parent.fsName + "/" + OCHA_ASSET_DIR);
-      for (var k = 0; k < rmPaths.length; k++) {
-        var p = rmPaths[k];
-        if (usedPaths[p]) continue;                          // a used item shares this file
-        var f = new File(p);
-        // guard: only delete inside the OCHA asset folder
-        if (assetDir.exists && f.exists && f.fsName.indexOf(assetDir.fsName) === 0) {
-          try { if (f.remove()) filesDeleted++; } catch (e3) {}
-        }
-      }
-    }
-
-    if (removed === 0 && toRemove.length) return "ERR|Couldn't remove (" + toRemove.length + " unused): " + err;
-    var msg = "Removed " + removed + " unused template(s) from the project";
-    if (filesDeleted) msg += " and deleted " + filesDeleted + " leftover .mogrt file(s)";
-    return "OK|" + msg + ".";
-  } catch (e) { return "ERR|" + e.toString(); }
-}
 
 // ---- Package project ----
 // Copy every file the project depends on into one clean folder (sorted by type)

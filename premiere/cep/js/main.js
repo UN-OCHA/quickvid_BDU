@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "2026.0.44";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "2026.0.45";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -821,18 +821,6 @@ const TOOLS = {
     done: () => "Opened. Look for the <strong>Toolbox</strong> tab.",
     action: () => { openExternal(WEBAPP_URL); return Promise.resolve("OK|"); },
   },
-  clean: {
-    title: "Clean unused MOGRTs",
-    explain: "<ul><li>Removes OCHA templates sitting in the project but <strong>not on any timeline</strong> — leftovers from trying options.</li>"
-      + "<li>Also deletes their leftover <strong>.mogrt files</strong>.</li>"
-      + "<li>Templates in use are always kept.</li></ul>",
-    info: "ochaCleanInfo()",
-    action: "ochaCleanMogrts()",
-    cta: (n) => (n > 0 ? `Remove ${n} unused` : "Nothing to remove"),
-    countGated: true,
-    danger: true,
-    working: "Removing unused templates…",
-  },
   fixcolor: {
     title: "Fix washed-out colour",
     // Deliberately visual: the two swatches ARE the explanation. Someone hitting
@@ -883,7 +871,9 @@ const TOOLS = {
     title: "Remove unused",
     explain: "<ul><li>Lists everything in the project that is <strong>on no timeline</strong> — leftovers from versions and trials.</li>"
       + "<li>Everything is ticked; <strong>untick anything you want to keep</strong>, then remove.</li>"
-      + "<li>Sequences and bins are never listed. Files on disk are not touched — only the project's references.</li></ul>",
+      + "<li>Sequences and bins are never listed.</li>"
+      + "<li>Leftover <strong>OCHA template files</strong> are deleted from the project's templates folder too — nothing else on disk is ever touched.</li></ul>"
+      + "<p class=\"modal-hint\">This replaces the old <em>Clean MOGRTs</em> tool: same job, but for everything, and you choose what goes.</p>",
     info: "ochaUnusedList()",
     list: true,
     danger: true,
@@ -1079,7 +1069,6 @@ $("tool-reel").addEventListener("click", () => openTool("reel"));
 $("tool-gradient").addEventListener("click", () => openTool("gradient"));
 $("text-grad-btn").addEventListener("click", () => openTool("gradient"));
 $("tool-package").addEventListener("click", () => openTool("package"));
-$("tool-clean").addEventListener("click", () => openTool("clean"));
 $("tool-webapp").addEventListener("click", () => openTool("webapp"));
 $("tool-fixcolor").addEventListener("click", () => openTool("fixcolor"));
 $("tool-tidy").addEventListener("click", () => openTool("tidy"));
