@@ -18,9 +18,9 @@
   <script src="lowerthird.js?v=1" defer></script>  <!-- shared lower-third rows: BOTH tabs -->
   <script src="captions.js?v=1" defer></script>    <!-- shared caption editor: BOTH tabs -->
   <script src="look.js?v=1" defer></script>        <!-- shared footage-look picker: BOTH tabs -->
-  <script src="texton.js?v=1" defer></script>      <!-- shared text-on-screen block: BOTH tabs -->
-  <script src="app.js?v=25" defer></script>
-  <script src="statement.js?v=17" defer></script>
+  <script src="texton.js?v=2" defer></script>      <!-- shared text-on-screen cards: BOTH tabs -->
+  <script src="app.js?v=26" defer></script>
+  <script src="statement.js?v=18" defer></script>
   <script src="toolbox.js?v=1" defer></script>
 </head>
 <body>
@@ -133,20 +133,6 @@
         <div class="rtl-review">
           <label class="st-check"><input type="checkbox" id="t-rtl" /> Right-to-left layout <span class="app-hint">— for Arabic and other RTL languages: the lower third, text on screen and location strip move to the right, and the OCHA logo mirrors to the opposite corner. Ticked automatically when Arabic is detected; untick to override.</span></label>
         </div>
-        <div class="texton-review" hidden>
-          <h3 class="cd-block-title st-subsection">Text on screen <span class="app-hint">— up to 3 lines that rise in and out; a soft mid gradient goes behind them automatically</span></h3>
-          <label class="st-check"><input type="checkbox" id="t-tx-on" /> Add text on screen</label>
-          <div id="t-tx-fields" hidden>
-            <input id="t-tx-l1" class="cd-form__input" type="text" placeholder="Line 1" />
-            <input id="t-tx-l2" class="cd-form__input" type="text" placeholder="Line 2 (optional)" />
-            <input id="t-tx-l3" class="cd-form__input" type="text" placeholder="Line 3 (optional)" />
-            <div class="field-row">
-              <label class="fld-inline">Starts at <input id="t-tx-start" class="cd-form__input" type="number" min="0" step="0.5" value="1" /> s</label>
-              <label class="fld-inline">For <input id="t-tx-dur" class="cd-form__input" type="number" min="1.5" step="0.5" value="5" /> s</label>
-            </div>
-          </div>
-        </div>
-
         <!-- Same job-folder contract as the Edit tab: name it, pick where it lives,
              and the finished video lands in <folder>/export/ instead of a temporary spot. -->
         <div class="st-folder" id="f-folder">
@@ -219,21 +205,22 @@
       </div>
     </section>
 
-    <!-- Step 4 — bug -->
+    <!-- Step 4 — OCHA logo (the corner watermark broadcasters call a "bug";
+         the engine key stays `bug`, only the label the user reads changed) -->
     <section class="cd-card" aria-labelledby="s3b">
       <div class="cd-card__content cd-flow">
-        <h2 class="cd-block-title" id="s3b"><span class="step-num" aria-hidden="true">4</span> Bug <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t3b" aria-label="Help: bug"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+        <h2 class="cd-block-title" id="s3b"><span class="step-num" aria-hidden="true">4</span> OCHA logo <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t3b" aria-label="Help: OCHA logo"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
         <div class="cd-help__panel" id="help-t3b" hidden>
           <ul>
-            <li>An OCHA watermark in the <strong>top-right corner</strong>, on for the whole video — the mark broadcasters call a "bug".</li>
+            <li>The OCHA logo as a small watermark in the <strong>top-right corner</strong>, on for the whole video — the mark broadcasters call a "bug".</li>
             <li><strong>Typically for event videos</strong> (16:9 screens, screenings, livestreams) — social media rarely needs it. Available for any format if you want it.</li>
             <li><strong>Off by default.</strong> Turn it on for clips likely to be re-shared or re-cut, so the OCHA source stays visible however it travels.</li>
           </ul>
         </div>
-        <label class="st-check"><input type="checkbox" id="t-bug-on" /> Add the OCHA bug <span class="app-hint">— logo watermark, top-right, for the whole video. Typically for event videos; off by default.</span></label>
+        <label class="st-check"><input type="checkbox" id="t-bug-on" /> Add the OCHA logo <span class="app-hint">— watermark, top-right, for the whole video. Typically for event videos; off by default.</span></label>
         <figure class="ex-thumb">
-          <img src="img/ex-bug.jpg" width="360" height="203" alt="Example: the OCHA bug watermark in the top-right corner of an event video" />
-          <figcaption>The bug on an event video (16:9) — its usual home. Off by default; available for any format.</figcaption>
+          <img src="img/ex-bug.jpg" width="360" height="203" alt="Example: the OCHA logo watermark in the top-right corner of an event video" />
+          <figcaption>The logo watermark on an event video (16:9) — its usual home. Off by default; available for any format.</figcaption>
         </figure>
       </div>
     </section>
@@ -264,10 +251,33 @@
       </div>
     </section>
 
-    <!-- Step 5 — ending -->
+    <!-- Step 6 — text on screen. Its own step (it was a sub-block of step 1),
+         and unlimited blocks: cards are built by the shared texton.js. -->
+    <section class="cd-card texton-review" aria-labelledby="s3t" hidden>
+      <div class="cd-card__content cd-flow">
+        <h2 class="cd-block-title" id="s3t"><span class="step-num" aria-hidden="true">6</span> Text on screen <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t3t" aria-label="Help: text on screen"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+        <div class="cd-help__panel" id="help-t3t" hidden>
+          <ul>
+            <li>Up to <strong>three lines</strong> of large white text that rise in one after another and leave the same way — for a quote, a statistic, or a question.</li>
+            <li>A soft <strong>readability gradient</strong> is placed behind them automatically, so the words hold up over any footage.</li>
+            <li><strong>Start</strong> = when it rises in, as minutes:seconds (e.g. <code>0:12</code>). <strong>Duration</strong> = how long it stays.</li>
+            <li>Need text at several moments? <strong>Add text on screen</strong> again — as many blocks as you like, each with its own words and timing.</li>
+            <li>Want a fourth line? Use a second block — three lines is the template's design.</li>
+          </ul>
+        </div>
+        <p class="app-hint">Off by default — add a block only if you want one.</p>
+        <!-- cards are built by the shared component in texton.js (both tabs) -->
+        <div id="t-tx-rows"></div>
+        <button class="cd-button cd-button--outline cd-button--small" id="t-tx-add" type="button">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i><span class="cd-button__text">Add text on screen</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Step 7 — ending -->
     <section class="cd-card" aria-labelledby="s3">
       <div class="cd-card__content cd-flow">
-        <h2 class="cd-block-title" id="s3"><span class="step-num" aria-hidden="true">6</span> Ending <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t3" aria-label="Help: ending"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
+        <h2 class="cd-block-title" id="s3"><span class="step-num" aria-hidden="true">7</span> Ending <button type="button" class="cd-help__btn" aria-expanded="false" aria-controls="help-t3" aria-label="Help: ending"><i class="fa-solid fa-question" aria-hidden="true"></i></button></h2>
         <div class="cd-help__panel" id="help-t3" hidden>
           <ul>
             <li><strong>Over footage</strong> — the OCHA logo snaps over your final shot, with the click sound. The standard for social clips; needs about 2 seconds of calm footage at the end.</li>
@@ -519,7 +529,8 @@
               <li>A <strong>lower third</strong> introduces a speaker: name on top, job title under it. One row per person — <strong>Add lower third</strong> for more.</li>
               <li><strong>Start</strong> = seconds into the finished clip; <strong>Duration</strong> = seconds on screen (5–6 reads well). <strong>2nd line</strong> adds a second title line — e.g. a Spanish translation for a bilingual strip.</li>
               <li><strong>Subtitles</strong>: the speaker's words, burned in — keep ON for social (most people watch muted). Two looks: <strong>Social</strong> (white on a grey box) or <strong>Event</strong> (clean white over a soft gradient, for 16:9 screens); the preview shows each, and the format you picked in step 6 sets the sensible default.</li>
-              <li><strong>Bug</strong>: an OCHA watermark, top-right, on for the whole clip — typically for event videos (social media rarely needs it). Off by default; available for any format.</li>
+              <li><strong>OCHA logo</strong>: a small watermark, top-right, on for the whole clip — typically for event videos (social media rarely needs it). Off by default; available for any format.</li>
+              <li><strong>Text on screen</strong>: up to three big lines that rise in and out, over an automatic readability gradient. Add as many blocks as the video needs — each has its own words and timing.</li>
               <li><strong>Ending</strong>: <em>Over footage</em> = the OCHA logo snaps over the closing shot with the click sound (the standard). <em>Over black</em> = clean black end card. <em>No ending</em> = finish on the last words.</li>
               <li><strong>Footage after the last sentence</strong>: with <em>Over footage</em>, the picture keeps rolling for a moment under the logo while the <strong>sound fades to silence</strong> — whoever speaks next in the room is never heard. If your speaker closes with "I thank you", keep that sentence ticked so it's heard.</li>
             </ul>
@@ -561,25 +572,11 @@
         <div class="rtl-review">
           <label class="st-check"><input type="checkbox" id="st-rtl" /> Right-to-left layout <span class="app-hint">— for Arabic and other RTL languages: the lower third, text on screen and location strip move to the right, and the OCHA logo mirrors to the opposite corner. Ticked automatically when Arabic is detected; untick to override.</span></label>
         </div>
-        <div class="texton-review" hidden>
-          <h3 class="cd-block-title st-subsection">Text on screen <span class="app-hint">— up to 3 lines that rise in and out; a soft mid gradient goes behind them automatically</span></h3>
-          <label class="st-check"><input type="checkbox" id="st-tx-on" /> Add text on screen</label>
-          <div id="st-tx-fields" hidden>
-            <input id="st-tx-l1" class="cd-form__input" type="text" placeholder="Line 1" />
-            <input id="st-tx-l2" class="cd-form__input" type="text" placeholder="Line 2 (optional)" />
-            <input id="st-tx-l3" class="cd-form__input" type="text" placeholder="Line 3 (optional)" />
-            <div class="field-row">
-              <label class="fld-inline">Starts at <input id="st-tx-start" class="cd-form__input" type="number" min="0" step="0.5" value="1" /> s</label>
-              <label class="fld-inline">For <input id="st-tx-dur" class="cd-form__input" type="number" min="1.5" step="0.5" value="5" /> s</label>
-            </div>
-          </div>
-        </div>
-
-          <h3 class="cd-block-title st-subsection">Bug</h3>
-          <label class="st-check"><input type="checkbox" id="st-bug-on" /> Add the OCHA bug <span class="app-hint">— logo watermark, top-right, for the whole video. Typically for event videos; off by default.</span></label>
+          <h3 class="cd-block-title st-subsection">OCHA logo</h3>
+          <label class="st-check"><input type="checkbox" id="st-bug-on" /> Add the OCHA logo <span class="app-hint">— watermark, top-right, for the whole video. Typically for event videos; off by default.</span></label>
           <figure class="ex-thumb">
-            <img src="img/ex-bug.jpg" width="360" height="203" alt="Example: the OCHA bug watermark in the top-right corner of an event video" />
-            <figcaption>The bug on an event video (16:9) — its usual home. Off by default; available for any format.</figcaption>
+            <img src="img/ex-bug.jpg" width="360" height="203" alt="Example: the OCHA logo watermark in the top-right corner of an event video" />
+            <figcaption>The logo watermark on an event video (16:9) — its usual home. Off by default; available for any format.</figcaption>
           </figure>
 
           <h3 class="cd-block-title st-subsection">Location</h3>
@@ -593,6 +590,19 @@
             <img src="img/ex-pin.jpg" width="360" height="640" alt="Example: the OCHA location strip top-left, place over date with a map pin" />
             <figcaption>The location strip — top-left, animated in and out.</figcaption>
           </figure>
+
+        <!-- Text on screen sits here, directly before the ending — the same
+             position it has on the Titles tab (step 6), and the same shared
+             cards: unlimited blocks, three lines each. -->
+        <div class="texton-review" hidden>
+          <h3 class="cd-block-title st-subsection">Text on screen <span class="app-hint">— up to 3 lines per block that rise in and out; a soft mid gradient goes behind them automatically</span></h3>
+          <p class="app-hint">Off by default — add a block only if you want one. Add as many as you need.</p>
+          <!-- cards are built by the shared component in texton.js (both tabs) -->
+          <div id="st-tx-rows"></div>
+          <button class="cd-button cd-button--outline cd-button--small" id="st-tx-add" type="button">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i><span class="cd-button__text">Add text on screen</span>
+          </button>
+        </div>
 
           <h3 class="cd-block-title st-subsection">Ending</h3>
           <div class="end-options">
@@ -805,7 +815,7 @@
       <button class="cd-modal__close" id="news-close" type="button" aria-label="Close">&times;</button>
       <h2 class="cd-block-title" id="news-title">What’s new <span class="app-hint" id="news-ver"></span></h2>
       <ul>
-        <li><strong>Text on screen</strong> — up to three lines that rise in and out, with a soft readability gradient placed behind them automatically. On both tabs.</li>
+        <li><strong>Text on screen</strong> — up to three lines that rise in and out, with a soft readability gradient placed behind them automatically. Add as many blocks as the video needs. On both tabs.</li>
         <li><strong>Captions &amp; lower thirds</strong> now match the Premiere plugin and the official OCHA template exactly — sizes, weights and positions.</li>
         <li><strong>Footage looks</strong> (Brighter, Punchier, Auto-balance) and the phone-colour fix, on both tabs.</li>
         <li><strong>Toolbox</strong> — compress a heavy video to a light MP4.</li>

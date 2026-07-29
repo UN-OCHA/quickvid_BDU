@@ -53,6 +53,13 @@ logbook). This file is just the map + standing rules.
   internal testing / `2026.1+` = public; the web app's `VERSION` continues the
   `2026.0.x` counter. Keep every version site in lockstep (manifest, panel const,
   cache-busts, `version.json`; web `VERSION` + `ENGINE_LATEST`).
+- **`VERSION` ships the whole install — bump it for ANY change under `browser/`,
+  not just Python.** Nobody runs the repo: the app lives in
+  `~/Library/Application Support/OCHA QuickVid/app`, a snapshot of GitHub `main`,
+  and the launcher re-downloads it **only when the remote `VERSION` is higher**.
+  Skip the bump on a UI-only change and it reaches no installed copy, ever —
+  only the GitHub Pages site, which serves `browser/` straight from the repo.
+  (Cost us a "none of this is visible" round trip on 2026-07-28.)
 
 ## Keep this file current
 When you make **big progress or learn something load-bearing** (a new

@@ -617,8 +617,7 @@ document.addEventListener("input", (e) => {
 $st("#st-rtl").addEventListener("change", (e) => { e.target.dataset.touched = "1"; });
 
 const stTexts = OchaTextOn.mount({
-  on: "st-tx-on", fields: "st-tx-fields", l1: "st-tx-l1", l2: "st-tx-l2", l3: "st-tx-l3",
-  start: "st-tx-start", dur: "st-tx-dur", onChange: () => stSave(),
+  rows: $st("#st-tx-rows"), add: $st("#st-tx-add"), onChange: () => stSave(),
 });
 
 // How many SPOKEN sentences were dropped immediately before each kept one.

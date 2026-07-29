@@ -35,7 +35,7 @@ const ENGINE_MIN = "0.5.0";
 // corrected from the repo's VERSION file at load — see trackLatestVersion below.
 // It used to be hardcoded only, which meant the banner quietly went stale every
 // release: it was still advertising 0.6.3 while main had moved on to 0.7.0.
-let ENGINE_LATEST = "2026.0.25";
+let ENGINE_LATEST = "2026.0.26";
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
@@ -349,7 +349,7 @@ $("#run").onclick = async () => {
   if (OchaFolder.block($("#f-folder"), state.jobDir, (m) => setStatus(m, "error"))) return;
   const { lowerThirds, ending, subtitles, bug, pins, look, texts, rtl } = ftCollect();
   if (!lowerThirds.length && ending.style === "none" && !subtitles.on && !bug.on && !pins.length && !texts.length)
-    return setStatus("Add at least one lower third, subtitles, text on screen, the bug, a location strip, or pick an ending.", "warn");
+    return setStatus("Add at least one lower third, subtitles, text on screen, the OCHA logo, a location strip, or pick an ending.", "warn");
 
   // Reviewed captions ride along only while they still match the chosen video —
   // otherwise the engine transcribes fresh (never burn one clip's text on another).
@@ -426,8 +426,7 @@ document.addEventListener("input", (e) => {
 $("#t-rtl").addEventListener("change", (e) => { e.target.dataset.touched = "1"; });
 
 const tTexts = OchaTextOn.mount({
-  on: "t-tx-on", fields: "t-tx-fields", l1: "t-tx-l1", l2: "t-tx-l2", l3: "t-tx-l3",
-  start: "t-tx-start", dur: "t-tx-dur", onChange: () => ftSave(),
+  rows: $("#t-tx-rows"), add: $("#t-tx-add"), onChange: () => ftSave(),
 });
 $("#t-caps-gen").onclick = async () => {
   if (!state.enginePath) return setStatus("Choose a video first.", "warn");

@@ -1688,3 +1688,244 @@ KNOWN, stated in the UI: the punch-in crops the source, so at 4K the CLOSE
 shots are enlarged ~1.5x from the crop (the wide shots are true native 4K). At
 1080 output both shots downscale. Accepted over exporting an odd 2560x1440 or
 dropping punch-ins entirely.
+
+## 2026-07-27 — Square to Reel washed out the WHOLE project's colour (URGENT fix)
+
+Javi: "when creating the reel with the plugin toolbox the color changes in all
+sequences. It becomes like washed. The blue is no longer OCHA blue."
+
+"ALL sequences" was the clue — creating one sequence cannot affect the others
+unless something PROJECT-level changed. `ochaResizeSeq()` did this to change the
+frame height:
+
+    st = seq.getSettings();   // read EVERYTHING
+    st[field] = newH;
+    seq.setSettings(st);      // write EVERYTHING back
+
+The settings object does NOT survive that round trip. Fields the API doesn't
+fully expose — colour management / working colour space above all — come back
+defaulted, and writing the object back APPLIES those defaults. Colour management
+is project-level in current Premiere, so the damage isn't scoped to the sequence
+being resized: every sequence renders through the clobbered pipeline and the
+brand blue goes off.
+
+Fixed by dropping the round trip entirely for QE's `setVideoFrameSize`, which
+touches ONLY the frame size. (Its presence on Premiere 26.3 was already measured
+in this session's guides probe.) Deliberately NO settings-object fallback: an
+unresized sequence is obvious and harmless, silently wrecked colour is neither —
+so if QE is missing the function reports failure instead. `ochaKeys()` existed
+only to describe that settings object and went with it.
+
+RULE: never round-trip `getSettings()/setSettings()` to change one value. Reach
+for the specific QE setter, or leave it alone.
+
+**Follow-up (same day): the incident traced to sequence Colour Management —
+NOT provably the round trip.** Javi found the fix himself: disabling Colour
+Management on the SQUARE sequence restored both sequences. That works because
+the reel nests the square twice (bg + fg) and has no media of its own — it
+renders whatever the square renders. The old resize only ever wrote settings to
+the REEL clone, never the square, so the plugin cannot cleanly explain the
+square's CM flag flipping ON. Likeliest real triggers, in order: Premiere's
+HDR/HLG media prompt-banner (the footage was iPhone .MOV = HLG) being OK'd in
+passing; a Premiere update re-defaulting CM on sequences with HDR media; a
+manual click in Lumetri > Settings / Sequence Settings. There is no default
+keyboard shortcut that toggles sequence CM, so "a shortcut we hit without
+knowing" is unlikely. The setSettings hazard is real regardless — the QE
+setVideoFrameSize fix STAYS.
+
+**Refinement (Javi, same day): the right setting is not "disable" but Color
+Setup = "Direct Rec. 709 (SDR)"** — he compared both and Direct 709 looks
+better. Makes sense: disabling CM passes the HLG iPhone footage through RAW
+into an SDR pipeline (flat/washed), while Direct Rec. 709 keeps CM on and
+CONVERTS the footage into 709 (correct, saturated blue). It also matches
+everything downstream: the QuickVid engine normalizes all footage to bt709
+(mediakit gate) and the brand graphics are sRGB. **HOUSE RULE for OCHA
+Premiere sequences: Sequence Settings → Color Management → Color Setup =
+"Direct Rec. 709 (SDR)"** (Output follows as Rec. 709). Field fix for a washed
+project: set exactly that on the SOURCE sequence — nested copies (the reel)
+follow (30 seconds, as measured here).
+
+## 2026-07-28 — Plugin batch: packager report, track control, reset, colour, bins, vignette (2026.0.43)
+
+Javi's seven-item list, in order. Three of them turned out to share one root
+cause, which is why they are logged together.
+
+**1. Packager didn't say what it actually did.** It reported "copied N files"
+whether or not the saved copy pointed at them. Added `ochaPkgMissingItems()`
+(offline items are recorded BEFORE copying, since an offline item can never be
+packaged) and an `unlinked` list filled during the relink loop. The report is
+now "N of M relinked" and returns `WARN|...INCOMPLETE:` naming the files that
+still point outside the package. A package that is silently partial is worse
+than one that says so.
+
+**2. Square to Reel showed the subtitles twice.** `src.clone()` copies the
+square's CAPTION track, and the nested square renders its own captions through
+the nest — so both appeared. Caption tracks are not scriptable (26.3:
+`seq.captionTracks` is undefined, a selected cue reports zero components), so
+deleting the copy was not reliably available. Fixed at the source instead:
+`ochaReelBase()` now builds the reel with `createNewSequenceFromClips`, a
+BRAND NEW sequence matched to the square that has no caption track to inherit.
+The clone path stays as a fallback, with `ochaClearCaptions()` as best effort,
+and it REPORTS which path ran — so the first real run tells us the truth
+instead of us guessing a second time. `ochaResizeSeq` now takes an explicit
+width, so the reel's size no longer depends on the base sequence's own.
+
+**3 + 4. Track placement.** The gradient exists to sit UNDER the text it makes
+readable, but everything was inserted one-past-the-top. `ochaTrackTries()` now
+resolves `"bottom"` to the lowest FREE track upward, `"top"` as before, and a
+numeric preference to that exact track. A "Track" picker sits under Add to
+timeline, defaulting to Automatic (graphics on top, gradient underneath).
+
+**5. Tidy project.** `ochaTidyProject()` sorts loose root-level media into
+`01 Footage / 02 Images / 03 Graphics / 04 Audio / 05 Other`, reusing the
+packager's `ochaPkgCategory()` so a tidied project and a packaged one group
+identically. Deliberately conservative: sequences never move (they are what you
+open), OCHA templates stay put, anything already in a bin is the user's own
+filing, nothing is renamed or deleted. It snapshots the root list before
+creating bins — mutating the collection mid-iteration silently skips items.
+
+**6. Reset position acted like an undo.** It wrote the frame CENTRE, which is
+right for Motion but wrong for our templates, whose default is the designed
+edge — a left-anchored lower third belongs at the safe margin. `ochaResetPos()`
+asks the MOGRT parameter for its own default (`getDefaultValue()` /
+`.defaultValue`) and writes that, falling back to Motion's genuine centre
+default for older clips. Both axes reset together: a designed position is a
+point, not two independent numbers.
+
+**7. Vignette.** Built as an ordinary OCHA element, not a Toolbox one-off, so
+it inherits the track picker and the size/position binder for free. In AE:
+a black solid with an INVERTED elliptical mask (radii and feather are fractions
+of the comp, and the comp is built per format) — "adapts to the sequence size"
+therefore falls out of construction, with no runtime scaling. Controls are
+Amount (opacity) and Size (0-100 with 50 = as designed, driving Mask
+Expansion — MOGRT sliders clamp to 0-100, a constraint already learned on the
+position sliders). Defaults to the TOP track: it darkens the picture, so it
+must sit above the footage — the exact opposite of the gradient.
+
+**Colour, from the earlier incident.** `ochaColorStatus()` (read-only, safe to
+poll) drives a BANNER — not a modal — when the active sequence isn't Rec. 709;
+the panel re-checks every 2.5s and on every sequence switch, so a modal would
+pop up again and again and steal focus mid-edit. `ochaFixColor()` picks Rec. 709
+out of the sequence's OWN `workingColorSpaceList` (never constructs a
+ColorSpace), sets `autoToneMapEnabled`, and AUDITS the write: snapshot all 27
+fields before and after, and report any field that moved besides the two we
+meant to touch. Given what a blind `setSettings` is suspected of doing to a
+project once, an unaudited write was not acceptable.
+
+**Two silent no-op patches nearly shipped a dead panel.** The `TOOLS.fixcolor`
+entry and its Toolbox tile were both written with string-replace patches whose
+anchors never matched — the replace silently did nothing while the surrounding
+work reported success. The event listener DID land, so `$("tool-fixcolor")`
+resolved to null at load and threw, killing every listener registered after it:
+the whole panel would have been inert. Caught by two checks that are now worth
+keeping as a habit: every `$("id")` in main.js must exist in index.html, and
+every `ocha*()` called from the panel must be defined in host.jsx. **Rule: a
+patch that reports success is not evidence the edit landed — grep for the new
+symbol afterwards.**
+
+## 2026-07-28 — Text on screen becomes its own step, with unlimited blocks (web app)
+
+Javi: "make the text on screen section a separate section like location or bug
+... could go before ending so that would be number 6 and ending becomes number
+7. Also allow the user to add unlimited text on screen chunks. This should work
+the same way in both editing and branding tabs."
+
+**Own step.** Text on screen was a sub-block tucked inside step 1 ("Your
+video") on the Titles tab, which put a creative decision in the middle of file
+picking. It is now step 6, directly before the ending, and Ending is step 7. On
+the Edit tab it moved to the same place in the branding card — after Location,
+before Ending — so the two tabs read in the same order.
+
+**Unlimited blocks.** It was one on/off block, so a video could carry exactly
+one text card no matter how many moments needed one. `texton.js` is now the
+same card model `location.js` uses — add, fill, remove, auto-numbered by a CSS
+counter — and the mount contract changed from eight element IDs to
+`{rows, add, onChange}`, matching the location strip.
+
+**The engine needed no change at all.** `social_brand.py` has always looped
+over `spec["texts"]`; the cap was purely the UI's.
+
+**CORRECTION, same day — I first left `VERSION` at 2026.0.25** on the reasoning
+that no Python changed and a bump would prompt a pointless engine update. That
+was wrong, and Javi found it immediately: he reloaded the app and saw none of
+this. The installed app does not run from the repo — it lives in
+`~/Library/Application Support/OCHA QuickVid/app`, a full snapshot of GitHub
+`main`, and the launcher only re-downloads it when the remote `VERSION` is
+strictly HIGHER (`sort -V`, see `OCHA QuickVid.command`). **`VERSION` is the
+delivery trigger for the whole install, `browser/` included** — so a UI-only
+change with no bump reaches nobody running the installed app, ever. Bumped to
+2026.0.26 with `ENGINE_LATEST` to match.
+
+**RULE: any change under `browser/` needs a `VERSION` bump**, exactly like an
+engine change. "No Python changed" is not a reason to skip it. The only thing
+that ships without one is the GitHub Pages copy, which serves `browser/`
+straight from the repo — and that is not what Javi (or any colleague with the
+engine installed) is looking at.
+
+**Three lines per block stays.** That is the template's design (the AE comp has
+three text layers), not an arbitrary limit — a fourth line is a second block.
+
+**mm:ss instead of raw seconds.** The old block used number inputs ("Starts at
+1 s"); the cards use the same mm:ss field with spinners as the lower thirds and
+location strips. A text block at 1:35 into a long video is now typed the way it
+reads on the timeline, and all three multi-card components now behave
+identically.
+
+**Legacy projects still open.** `restore()` accepts the new list, a legacy
+single `{on, lines, …}` object, or nothing — an `on:false` legacy block
+restores as no cards, which is what it looked like on screen.
+
+**"Bug" is now "OCHA logo" everywhere the user reads it** (both tabs, help
+panels, the FAQ). "Bug" is broadcast jargon; nobody outside a gallery knows it
+means the corner watermark. The engine key stays `bug` — renaming the API would
+break saved projects for a label change.
+
+Verified in the browser: both tabs list the steps in the new order, a two-block
+project restores with 00:12 / 01:35 in the time fields, Add creates a third,
+Remove renumbers, collect() returns all blocks with their own timings, a legacy
+single-object project opens, and the Edit tab mounts the same component.
+
+## 2026-07-28 — Middle gradient gains a half-width "cloud" (2026.0.43, same build)
+
+Javi: "can we add an option on the readability gradient to have a half gradient
+on the medium? ... full width, left half, right half. The left and right halves
+would be more like a gradient 'cloud'. edges are feather inside darker."
+
+**Why a separate layer and not a third Linear Wipe.** The Middle band is built
+from two Linear Wipes, so a third one clipping the band horizontally is the
+obvious move — and wrong twice over. A wipe can only produce a STRAIGHT
+feathered edge, where the ask was explicitly a cloud (soft all round, darkest in
+the middle). And the wipe angle mapping is the one thing in this builder that
+has already been measured backwards once ("angle 0 left the scrim at the TOP,
+not the bottom"), so guessing that 90/270 map to right/left would have been a
+coin flip that costs an AE rebuild to discover.
+
+Instead: a second black solid ("Cloud") with a feathered ELLIPTICAL MASK, whose
+geometry is fully under our control. The mask is baked at the comp centre and
+the LAYER slides a quarter-frame either way, so ONE shape serves both halves and
+there is no left/right geometry to get backwards. Exactly one of the two layers
+is ever visible — the full-width band's opacity drops to 0 whenever a half is
+chosen — so they can never stack into a double-dark patch.
+
+**Controls.** Two checkboxes, "Middle left" and "Middle right"; neither ticked =
+full width. Both are gated on `mid && !fs` in the template, so they are inert
+under Bottom/Top/Full screen no matter what is sent.
+
+**UI.** A choice that only exists inside another choice needs to look like it,
+so Middle width is its own boxed, indented mini section that appears only when
+Middle is the active position — inline it read as a fifth position. The panel
+sends both booleans false for any non-Middle position, so an old clip edited
+into a new position can never keep a stale cloud.
+
+**Numbers** live in `make_assets.py` with the rest of the gradient:
+`cloud_rx_frac` 0.34 / `cloud_ry_frac` 0.30 / `cloud_feather_frac` 0.14, all
+fractions of the frame, so the cloud is proportional in every format.
+
+**A silent no-op patch again — second time in two days.** The `setMidUI()` call
+inside the segmented-control handler was written with a string-replace whose
+anchor had 8 spaces of indent where the file has 6. It reported success and did
+nothing, and the surrounding asserts passed because the OTHER replacements in
+the same patch landed. Caught only by reading the handler back. **Rule, now
+earned twice: use an anchored editor that FAILS on no-match for edits into
+existing code; if a scripted replace is unavoidable, assert on the new text at
+its destination, not merely on its presence somewhere in the file.**

@@ -277,6 +277,35 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
 .loc-row + .loc-row { margin-top: 0.6rem; }
 #t-loc-rows:not(:empty) + #t-loc-add, #st-loc-rows:not(:empty) + #st-loc-add { margin-top: 0.6rem; }
 
+/* Text-on-screen cards — the same card model as the location strip (add, fill,
+   remove, auto-numbered), so the two read as one pattern. The meta row reuses
+   .loc-meta / .loc-cell wholesale; only the card shell and the line inputs are
+   text-specific. */
+#t-tx-rows, #st-tx-rows { counter-reset: tx; margin-top: 0.3rem; }
+.tx-row {
+  display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;
+  counter-increment: tx;
+  border: 1px solid var(--input-border); border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ocha-cyan) 3%, var(--card));
+  padding: 0.7rem 0.75rem;
+}
+.tx-row::before {
+  content: "Text " counter(tx);
+  flex: 1 1 100%;
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--ocha-blue-dark); margin-bottom: 0.1rem;
+}
+.tx-row + .tx-row { margin-top: 0.6rem; }
+#t-tx-rows:not(:empty) + #t-tx-add, #st-tx-rows:not(:empty) + #st-tx-add { margin-top: 0.6rem; }
+/* the three lines stack: they ARE stacked on screen, so the field order shows it */
+.tx-fields { flex: 1 1 100%; display: flex; flex-direction: column; gap: 0.35rem; }
+.tx-fields .cd-form__input { font-weight: 400; width: 100%; }
+.tx-remove { flex: none; width: auto; align-self: flex-end; margin-inline-start: auto; }
+.tx-remove:hover, .tx-remove:focus-visible {
+  color: var(--err); border-color: var(--err);
+  background: color-mix(in srgb, var(--err) 8%, var(--card));
+}
+
 .loc-fields { flex: 1 1 100%; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 /* id-scoped twin overrides #st-card-brand's `flex: 1 1 11rem` on labels in the Edit tab */
 .loc-fields label, #st-card-brand .loc-fields label {
