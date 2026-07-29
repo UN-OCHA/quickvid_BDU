@@ -85,7 +85,7 @@ async function stUseSource(path, opts = {}) {
   const p = ST.probe;
   const info = $st("#st-src-info");
   info.hidden = false;
-  info.innerHTML = `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> <strong>${esc(path.split("/").pop())}</strong> · ${p.width}×${p.height} · ${mmss(p.duration)}`;
+  info.innerHTML = `<i class="fa-regular fa-circle-check" aria-hidden="true"></i> <strong>${esc(path.split("/").pop())}</strong> · ${p.width}×${p.height} · ${mmss(p.duration)}`;
   stStatus("");
   st4kSync();                                    // source dims known → enable/disable 4K
   stInitSync();
@@ -156,7 +156,7 @@ $st("#st-folder-pick").onclick = async () => {
     ST.jobDir = path.replace(/[\/\\]+$/, "") + "/" + stSafeName(name);
     OchaFolder.mark($st("#st-folder"), false);               // requirement satisfied
     $st("#st-folder-path").innerHTML =
-      `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Project folder: <strong>${esc(ST.jobDir)}</strong> — download, final clip, thumbnail and the project file all live here.` + stOpenBtn("st-open-dir1");
+      `<i class="fa-regular fa-circle-check" aria-hidden="true"></i> Project folder: <strong>${esc(ST.jobDir)}</strong> — download, final clip, thumbnail and the project file all live here.` + stOpenBtn("st-open-dir1");
     $st("#st-open-dir1").onclick = () => stOpenFolder(ST.jobDir);
     stSave();                                                // creates the folder + first autosave
     try {                                                    // same-named project already there? offer to reopen it
@@ -178,7 +178,7 @@ $st("#st-open-proj").onclick = async () => {
       ST.jobDir = dir;
       OchaFolder.mark($st("#st-folder"), false);             // reopening a project satisfies it too
       $st("#st-folder-path").innerHTML =
-        `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Reopened from <strong>${esc(dir)}</strong> — edits save back here.` + stOpenBtn("st-open-dir2");
+        `<i class="fa-regular fa-circle-check" aria-hidden="true"></i> Reopened from <strong>${esc(dir)}</strong> — edits save back here.` + stOpenBtn("st-open-dir2");
       $st("#st-open-dir2").onclick = () => stOpenFolder(ST.jobDir);
     }
     stSave();
@@ -716,7 +716,7 @@ $st("#st-render").onclick = async () => {
     if (j.result && j.result.export) {
       saved.hidden = false;
       saved.querySelector(".cd-alert__message").innerHTML =
-        `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Saved to <strong>${esc(j.result.export)}</strong> (in the job's <code>export/</code> folder). ` +
+        `<i class="fa-regular fa-circle-check" aria-hidden="true"></i> Saved to <strong>${esc(j.result.export)}</strong> (in the job's <code>export/</code> folder). ` +
         `<button type="button" class="cd-button cd-button--outline cd-button--small" id="st-open-export"><span class="cd-button__text">Open folder</span></button>`;
       $st("#st-open-export").onclick = () => stOpenFolder(ST.jobDir);
     } else { saved.hidden = true; }
@@ -999,7 +999,7 @@ function stRestore(p) {
     ST.jobDir = p.jobDir || null;
     if (ST.jobDir) {
       $st("#st-folder-path").innerHTML =
-        `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Saving to <strong>${esc(ST.jobDir)}</strong>.` + stOpenBtn("st-open-dir3");
+        `<i class="fa-regular fa-circle-check" aria-hidden="true"></i> Saving to <strong>${esc(ST.jobDir)}</strong>.` + stOpenBtn("st-open-dir3");
       $st("#st-open-dir3").onclick = () => stOpenFolder(ST.jobDir);
     }
     ST.src = p.src || null; ST.probe = p.probe || null; ST.offset = p.offset || 0;
@@ -1033,7 +1033,7 @@ function stRestore(p) {
     $st("#st-zoom-close").value = Math.round((ST.framing.close.zoom || 1.5) * 100);
     if (ST.src && ST.probe) {
       const info = $st("#st-src-info"); info.hidden = false;
-      info.innerHTML = `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> <strong>${esc(ST.src.split("/").pop())}</strong> · ${ST.probe.width}×${ST.probe.height} · ${mmss(ST.probe.duration)}`;
+      info.innerHTML = `<i class="fa-regular fa-circle-check" aria-hidden="true"></i> <strong>${esc(ST.src.split("/").pop())}</strong> · ${ST.probe.width}×${ST.probe.height} · ${mmss(ST.probe.duration)}`;
       $st("#st-card-sync").hidden = false;
       st4kSync();                                    // source dims known → enable/disable 4K
   stInitSync();

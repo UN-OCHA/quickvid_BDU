@@ -37,7 +37,7 @@ async function tbPick() {
     const p = TB.probe;
     const info = $("#tb-src-info");
     info.hidden = false;
-    info.innerHTML = `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> <strong>${esc(path.split(/[\\/]/).pop())}</strong>`
+    info.innerHTML = `<i class="fa-regular fa-circle-check" aria-hidden="true"></i> <strong>${esc(path.split(/[\\/]/).pop())}</strong>`
       + ` · ${p.width}×${p.height} · ${fmtMMSS(p.duration)}` + (p.bytes ? ` · ${tbMB(p.bytes)}` : "");
     $("#tb-drop-text").textContent = path.split(/[\\/]/).pop();
     $("#tb-drop").classList.add("has-file");
@@ -87,7 +87,7 @@ $("#tb-run").onclick = async () => {
       ? `<strong>${tbMB(res.in_bytes)} → ${tbMB(res.out_bytes)}</strong> — ${saved}% smaller.`
       : `<strong>${tbMB(res.in_bytes)} → ${tbMB(res.out_bytes)}</strong> — this file was already efficiently compressed.`;
     $("#tb-done-msg").innerHTML =
-      `<p><i class="fa-solid fa-circle-check" aria-hidden="true"></i> ${headline}<br>` +
+      `<p><i class="fa-regular fa-circle-check" aria-hidden="true"></i> ${headline}<br>` +
       `Saved next to the original: <strong>${esc(res.path || "")}</strong> ` +
       `<button type="button" class="cd-button cd-button--outline cd-button--small" id="tb-open"><span class="cd-button__text">Open folder</span></button></p>`;
     $("#tb-done").hidden = false;

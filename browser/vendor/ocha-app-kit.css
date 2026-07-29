@@ -500,7 +500,7 @@ textarea.cd-form__input { resize: vertical; }
 /* ===== Step help (?) ===== */
 /* A round ? button in a step title that toggles a plain-language explainer panel.
    Markup: <button class="cd-help__btn" aria-expanded="false" aria-controls="help-x"
-             aria-label="Help for this step"><i class="fa-solid fa-question"></i></button>
+             aria-label="Help for this step"><i class="fa-regular fa-question"></i></button>
            <div class="cd-help__panel" id="help-x" hidden>…</div>
    Toggle JS lives in each app (3 lines, delegated click). */
 .cd-help__btn {

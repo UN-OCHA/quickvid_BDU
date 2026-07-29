@@ -35,7 +35,7 @@ const ENGINE_MIN = "0.5.0";
 // corrected from the repo's VERSION file at load — see trackLatestVersion below.
 // It used to be hardcoded only, which meant the banner quietly went stale every
 // release: it was still advertising 0.6.3 while main had moved on to 0.7.0.
-let ENGINE_LATEST = "2026.0.28";
+let ENGINE_LATEST = "2026.0.29";
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
@@ -101,10 +101,10 @@ function gate() {
   const el = $("#mode-chip");
   el.className = "mode-chip " + (up ? "mode-chip--full" : "mode-chip--browser");
   el.innerHTML = up
-    ? `<i class="fa-solid fa-bolt" aria-hidden="true"></i> Engine connected · v${esc(ver || "")}`
+    ? `<i class="fa-regular fa-bolt" aria-hidden="true"></i> Engine connected · v${esc(ver || "")}`
     : outdated
-      ? `<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Engine v${esc(ver)} — update needed`
-      : '<i class="fa-solid fa-plug" aria-hidden="true"></i> Engine not running — set up below';
+      ? `<i class="fa-regular fa-triangle-exclamation" aria-hidden="true"></i> Engine v${esc(ver)} — update needed`
+      : '<i class="fa-regular fa-plug" aria-hidden="true"></i> Engine not running — set up below';
   // soft, dismissible "update available" banner — only when UP and behind ENGINE_LATEST
   const banner = $("#st-update-banner");
   if (up && !state._updDismissed && cmpVer(ver, ENGINE_LATEST) < 0) {
@@ -213,7 +213,7 @@ if (ftPick) ftPick.onclick = async () => {
     if (!path) return;
     state.jobDir = path.replace(/[\/\\]+$/, "") + "/" + ftSafeName(name);
     $("#f-folder-path").innerHTML =
-      `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Job folder: <strong>${esc(state.jobDir)}</strong> — the finished video lands in its <code>export/</code> folder, and your settings autosave here.`;
+      `<i class="fa-regular fa-circle-check" aria-hidden="true"></i> Job folder: <strong>${esc(state.jobDir)}</strong> — the finished video lands in its <code>export/</code> folder, and your settings autosave here.`;
     setStatus("");
     ftFolderMissing(false);                           // requirement satisfied
     // Same-named job already there? Offer to pick up where it left off.

@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "2026.0.42";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "2026.0.44";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -94,6 +94,8 @@ async function refresh() {
     chip.className = "chip";
     return;
   }
+  checkColor();                                  // same tick as the format chip
+  refreshTracks();
   curFmt = parts[2];
   chip.textContent = `${parts[0]}×${parts[1]} · ${parts[3]}`;
   chip.className = "chip is-ok";
@@ -105,6 +107,45 @@ async function refresh() {
     curW = w; curH = h;
     setAdjRanges();
     if (!adjEditClip) resetAdjust();
+  }
+}
+
+/* ---------- track picker ----------
+   "" = automatic: the host puts graphics on the top track and the readability
+   gradient on the lowest FREE one, so the scrim sits under the text it exists to
+   make readable. A chosen value is a 0-based track index. */
+const trackPref = () => ($("track-pick") || {}).value || "";
+let trackListSig = "";
+async function refreshTracks() {
+  const sel = $("track-pick");
+  if (!sel) return;
+  const res = await jsx("ochaTrackList()") || "none";
+  const p = res.split("|");
+  if (p[0] !== "OK") return;
+  if (res === trackListSig) return;                 // unchanged - don't clobber the choice
+  trackListSig = res;
+  const names = (p[2] || "").split(",").filter(Boolean);
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">Automatic</option>'
+    + names.map((n, i) => `<option value="${i}">${esc(n)}</option>`).reverse().join("");
+  sel.value = names[+keep] !== undefined ? keep : "";   // keep the choice if it still exists
+}
+
+/* ---------- sequence colour watch ----------
+   Reading settings is safe (only the blind WRITE-back is dangerous), so the
+   panel can poll this alongside the format chip. Shows a banner - never a
+   modal - because this re-runs every 2.5s and on every sequence switch. */
+async function checkColor() {
+  const banner = $("color-banner");
+  if (!banner) return;
+  const res = await jsx("ochaColorStatus()") || "none";
+  const p = res.split("|");
+  if (p[0] !== "OK") { banner.hidden = true; return; }
+  const ok = p[3] === "1";
+  banner.hidden = ok;
+  if (!ok) {
+    $("color-banner-msg").innerHTML =
+      `This sequence is <strong>${esc(p[4] || "not Rec. 709")}</strong>, not Rec. 709 — it will export washed out.`;
   }
 }
 
@@ -188,7 +229,10 @@ function openExternal(url) {
    button + modal rather than riding along with the Text CTA — Text, Captions and the
    Toolbox all reach the same one. `pos` is bottom | top | full. */
 function addGradient(pos, opacity) {
-  try { Analytics.ping("gradient:" + pos); } catch (e) {}
+  // "middle-left" / "middle-right" in analytics: the half is a real usage signal,
+  // not a variant of plain middle.
+  const half = pos === "middle" ? gradHalf() : "full";
+  try { Analytics.ping("gradient:" + pos + (half === "full" ? "" : "-" + half)); } catch (e) {}
   // NO INVERSION HERE — send "Top" to mean top. This flipped twice, so the
   // arithmetic, once: the template's expression is
   //     Top > 0 ? 0 : 180        (Linear Wipe clears the side the angle points AWAY from)
@@ -197,15 +241,40 @@ function addGradient(pos, opacity) {
   // expression was fixed; once they were rebuilt the inversion became a double
   // negative and "Top" started producing a bottom gradient. If it ever looks swapped
   // again, the templates are stale — rebuild them, don't flip this.
+  // The halves are only meaningful under Middle, and the template reads them that
+  // way too (its expression gates on `mid`) - but send them false anywhere else
+  // so an old clip edited into a new position can never keep a stale cloud.
   const kv = ["Top" + US + (pos === "top" ? "true" : "false"),
               "Middle" + US + (pos === "middle" ? "true" : "false"),
+              "Middle left" + US + (half === "left" ? "true" : "false"),
+              "Middle right" + US + (half === "right" ? "true" : "false"),
               "Full screen" + US + (pos === "full" ? "true" : "false"),
               "Opacity" + US + (opacity == null ? 80 : opacity)].join(RS);
-  return jsx(`ochaAdd("gradient",${lit(curFmt)},${lit(EXT_ROOT)},${lit(kv)})`).then((r) => r || "");
+  // gradient defaults to "bottom" in the host, so an empty pref still lands low
+  return jsx(`ochaAdd("gradient",${lit(curFmt)},${lit(EXT_ROOT)},${lit(kv)},${lit(trackPref())})`).then((r) => r || "");
+}
+// The vignette is an ordinary OCHA element, so it rides the same add path as the
+// rest - which is also how it inherits the track picker and the size/position
+// binder for free. It goes on TOP by default: it darkens the picture, so it has
+// to sit above the footage (the readability gradient is the opposite case).
+function addVignette(amount) {
+  const kv = ["Amount" + US + (amount == null ? 55 : amount),
+              "Size" + US + 50].join(RS);
+  return jsx(`ochaAdd("vignette",${lit(curFmt)},${lit(EXT_ROOT)},${lit(kv)},${lit(trackPref())})`)
+    .then((r) => r || "");
 }
 function gradPos() {
   const g = document.querySelector("#grad-pos .seg__opt.is-active");
   return (g && g.dataset.pos) || "bottom";
+}
+function gradHalf() {
+  const g = document.querySelector("#grad-mid-w .seg__opt.is-active");
+  return (g && g.dataset.half) || "full";
+}
+// The Middle sub-section only exists while Middle is the chosen position.
+function setMidUI() {
+  const box = $("grad-mid");
+  if (box) box.hidden = gradPos() !== "middle";
 }
 function gradOpacity() { return clampNum($("grad-op-n").value, 80); }
 
@@ -223,7 +292,7 @@ async function addElement() {
   btn.disabled = true;
   show("Adding…", "ok");
   try {
-    const call = `ochaAdd(${lit(curEl)},${lit(curFmt)},${lit(EXT_ROOT)},${lit(collectValues())})`;
+    const call = `ochaAdd(${lit(curEl)},${lit(curFmt)},${lit(EXT_ROOT)},${lit(collectValues())},${lit(trackPref())})`;
     const res = await jsx(call) || "";
     if (res.indexOf("OK|") === 0) {
       try { Analytics.ping("add:" + curEl + ":" + (curFmt || "?")); } catch (e) {}
@@ -284,9 +353,26 @@ function resetAdjust() {
   });
 }
 // reset a single value to the frame centre; in edit mode this writes live too
-function resetOne(sId, nId, axis) {
-  $(sId).value = adjCentre(axis); $(nId).value = adjCentre(axis);
-  adjLiveWrite();   // no-op in placement mode; pushes to the bound clip in edit mode
+// Reset = back to the TEMPLATE's designed spot (host reads the parameter's own
+// default), NOT the frame centre - which is what made this behave like a
+// one-step undo. With nothing bound there is no clip to ask, so the sliders just
+// return to the format centre as a neutral starting point for the next Add.
+async function resetOne(sId, nId, axis) {
+  if (!adjEditClip) {
+    $(sId).value = adjCentre(axis); $(nId).value = adjCentre(axis);
+    return;
+  }
+  const res = await jsx("ochaResetPos()") || "";
+  if (res.indexOf("OK|") !== 0) {
+    show(res.replace(/^ERR\|/, "") || "Couldn't reset the position.", "warn");
+    return;
+  }
+  const [, x, y] = res.split("|");
+  // BOTH axes go home together: the designed position is a point, not two
+  // independent numbers, so resetting one alone would leave the element skewed.
+  $("adj-x").value = $("adj-x-n").value = clampPos(x, "w");
+  $("adj-y").value = $("adj-y-n").value = clampPos(y, "h");
+  show("Back to the template's default position.", "ok");
 }
 linkPair("grad-op", "grad-op-n");     // gradient fade slider <-> number
 ADJ_PAIRS.forEach(([sId, nId, axis, rId, decId, incId]) => {
@@ -507,11 +593,12 @@ function selectEl(el, fromClip) {
 document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => selectEl(c.dataset.el)));
 
 // segmented controls (pin colour, text-gradient) — one active option each
-["#pin-colour", "#grad-pos"].forEach((sel) => {
+["#pin-colour", "#grad-pos", "#grad-mid-w"].forEach((sel) => {
   document.querySelectorAll(sel + " .seg__opt").forEach((b) => {
     b.addEventListener("click", () => {
       document.querySelectorAll(sel + " .seg__opt").forEach((q) => q.classList.toggle("is-active", q === b));
       if (sel === "#pin-colour") textEdited();          // not an <input> — bind it by hand
+      if (sel === "#grad-pos") setMidUI();              // Middle reveals its own width row
     });
   });
 });
@@ -540,6 +627,100 @@ document.querySelectorAll(".tab").forEach((t) => {
    call (read-only — the live status line, may carry a trailing "|<count>"), and
    an `action` call (mutates the project). Count-gated tools disable the CTA when
    there's nothing to do. */
+/* ---------- packaged-project template relink ----------
+   The packager copies the .prproj as a plain file, so nothing is relinked yet.
+   A .prproj is gzipped XML with the media paths in it as text, and CEP gives us
+   Node + zlib — so every path is rewritten here. Doing it as text is also what
+   lets MOGRTs relink at all: Premiere's changeMediaPath refuses templates outright
+   (measured — canChangeMediaPath returns false for every one), and this never asks it.
+
+   Only ever touches the COPY inside the package; the project you are working in is
+   never opened or modified. A .bak is written first and restored if the result
+   doesn't verify, so a failed rewrite leaves a working project, not a broken one. */
+async function relinkPackagedProject(fixFile) {
+  try {
+    const fs = require("fs"), zlib = require("zlib"), path = require("path");
+    if (!fs.existsSync(fixFile)) return "";
+    // tolerate CR, LF or CRLF - ExtendScript's File writes Mac line endings by default
+    const lines = fs.readFileSync(fixFile, "utf8").split(/\r\n|\r|\n/).filter(Boolean);
+    try { fs.unlinkSync(fixFile); } catch (e) {}
+    const proj = lines.shift();
+    const pairs = lines.map((l) => l.split("\t")).filter((p) => p.length === 2);
+    if (!proj || !pairs.length || !fs.existsSync(proj)) return "";
+
+    const raw = fs.readFileSync(proj);
+    let xml, gz = false;
+    try { xml = zlib.gunzipSync(raw).toString("utf8"); gz = true; }
+    catch (e) { xml = raw.toString("utf8"); }        // Premiere can save uncompressed
+
+    const bak = proj + ".bak";
+    fs.writeFileSync(bak, raw);
+
+    // A path can appear plain, percent-encoded, or XML-escaped depending on the
+    // element it sits in, and the API may hand it to us in any of those forms.
+    // Generate every spelling of BOTH sides and swap like for like.
+    const forms = (p) => {
+      const out = [];
+      const dec = (() => { try { return decodeURI(p); } catch (e) { return p; } })();
+      const enc = (() => { try { return encodeURI(dec); } catch (e) { return dec; } })();
+      const esc = (x) => x.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      for (const v of [p, dec, enc, esc(dec)]) if (v && out.indexOf(v) === -1) out.push(v);
+      return out;
+    };
+    let hits = 0;
+    for (const [oldP, newP] of pairs) {
+      const from = forms(oldP), to = forms(newP);
+      for (let i = 0; i < from.length; i++) {
+        const b = to[i] !== undefined ? to[i] : to[0];
+        const parts = xml.split(from[i]);
+        if (parts.length > 1) { hits += parts.length - 1; xml = parts.join(b); }
+      }
+    }
+    if (!hits) {
+      try { fs.unlinkSync(bak); } catch (e) {}
+      // Nothing matched, which should be impossible - leave the evidence next to
+      // the package rather than a silent no-op.
+      try {
+        const diag = [
+          "Relink found 0 matches. What the project asked for vs what is in the .prproj:",
+          "", "PAIRS (first 5):",
+          ...pairs.slice(0, 5).map(([a, b]) => "  FROM " + a + "\n    TO " + b),
+          "", "SAMPLE PATHS FOUND INSIDE THE PROJECT FILE (first 5):",
+          ...(xml.match(/<(?:FilePath|ActualMediaFilePath)>[^<]*<\/(?:FilePath|ActualMediaFilePath)>/g) || [])
+              .slice(0, 5).map((m) => "  " + m),
+        ].join("\n");
+        fs.writeFileSync(path.join(path.dirname(proj), "_relink_diagnostic.txt"), diag, "utf8");
+      } catch (e) {}
+      return " Could not relink the copy — nothing matched. See _relink_diagnostic.txt in the package.";
+    }
+
+    fs.writeFileSync(proj, gz ? zlib.gzipSync(Buffer.from(xml, "utf8")) : Buffer.from(xml, "utf8"));
+
+    // VERIFY by reading it back the way Premiere would: it must still decompress,
+    // and none of the old paths may survive. Anything less and we put the .bak back.
+    let check;
+    try {
+      const re = fs.readFileSync(proj);
+      check = gz ? zlib.gunzipSync(re).toString("utf8") : re.toString("utf8");
+    } catch (e) { check = null; }
+    // Reuse forms() — an earlier cut called a helper (enc) that the rewrite had
+    // already replaced, so verification threw AFTER the file was written: the
+    // relink had actually worked and the tool reported an error.
+    const stale = check
+      ? pairs.filter(([oldP]) => forms(oldP).some((v) => check.indexOf(v) !== -1)).length
+      : 1;
+    if (!check || stale) {
+      fs.copyFileSync(bak, proj);
+      try { fs.unlinkSync(bak); } catch (e) {}
+      return " Relinking was reverted (the rewritten project didn't verify) — the package still points at the originals.";
+    }
+    try { fs.unlinkSync(bak); } catch (e) {}
+    return ` Relinked ${pairs.length} file(s) inside the package (${hits} reference(s) rewritten) — it opens self-contained.`;
+  } catch (e) {
+    return " Couldn't relink the packaged project: " + e.message + ".";
+  }
+}
+
 const TOOLS = {
   reel: {
     title: "Square → Reel",
@@ -549,16 +730,36 @@ const TOOLS = {
     info: "ochaReelInfo()",
     action: "ochaSquareToReel()",
     cta: () => "Create reel",
-    working: "Building the reel on a clone…",
+    working: "Building the reel…",
+    // The host returns a clean headline plus a diagnostic trail. Show the
+    // headline; only surface the trail when something in it actually went wrong,
+    // so a normal run reads like a sentence and a bad one is still debuggable.
+    done: (r) => {
+      const s = String(r).replace(/^OK\|/, "");
+      const hit = s.match(/Reel '([^']+)' (\d+x\d+)/);
+      let msg = hit
+        ? `Reel <strong>${esc(hit[1])}</strong> created at ${esc(hit[2])} — your square sequence is untouched.`
+        : esc(s);
+      if (/captions=not-scriptable/.test(s)) {
+        msg += " <em>Premiere wouldn't let the script remove the copied caption track — if you see the subtitles twice, delete the caption track on the reel (the nested square already carries them).</em>";
+      }
+      if (/ERR|FAILED|missing/.test(s)) msg += ` <em>${esc(s)}</em>`;
+      return msg;
+    },
   },
   package: {
     title: "Package project",
     explain: "<ul><li>Copies <strong>every file this project uses</strong> — footage, images, graphics, audio — into one folder, sorted by type.</li>"
       + "<li>Saves a <strong>relinked copy</strong> of the project, and bundles the OCHA branding templates.</li>"
       + "<li>Your original project and files stay put.</li></ul>"
-      + "<p class=\"modal-hint\">MOGRTs can't be relinked by script — if a template shows offline, run <strong>File &gt; Project Manager</strong>.</p>",
+      + "<p class=\"modal-hint\">Your open project is never touched — Premiere stays exactly where it is.</p>",
     info: "ochaPackageInfo()",
-    action: "ochaPackageProject()",
+    action: async () => {
+      const res = await jsx("ochaPackageProject()") || "";
+      const m = res.match(/\|fix=(.+)$/);
+      if (!m) return res;
+      return res.replace(/\|fix=.+$/, "") + await relinkPackagedProject(m[1].trim());
+    },
     cta: (n) => (n > 0 ? `Package ${n} file${n === 1 ? "" : "s"}` : "Nothing to package"),
     countGated: true,
     once: true,                                       // done once → show the result, not the CTA again
@@ -569,7 +770,8 @@ const TOOLS = {
     explain: "<ul><li>A soft <strong>black gradient</strong> on its own track, so white text stays legible over busy footage.</li>"
       + "<li>Goes in as a <strong>separate clip</strong> — put it on a track <strong>below</strong> your text or captions.</li>"
       + "<li>For <strong>OCHA Clean</strong> captions, keep <strong>Bottom</strong>.</li>"
-      + "<li><strong>Middle</strong> = a soft band across the centre (feather – dark – feather) for captions or text that sit mid-frame.</li></ul>",
+      + "<li><strong>Middle</strong> = a soft band across the centre (feather – dark – feather) for captions or text that sit mid-frame.</li>"
+      + "<li>Middle can also cover just the <strong>left or right half</strong> — a soft cloud on that side, for text that doesn't run across the frame.</li></ul>",
     settings: "all",                                  // position + fade
     needsFmt: true,
     ready: "Ready — goes in at the playhead, on its own track.",
@@ -631,6 +833,80 @@ const TOOLS = {
     danger: true,
     working: "Removing unused templates…",
   },
+  fixcolor: {
+    title: "Fix washed-out colour",
+    // Deliberately visual: the two swatches ARE the explanation. Someone hitting
+    // this has just seen flat, milky footage and needs to recognise it, not read
+    // a definition of a transfer function.
+    explain: "<ul><li>Your sequence is using an <strong>HDR / wide-gamut</strong> colour space. Premiere shows those colours <strong>flat and milky</strong> on a normal screen — and exports them that way too.</li>"
+      + "<li>This sets the sequence back to <strong>standard SDR Rec. 709</strong>, what social platforms and UN Web TV expect.</li></ul>"
+      + "<div class=\"cs-swatches\">"
+      + "<span class=\"cs-swatch\"><i style=\"background:linear-gradient(90deg,#6f7d86,#9fb0ba,#cbd6dc)\"></i>Now — washed out</span>"
+      + "<span class=\"cs-swatch\"><i style=\"background:linear-gradient(90deg,#123a55,#0077b8,#c5dfef)\"></i>After — Rec. 709</span>"
+      + "</div>"
+      + "<p class=\"modal-hint\">Only this sequence's settings change. Your footage, clips and edit are untouched, and it's undoable with Cmd/Ctrl+Z.</p>",
+    info: "ochaColorStatus()",
+    action: "ochaFixColor()",
+    cta: (n) => (n > 0 ? "Set to Rec. 709" : "Nothing to fix"),
+    countGated: true,
+    once: true, doneCta: "Set to Rec. 709",
+    working: "Setting the sequence to Rec. 709…",
+    done: (r) => {
+      const p = String(r).split("|");
+      const drift = (String(r).match(/drift=(.*)$/) || [])[1];
+      let msg = p[1] === "already"
+        ? "Already standard Rec. 709 — nothing was changed."
+        : `Done — ${esc(p[2] || "set to Rec. 709")}. Scrub the timeline: the washed-out look should be gone.`;
+      // A blind whole-object setSettings write is what we suspect wrecked a
+      // project's colour once, so the host audits it. Never swallow that.
+      if (drift) msg += ` <em>Note — other settings also moved: ${esc(drift)}</em>`;
+      return msg;
+    },
+  },
+  vignette: {
+    title: "Vignette",
+    explain: "<ul><li>Darkens the <strong>edges and corners</strong> of the frame so the eye goes to the centre — useful over bright or busy footage.</li>"
+      + "<li>Built at your sequence's size, so it looks the same on 9:16, 1:1 and 16:9.</li>"
+      + "<li>Goes in as a <strong>separate clip on the top track</strong> — trim it to the length you want.</li></ul>"
+      + "<p class=\"modal-hint\">Select the clip afterwards to fine-tune Amount and Size in the panel.</p>",
+    settings: "fade",                                 // strength only - no position
+    fadeLabel: "Strength",
+    fadeDefault: 55,
+    needsFmt: true,
+    ready: "Ready — goes in at the playhead, on its own track.",
+    cta: () => "Add vignette",
+    working: "Adding the vignette…",
+    done: (r) => `Vignette added on <strong>${trackOf(r)}</strong>. Trim it to cover the shots you want.`,
+    action: () => addVignette(gradOpacity()),
+  },
+  unused: {
+    title: "Remove unused",
+    explain: "<ul><li>Lists everything in the project that is <strong>on no timeline</strong> — leftovers from versions and trials.</li>"
+      + "<li>Everything is ticked; <strong>untick anything you want to keep</strong>, then remove.</li>"
+      + "<li>Sequences and bins are never listed. Files on disk are not touched — only the project's references.</li></ul>",
+    info: "ochaUnusedList()",
+    list: true,
+    danger: true,
+    cta: (n) => (n > 0 ? `Remove ${n} item${n === 1 ? "" : "s"}` : "Nothing selected"),
+    working: "Removing…",
+    once: true, doneCta: "Removed",
+    action: () => jsx(`ochaUnusedDelete(${lit(listTicked().join(","))})`),
+    done: (r) => String(r).split("|")[2] || "Done.",
+  },
+  tidy: {
+    title: "Tidy the project panel",
+    explain: "<ul><li>Sorts <strong>everything</strong> into <strong>01 Footage / 02 Images / 03 Graphics / 04 Audio / 05 Other</strong>, plus <strong>06 Missing</strong> for offline items.</li>"
+      + "<li><strong>Existing folders are emptied into those</strong> and removed — one layout, however the project was organised before.</li>"
+      + "<li><strong>Sequences never move</strong>, and a folder still holding one is kept.</li>"
+      + "<li>No file on disk is touched — this only moves items inside the Project panel.</li></ul>"
+      + "<p class=\"modal-hint\">Same grouping as Package project, so a tidied project and a packaged one match. Undo with Cmd/Ctrl+Z.</p>",
+    ready: "Ready — sorts whatever is loose at the top level.",
+    cta: () => "Tidy the project",
+    once: true, doneCta: "Tidied",
+    working: "Sorting into bins…",
+    done: (r) => String(r).split("|")[2] || "Done.",
+    action: "ochaTidyProject()",
+  },
 };
 let curTool = null;
 
@@ -660,13 +936,24 @@ function openTool(key) {
   $("modal-title").textContent = cfg.title;
   $("modal-desc").innerHTML = cfg.explain;          // static explanation — always shown
   // per-tool settings: "all" = position + fade, "fade" = fade only (position fixed)
+  $("modal-list").hidden = !cfg.list;              // tick-list tools fill this in loadInfo
   $("modal-settings").hidden = !cfg.settings;
   $("grad-pos").hidden = cfg.settings !== "all";
+  // The fade slider is shared, so each tool names it and sets its own default -
+  // "Fade" for the gradient, "Strength" for the vignette.
+  if (cfg.settings) {
+    $("grad-op-lab").textContent = cfg.fadeLabel || "Fade";
+    const d = cfg.fadeDefault == null ? 80 : cfg.fadeDefault;
+    $("grad-op").value = d; $("grad-op-n").value = d;
+  }
   // Reset the position to Bottom on every open. It's the common case (text and
   // captions both sit low), and a choice left over from last time is a quiet way
   // to end up with the scrim on the wrong edge.
   document.querySelectorAll("#grad-pos .seg__opt").forEach((b) =>
     b.classList.toggle("is-active", b.dataset.pos === "bottom"));
+  document.querySelectorAll("#grad-mid-w .seg__opt").forEach((b) =>
+    b.classList.toggle("is-active", b.dataset.half === "full"));
+  setMidUI();
   modalInfo("Checking the project…", false);        // live status line
   $("modal-result").hidden = true;
   const run = $("modal-run");
@@ -705,6 +992,16 @@ async function loadInfo() {
     run.disabled = !ok;
     return;
   }
+  if (cfg.list) {
+    const names = (parts[2] || "").split(String.fromCharCode(31)).filter(Boolean);
+    modalInfo(ok ? (names.length ? `${names.length} item(s) are in the project but on no timeline.`
+                                 : "Nothing unused — every item is used in a sequence.")
+                 : (res.replace(/^ERR\|/, "") || "Couldn't scan the project."), !ok);
+    $("modal-list").hidden = !names.length;
+    fillList(names);
+    if (!names.length) { run.disabled = true; run.textContent = cfg.cta(0); }
+    return;
+  }
   const status = parts[1] || (ok ? "" : (res.replace(/^ERR\|/, "") || "Couldn't read the project."));
   const count = parts.length > 2 ? parseInt(parts[2], 10) : null;
   modalInfo(status, !ok);
@@ -731,14 +1028,47 @@ async function runToolAction() {
   cancel.disabled = false;
   cancel.textContent = ok ? "Done" : "Close";
   if (ok && cfg.once) {
-    // one-shot tools (Package): don't re-offer the action — just the result + Done.
-    run.hidden = true;
+    // One-shot tools: grey the CTA rather than hide it, so it's obvious the action
+    // ran rather than the button having vanished. Reopening the tool resets it.
+    // Only show a greyed CTA when the tool gives it its own past-tense label.
+    // Without one it read "Done" right next to the Cancel button, which also
+    // becomes "Done" on success - two identical buttons.
+    if (cfg.doneCta) { run.disabled = true; run.textContent = cfg.doneCta; }
+    else { run.hidden = true; }
   } else if (ok) {
     refresh(); loadInfo();             // refresh format chip + re-read counts
   } else {
     run.disabled = false;
   }
 }
+/* Tick-list: every row starts TICKED — the tool's whole point is "remove these",
+   and the user unticks what they want to keep. */
+function fillList(names) {
+  const box = $("modal-list-items");
+  box.innerHTML = names.map((n, i) =>
+    `<label class="modal-list__row"><input type="checkbox" data-i="${i}" checked /><span>${esc(n)}</span></label>`).join("");
+  box.querySelectorAll("input").forEach((c) => c.addEventListener("change", listCount));
+  listCount();
+}
+function listTicked() {
+  return [...$("modal-list-items").querySelectorAll("input:checked")].map((c) => c.dataset.i);
+}
+function listCount() {
+  const n = listTicked().length, all = $("modal-list-items").querySelectorAll("input").length;
+  $("modal-list-count").textContent = `${n} of ${all} selected`;
+  const run = $("modal-run");
+  if (curTool && TOOLS[curTool] && TOOLS[curTool].list) {
+    run.disabled = n === 0;
+    run.textContent = TOOLS[curTool].cta(n);
+  }
+}
+$("modal-list-all").addEventListener("click", () => {
+  $("modal-list-items").querySelectorAll("input").forEach((c) => { c.checked = true; }); listCount();
+});
+$("modal-list-none").addEventListener("click", () => {
+  $("modal-list-items").querySelectorAll("input").forEach((c) => { c.checked = false; }); listCount();
+});
+
 function closeModal() {
   $("tool-modal").hidden = true;
   $("modal-cancel").textContent = "Cancel";
@@ -750,7 +1080,12 @@ $("tool-gradient").addEventListener("click", () => openTool("gradient"));
 $("text-grad-btn").addEventListener("click", () => openTool("gradient"));
 $("tool-package").addEventListener("click", () => openTool("package"));
 $("tool-clean").addEventListener("click", () => openTool("clean"));
-$("tool-webapp").addEventListener("click", () => openTool("webapp"));   // was never wired — the tile did nothing (0.42 fix)
+$("tool-webapp").addEventListener("click", () => openTool("webapp"));
+$("tool-fixcolor").addEventListener("click", () => openTool("fixcolor"));
+$("tool-tidy").addEventListener("click", () => openTool("tidy"));
+$("tool-vignette").addEventListener("click", () => openTool("vignette"));
+$("tool-unused").addEventListener("click", () => openTool("unused"));
+$("color-banner-fix").addEventListener("click", () => openTool("fixcolor"));
 $("modal-run").addEventListener("click", runToolAction);
 $("modal-cancel").addEventListener("click", closeModal);
 $("modal-x").addEventListener("click", closeModal);

@@ -275,7 +275,30 @@ body {
 .opt-check .opt-check__text { min-width: 0; }
 .opt-check em { color: var(--text-tertiary); font-style: italic; }
 
-.seg { display: flex; align-items: center; gap: var(--sp-100); margin: var(--sp-200) 0; }
+/* A sub-choice that only exists inside another one (Middle width, under the
+   gradient's Position). Boxed and indented so it reads as "part of Middle"
+   rather than as another top-level option. */
+.seg-sub {
+  border: 1px solid var(--border-field); border-left: 3px solid var(--accent);
+  border-radius: var(--r-md); background: var(--bg-layer-1);
+  padding: var(--sp-50) var(--sp-150) var(--sp-100);
+  margin: calc(-1 * var(--sp-100)) 0 var(--sp-200) var(--sp-150);
+}
+.seg-sub[hidden] { display: none; }
+.seg-sub .seg { margin: var(--sp-100) 0 var(--sp-100); }
+.seg-sub__hint { margin: 0; font-size: var(--fs-xs); line-height: 1.45; color: var(--text-secondary); }
+
+/* The `hidden` attribute must always win. The UA sheet's [hidden]{display:none}
+   loses to ANY author display rule, so `el.hidden = true` silently did nothing on
+   .seg, .adj-row, .st-check … Three separate bugs came from that. One rule, once. */
+[hidden] { display: none !important; }
+
+/* Label on its own line, options flowing below and sharing the width. As a single
+   flex ROW the label plus four buttons had nowhere to go in a narrow CEP panel and
+   overlapped each other. */
+.seg { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-75); margin: var(--sp-200) 0; }
+.seg__label { flex: 1 1 100%; }
+.seg__opt { flex: 1 1 auto; justify-content: center; }
 .seg__label { font-size: 10px; font-weight: var(--fw-semibold); color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; }
 .seg__opt {
   display: inline-flex; align-items: center; gap: 5px;
@@ -365,7 +388,7 @@ body {
 }
 .adj-row__reset svg { width: 12px; height: 12px; }
 .adj-row__reset:hover { color: var(--accent); background: var(--bg-hover); }
-.adj-lab { width: 26px; flex: 0 0 auto; font-size: var(--fs-xs); color: var(--text-secondary); }
+.adj-lab { min-width: 4.6rem; width: 26px; flex: 0 0 auto; font-size: var(--fs-xs); color: var(--text-secondary); }
 .adj-slider { flex: 1 1 auto; min-width: 0; accent-color: var(--accent); height: 4px; }
 .adj-num { width: 52px; min-width: 52px; flex: 0 0 52px; padding: var(--sp-75) 5px; text-align: right; }
 /* ±1px nudge arrows hugging the slider ends (0.42 position rework) */
@@ -508,3 +531,52 @@ body {
 .update-now:hover { filter: brightness(1.1); }
 .update-now:disabled { opacity: 0.6; cursor: default; }
 .update-link-out { cursor: pointer; }
+
+/* Colour warning banner - same shape as the update banner, warning colours.
+   Only visible while the active sequence is not Rec. 709. */
+#color-banner {
+  display: flex; align-items: center; gap: var(--sp-100);
+  padding: var(--sp-100) var(--sp-150);
+  background: var(--notice-bg); border-bottom: 1px solid var(--notice-border);
+  color: var(--notice); font-size: var(--fs-xs); line-height: 1.35;
+}
+#color-banner[hidden] { display: none; }
+.color-banner__txt { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; }
+/* the swatch pair inside the Fix colour modal - shows the problem, not just words */
+.cs-swatches { display: flex; gap: var(--sp-150); margin: var(--sp-150) 0; }
+.cs-swatch { flex: 1 1 0; text-align: center; font-size: var(--fs-xs); color: var(--text-secondary); }
+.cs-swatch i {
+  display: block; height: 46px; border-radius: var(--r-sm);
+  border: 1px solid var(--border-default); margin-bottom: 4px;
+}
+
+/* track picker under the CTA - "Automatic" is the default and is what almost
+   everyone should use; the list exists for the odd shot that needs a specific
+   track. */
+.track-row { display: flex; align-items: center; gap: var(--sp-100); margin-top: var(--sp-100); }
+.track-row__label { font-size: var(--fs-xs); color: var(--text-secondary); flex: 0 0 auto; }
+.track-sel {
+  flex: 1 1 auto; min-width: 0;
+  background: var(--field-bg); color: var(--text-primary);
+  border: 1px solid var(--border-field); border-radius: var(--r-sm);
+  padding: var(--sp-75) var(--sp-100); font: inherit; font-size: var(--fs-xs);
+}
+.track-sel:focus { border-color: var(--accent); outline: none; }
+
+/* ---- modal tick-list (Remove unused) ---- */
+.modal-list { margin: var(--sp-200) 0; }
+.modal-list__bar { display: flex; align-items: center; gap: var(--sp-100); margin-bottom: var(--sp-100); }
+.modal-list__count { margin-inline-start: auto; font-size: var(--fs-xs); color: var(--text-secondary); }
+.modal-list__items {
+  max-height: 200px; overflow-y: auto;
+  border: 1px solid var(--border-field); border-radius: var(--r-sm);
+  background: var(--field-bg); padding: var(--sp-75);
+}
+.modal-list__row {
+  display: flex; align-items: center; gap: var(--sp-100);
+  padding: var(--sp-75) var(--sp-100); border-radius: var(--r-sm);
+  font-size: var(--fs-xs); color: var(--text-primary);
+}
+.modal-list__row:hover { background: var(--bg-hover); }
+.modal-list__row input { flex: 0 0 auto; accent-color: var(--accent); }
+.modal-list__row span { overflow-wrap: anywhere; }

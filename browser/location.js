@@ -77,7 +77,7 @@ const OchaLocation = (() => {
       </span>
       <label class="st-check loc-icon-check"><input type="checkbox" class="loc-icon" checked /> Show the pin icon</label>
       <button class="cd-button cd-button--outline cd-button--small loc-remove" type="button" title="Remove this location strip">
-        <i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="cd-button__text">Remove</span>
+        <i class="fa-regular fa-trash-can" aria-hidden="true"></i><span class="cd-button__text">Remove</span>
       </button>
     </div>`;
 

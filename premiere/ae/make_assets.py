@@ -265,7 +265,24 @@ def main():
                     # "Middle" mode: band centre as a fraction of H. 0.5 covers the
                     # mid-frame text/caption zones of every format (reels captions
                     # 1190-1300 included); per-edge feather = the one-sided fade / 2.
-                    "mid_center": 0.5
+                    "mid_center": 0.5,
+                    # "Middle" can also be a soft CLOUD over ONE HALF of the frame,
+                    # for text that sits on one side. An ellipse with a big feather:
+                    # edges fade out, the middle is the darkest part. Radii are
+                    # fractions of W/H so it is proportional in every format.
+                    "cloud_rx_frac": 0.34,        # cloud half-width, fraction of W
+                    "cloud_ry_frac": 0.30,        # cloud half-height, fraction of H
+                    "cloud_feather_frac": 0.14    # feather, fraction of W
+        },
+        # Vignette: a soft radial darkening of the edges for busy or bright
+        # footage. Every number is a FRACTION of the frame, and the comp is built
+        # per format, so the look is identical at 1:1, 9:16 and 16:9 - that is
+        # what "adapts to the sequence size" means here, no scaling at runtime.
+        "vignette": {
+                    "radius_frac": 0.62,     # ellipse radii, x fraction of W / y of H
+                    "feather_frac": 0.36,    # mask feather, fraction of the SHORT side
+                    "opacity": 55,           # default Amount (%)
+                    "size_range": 0.25       # how far Size can push the opening, short-side fraction
         },
         "bug_height_frac": 0.065,      # mirrors finish.py BUG_HEIGHT_FRAC
         "ending": {"logo_frac": 0.054, "lead_in": 0.30, "hold": 1.5},  # click peak @0.30s → snap

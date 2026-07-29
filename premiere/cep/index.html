@@ -2,11 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <link rel="stylesheet" href="styles.css?v=2026.0.42" />
+  <link rel="stylesheet" href="styles.css?v=2026.0.44" />
   <!-- anonymous usage pings; a NO-OP until an endpoint is configured -->
-  <script src="js/analytics.js?v=2026.0.42"></script>
+  <script src="js/analytics.js?v=2026.0.44"></script>
   <!-- downloads + installs updates; needs --enable-nodejs (see the manifest) -->
-  <script src="js/auto-updater.js?v=2026.0.42"></script>
+  <script src="js/auto-updater.js?v=2026.0.44"></script>
 </head>
 <body>
   <div class="app">
@@ -86,18 +86,30 @@
       <button id="update-dismiss" class="update-dismiss" type="button" aria-label="Dismiss">&times;</button>
     </div>
 
+    <!-- Colour warning - shown ONLY while the active sequence isn't Rec. 709.
+         A BANNER, not a modal, on purpose: the panel re-checks the active
+         sequence every 2.5s, so a modal would pop up again on every switch and
+         steal focus mid-edit. -->
+    <div id="color-banner" hidden>
+      <span class="color-banner__txt">
+        <svg width="12" height="12" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M320.5 64C335.2 64 348.7 72.1 355.7 85L571.7 485C578.4 497.4 578.1 512.4 570.9 524.5C563.7 536.6 550.6 544 536.5 544L104.5 544C90.4 544 77.4 536.6 70.2 524.5C63 512.4 62.7 497.4 69.4 485L285.4 85C292.4 72.1 305.9 64 320.6 64zM117.9 496L523.1 496L320.5 120.8L117.9 496zM320.5 456C302.8 456 288.5 441.7 288.5 424C288.5 406.3 302.8 392 320.5 392C338.2 392 352.5 406.3 352.5 424C352.5 441.7 338.2 456 320.5 456zM320.5 248C339.1 248 353.5 264.1 351.5 282.6L344.4 346.7C343 358.8 332.7 368 320.5 368C308.3 368 298 358.8 296.7 346.7L289.6 282.6C287.6 264.1 302 248 320.6 248z"/></svg>
+        <span id="color-banner-msg">Checking colour...</span>
+      </span>
+      <button id="color-banner-fix" class="update-now" type="button">Fix it</button>
+    </div>
+
     <!-- section tabs -->
     <nav class="tabs" id="tabs">
       <button class="tab is-active" data-sec="brand">
-        <svg viewBox="0 0 640 512" fill="currentColor" aria-hidden="true"><path d="M96 32C60.7 32 32 60.7 32 96l0 32c-17.7 0-32 14.3-32 32l0 96c0 17.7 14.3 32 32 32l0 32c-17.7 0-32 14.3-32 32s14.3 32 32 32l32 0c0 53 43 96 96 96s96-43 96-96l128 0c0 53 43 96 96 96s96-43 96-96l32 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l0-32c0-35.3-28.7-64-64-64l-4.2 0c-.4-1.1-.9-2.1-1.3-3.2L485.7 102c-10.3-23.1-33.2-38-58.5-38l-51.8 0C364.4 44.9 343.7 32 320 32L96 32zm288 96l43.2 0 42.7 96L384 224l0-96zM112 384a48 48 0 1 1 96 0 48 48 0 1 1 -96 0zm368-48a48 48 0 1 1 0 96 48 48 0 1 1 0-96zM253.3 135.1l34.7 52 0-43.2c0-8.8 7.2-16 16-16s16 7.2 16 16l0 96c0 7.1-4.6 13.3-11.4 15.3s-14-.6-17.9-6.4l-34.7-52 0 43.2c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-96c0-7.1 4.6-13.3 11.4-15.3s14 .6 17.9 6.4zM128 144l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64c0-8.8 7.2-16 16-16s16 7.2 16 16l0 64c0 26.5-21.5 48-48 48s-48-21.5-48-48l0-64c0-8.8 7.2-16 16-16s16 7.2 16 16z"/></svg>
+        <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M96 144C87.2 144 80 151.2 80 160L80 400L84.1 400C100.2 380.5 124.7 368 152 368C179.3 368 203.7 380.5 219.9 400L368 400L368 160C368 151.2 360.8 144 352 144L96 144zM64.6 445.5C45.7 439.1 32 421.1 32 400L32 352C14.3 352 0 337.7 0 320L0 224C0 206.3 14.3 192 32 192L32 160C32 124.7 60.7 96 96 96L352 96C381.8 96 406.9 116.4 414 144L432.6 144C461.2 144 487.1 160.9 498.6 187.1L535.7 272L560 272C586.5 272 608 293.5 608 320L608 400C608 426.5 586.5 448 560 448L543.6 448C543.8 450.6 544 453.3 544 456C544 504.6 504.6 544 456 544C407.4 544 368 504.6 368 456C368 453.3 368.1 450.6 368.4 448L239.7 448C239.9 450.6 240.1 453.3 240.1 456C240.1 504.6 200.7 544 152.1 544C103.5 544 64.1 504.6 64.1 456C64.1 452.4 64.3 448.9 64.7 445.5zM416 377.6C428 371.5 441.6 368 456 368C483.3 368 507.7 380.5 523.9 400L560 400L560 320L416 320L416 377.6zM416 272L483.3 272L454.6 206.4C450.8 197.7 442.1 192 432.6 192L416 192L416 272zM152 496C174.1 496 192 478.1 192 456C192 433.9 174.1 416 152 416C129.9 416 112 433.9 112 456C112 478.1 129.9 496 152 496zM496 456C496 433.9 478.1 416 456 416C433.9 416 416 433.9 416 456C416 478.1 433.9 496 456 496C478.1 496 496 478.1 496 456zM272.6 196.9L300 237.9L300 208C300 197 309 188 320 188C331 188 340 197 340 208L340 304C340 312.8 334.2 320.6 325.8 323.1C317.4 325.6 308.3 322.4 303.4 315.1L276 274.1L276 304C276 315 267 324 256 324C245 324 236 315 236 304L236 208C236 199.2 241.8 191.4 250.2 188.9C258.6 186.4 267.7 189.6 272.6 196.9zM148 208L148 272C148 278.6 153.4 284 160 284C166.6 284 172 278.6 172 272L172 208C172 197 181 188 192 188C203 188 212 197 212 208L212 272C212 300.7 188.7 324 160 324C131.3 324 108 300.7 108 272L108 208C108 197 117 188 128 188C139 188 148 197 148 208z"/></svg>
         <span>Branding</span>
       </button>
       <button class="tab" data-sec="captions">
-        <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M128 128C92.7 128 64 156.7 64 192L64 448C64 483.3 92.7 512 128 512L512 512C547.3 512 576 483.3 576 448L576 192C576 156.7 547.3 128 512 128L128 128zM112 288C112 261.5 133.5 240 160 240L216 240C238.1 240 258.3 252.5 268.2 272.2C275.1 286.1 269.5 302.9 255.6 309.9C241.7 316.9 224.9 311.2 217.9 297.3C217.5 296.5 216.9 296 216 296L160 296C164.4 296 168 299.6 168 304L168 336C168 340.4 164.4 344 160 344L216 344C216.9 344 217.5 343.5 217.9 342.7C224.9 328.8 241.7 323.1 255.6 330.1C269.5 337.1 275.1 353.9 268.2 367.8C258.3 387.5 238.1 400 216 400L160 400C133.5 400 112 378.5 112 352L112 288zM368 240L424 240C446.1 240 466.3 252.5 476.2 272.2C483.1 286.1 477.5 302.9 463.6 309.9C449.7 316.9 432.9 311.2 425.9 297.3C425.5 296.5 424.9 296 424 296L368 296C372.4 296 376 299.6 376 304L376 336C376 340.4 372.4 344 368 344L424 344C424.9 344 425.5 343.5 425.9 342.7C432.9 328.8 449.7 323.1 463.6 330.1C477.5 337.1 483.1 353.9 476.2 367.8C466.3 387.5 446.1 400 424 400L368 400C341.5 400 320 378.5 320 352L320 288C320 261.5 341.5 240 368 240z"/></svg>
+        <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M512 176C520.8 176 528 183.2 528 192L528 448C528 456.8 520.8 464 512 464L128 464C119.2 464 112 456.8 112 448L112 192C112 183.2 119.2 176 128 176L512 176zM128 128C92.7 128 64 156.7 64 192L64 448C64 483.3 92.7 512 128 512L512 512C547.3 512 576 483.3 576 448L576 192C576 156.7 547.3 128 512 128L128 128zM216 272L248 272C252.4 272 256 275.6 256 280C256 293.3 266.7 304 280 304C293.3 304 304 293.3 304 280C304 249.1 278.9 224 248 224L216 224C185.1 224 160 249.1 160 280L160 360C160 390.9 185.1 416 216 416L248 416C278.9 416 304 390.9 304 360C304 346.7 293.3 336 280 336C266.7 336 256 346.7 256 360C256 364.4 252.4 368 248 368L216 368C211.6 368 208 364.4 208 360L208 280C208 275.6 211.6 272 216 272zM384 280C384 275.6 387.6 272 392 272L424 272C428.4 272 432 275.6 432 280C432 293.3 442.7 304 456 304C469.3 304 480 293.3 480 280C480 249.1 454.9 224 424 224L392 224C361.1 224 336 249.1 336 280L336 360C336 390.9 361.1 416 392 416L424 416C454.9 416 480 390.9 480 360C480 346.7 469.3 336 456 336C442.7 336 432 346.7 432 360C432 364.4 428.4 368 424 368L392 368C387.6 368 384 364.4 384 360L384 280z"/></svg>
         <span>Captions</span>
       </button>
       <button class="tab" data-sec="toolbox">
-        <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M248 112L392 112C396.4 112 400 115.6 400 120L400 160L240 160L240 120C240 115.6 243.6 112 248 112zM192 120L192 160L128 160C92.7 160 64 188.7 64 224L64 288L576 288L576 224C576 188.7 547.3 160 512 160L448 160L448 120C448 89.1 422.9 64 392 64L248 64C217.1 64 192 89.1 192 120zM576 336L416 336L416 368C416 385.7 401.7 400 384 400L256 400C238.3 400 224 385.7 224 368L224 336L64 336L64 480C64 515.3 92.7 544 128 544L512 544C547.3 544 576 515.3 576 480L576 336z"/></svg>
+        <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M248 112L392 112C396.4 112 400 115.6 400 120L400 160L240 160L240 120C240 115.6 243.6 112 248 112zM192 120L192 160L163.9 160C151.2 160 139 165.1 130 174.1L78.1 225.9C69.1 234.9 64 247.1 64 259.8L64 480C64 515.3 92.7 544 128 544L512 544C547.3 544 576 515.3 576 480L576 259.9C576 247.2 570.9 235 561.9 226L510 174.1C501 165.1 488.8 160 476.1 160L448 160L448 120C448 89.1 422.9 64 392 64L248 64C217.1 64 192 89.1 192 120zM112 384L200 384L200 400C200 413.3 210.7 424 224 424C237.3 424 248 413.3 248 400L248 384L392 384L392 400C392 413.3 402.7 424 416 424C429.3 424 440 413.3 440 400L440 384L528 384L528 480C528 488.8 520.8 496 512 496L128 496C119.2 496 112 488.8 112 480L112 384zM112 336L112 259.9L163.9 208L476.1 208L528 259.9L528 336L440 336L440 320C440 306.7 429.3 296 416 296C402.7 296 392 306.7 392 320L392 336L248 336L248 320C248 306.7 237.3 296 224 296C210.7 296 200 306.7 200 320L200 336L112 336z"/></svg>
         <span>Toolbox</span>
       </button>
     </nav>
@@ -201,7 +213,7 @@
           <p class="note"><strong>Select a clip</strong> to edit it — fields fill with its text, changes apply live. <em>(Premiere's Properties panel may lag; the video is always right.)</em></p>
           <div class="tool-cards">
             <button id="text-grad-btn" class="tool-tile" type="button" title="Drop a black readability gradient on its own track — the same one on the Text and Captions tabs.">
-              <svg class="tool-tile-icon" viewBox="0 0 576 512" fill="currentColor" aria-hidden="true"><path d="M264.5 5.2c14.9-6.9 32.1-6.9 47 0l218.6 101c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 149.8C37.4 145.8 32 137.3 32 128s5.4-17.9 13.9-21.8L264.5 5.2zM476.9 209.6l53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 277.8C37.4 273.8 32 265.3 32 256s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0l152-70.2zm-152 198.2l152-70.2 53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 405.8C37.4 401.8 32 393.3 32 384s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0z"/></svg>
+              <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M323.4 112.7L494.8 192L323.4 271.2C321.3 272.2 318.8 272.2 316.7 271.2L145.2 192L316.6 112.7C318.7 111.7 321.2 111.7 323.3 112.7zM343.5 69.2C328.6 62.3 311.4 62.3 296.5 69.2L77.9 170.2C69.4 174.1 64 182.6 64 192C64 201.4 69.4 209.9 77.9 213.8L296.5 314.8C311.4 321.7 328.6 321.7 343.5 314.8L562.1 213.8C570.6 209.9 576 201.4 576 192C576 182.6 570.6 174.1 562.1 170.2L343.5 69.2zM112.1 282.4L77.9 298.2C69.4 302.1 64 310.6 64 320C64 329.4 69.4 337.9 77.9 341.8L296.5 442.8C311.4 449.7 328.6 449.7 343.5 442.8L562.1 341.8C570.6 337.9 576 329.4 576 320C576 310.6 570.6 302.1 562.1 298.2L528 282.4L470.8 308.8L494.9 319.9L323.5 399.1C321.4 400.1 318.9 400.1 316.8 399.1L145.2 320L169.3 308.9L112.1 282.4zM77.9 426.2C69.4 430.1 64 438.6 64 448C64 457.4 69.4 465.9 77.9 469.8L296.5 570.8C311.4 577.7 328.6 577.7 343.5 570.8L562.1 469.8C570.6 465.9 576 457.4 576 448C576 438.6 570.6 430.1 562.1 426.2L528 410.4L470.8 436.8L494.9 447.9L323.5 527.1C321.4 528.1 318.9 528.1 316.8 527.1L145.4 447.9L169.5 436.8L112.3 410.4L78.2 426.2z"/></svg>
               <span class="tool-tile-name">Readability gradient</span>
             </button>
           </div>
@@ -214,7 +226,7 @@
              scale rework — its anchor disagreement is documented in 0.37.0. -->
         <section class="adjust" id="adjust">
           <button class="adj-toggle" id="adj-toggle" aria-expanded="false">
-            <svg class="adj-chev" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg class-="adj-chev" width="12" height="12" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M303.5 473C312.9 482.4 328.1 482.4 337.4 473L537.4 273C546.8 263.6 546.8 248.4 537.4 239.1C528 229.8 512.8 229.7 503.5 239.1L320.5 422.1L137.5 239.1C128.1 229.7 112.9 229.7 103.6 239.1C94.3 248.5 94.2 263.7 103.6 273L303.6 473z"/></svg>
             <span class="adj-toggle__label">Position</span>
             <span class="adj-tag">advanced</span>
           </button>
@@ -248,7 +260,13 @@
         </section>
 
         <button id="add" class="btn btn-primary" disabled>Add to timeline</button>
-        <p class="sec-hint">Added at the playhead, sized to your sequence.</p>
+        <div class="track-row">
+          <label class="track-row__label" for="track-pick">Track</label>
+          <select id="track-pick" class="track-sel">
+            <option value="">Automatic</option>
+          </select>
+        </div>
+        <p class="sec-hint">Added at the playhead, sized to your sequence. <strong>Automatic</strong> puts graphics on top and the readability gradient underneath them.</p>
       </div>
 
       <!-- ===================== CAPTIONS ===================== -->
@@ -262,15 +280,15 @@
         </ol>
         <div class="tool-cards">
           <button id="cap-install" class="tool-tile" type="button" title="Install the OCHA caption styles into Premiere, and see the full captioning steps.">
-            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M320 64C333.3 64 344 74.7 344 88L344 344.1L425 263C434.4 253.6 449.6 253.6 458.9 263C468.2 272.4 468.3 287.6 458.9 296.9L336.9 418.9C327.5 428.3 312.3 428.3 303 418.9L181 296.9C171.6 287.5 171.6 272.3 181 263C190.4 253.7 205.6 253.6 214.9 263L296 344.1L296 88C296 74.7 306.7 64 320 64zM144 416L144 480C144 497.7 158.3 512 176 512L464 512C481.7 512 496 497.7 496 480L496 416C496 402.7 506.7 392 520 392C533.3 392 544 402.7 544 416L544 480C544 524.2 508.2 560 464 560L176 560C131.8 560 96 524.2 96 480L96 416C96 402.7 106.7 392 120 392C133.3 392 144 402.7 144 416z"/></svg>
+            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M512 176C520.8 176 528 183.2 528 192L528 448C528 456.8 520.8 464 512 464L128 464C119.2 464 112 456.8 112 448L112 192C112 183.2 119.2 176 128 176L512 176zM128 128C92.7 128 64 156.7 64 192L64 448C64 483.3 92.7 512 128 512L512 512C547.3 512 576 483.3 576 448L576 192C576 156.7 547.3 128 512 128L128 128zM216 272L248 272C252.4 272 256 275.6 256 280C256 293.3 266.7 304 280 304C293.3 304 304 293.3 304 280C304 249.1 278.9 224 248 224L216 224C185.1 224 160 249.1 160 280L160 360C160 390.9 185.1 416 216 416L248 416C278.9 416 304 390.9 304 360C304 346.7 293.3 336 280 336C266.7 336 256 346.7 256 360C256 364.4 252.4 368 248 368L216 368C211.6 368 208 364.4 208 360L208 280C208 275.6 211.6 272 216 272zM384 280C384 275.6 387.6 272 392 272L424 272C428.4 272 432 275.6 432 280C432 293.3 442.7 304 456 304C469.3 304 480 293.3 480 280C480 249.1 454.9 224 424 224L392 224C361.1 224 336 249.1 336 280L336 360C336 390.9 361.1 416 392 416L424 416C454.9 416 480 390.9 480 360C480 346.7 469.3 336 456 336C442.7 336 432 346.7 432 360C432 364.4 428.4 368 424 368L392 368C387.6 368 384 364.4 384 360L384 280z"/></svg>
             <span class="tool-tile-name">Install caption styles</span>
           </button>
           <button id="cap-guides" class="tool-tile" type="button" title="Per-format guide templates marking where the captions go — installed automatically; open for the how-to or a reinstall.">
-            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M96 200C82.7 200 72 210.7 72 224C72 237.3 82.7 248 96 248L544 248C557.3 248 568 237.3 568 224C568 210.7 557.3 200 544 200L96 200zM96 392C82.7 392 72 402.7 72 416C72 429.3 82.7 440 96 440L544 440C557.3 440 568 429.3 568 416C568 402.7 557.3 392 544 392L96 392zM280 296C266.7 296 256 306.7 256 320C256 333.3 266.7 344 280 344L360 344C373.3 344 384 333.3 384 320C384 306.7 373.3 296 360 296L280 296z"/></svg>
+            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M80 400L560 400L560 240L512 240L512 312C512 325.3 501.3 336 488 336C474.7 336 464 325.3 464 312L464 240L400 240L400 280C400 293.3 389.3 304 376 304C362.7 304 352 293.3 352 280L352 240L288 240L288 312C288 325.3 277.3 336 264 336C250.7 336 240 325.3 240 312L240 240L176 240L176 280C176 293.3 165.3 304 152 304C138.7 304 128 293.3 128 280L128 240L80 240L80 400zM80 448C53.5 448 32 426.5 32 400L32 240C32 213.5 53.5 192 80 192L560 192C586.5 192 608 213.5 608 240L608 400C608 426.5 586.5 448 560 448L80 448z"/></svg>
             <span class="tool-tile-name">Caption position guides</span>
           </button>
           <button id="cap-gradient" class="tool-tile" type="button" title="Drop a black readability gradient on its own track — the same one on the Text and Captions tabs.">
-              <svg class="tool-tile-icon" viewBox="0 0 576 512" fill="currentColor" aria-hidden="true"><path d="M264.5 5.2c14.9-6.9 32.1-6.9 47 0l218.6 101c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 149.8C37.4 145.8 32 137.3 32 128s5.4-17.9 13.9-21.8L264.5 5.2zM476.9 209.6l53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 277.8C37.4 273.8 32 265.3 32 256s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0l152-70.2zm-152 198.2l152-70.2 53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 405.8C37.4 401.8 32 393.3 32 384s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0z"/></svg>
+              <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M323.4 112.7L494.8 192L323.4 271.2C321.3 272.2 318.8 272.2 316.7 271.2L145.2 192L316.6 112.7C318.7 111.7 321.2 111.7 323.3 112.7zM343.5 69.2C328.6 62.3 311.4 62.3 296.5 69.2L77.9 170.2C69.4 174.1 64 182.6 64 192C64 201.4 69.4 209.9 77.9 213.8L296.5 314.8C311.4 321.7 328.6 321.7 343.5 314.8L562.1 213.8C570.6 209.9 576 201.4 576 192C576 182.6 570.6 174.1 562.1 170.2L343.5 69.2zM112.1 282.4L77.9 298.2C69.4 302.1 64 310.6 64 320C64 329.4 69.4 337.9 77.9 341.8L296.5 442.8C311.4 449.7 328.6 449.7 343.5 442.8L562.1 341.8C570.6 337.9 576 329.4 576 320C576 310.6 570.6 302.1 562.1 298.2L528 282.4L470.8 308.8L494.9 319.9L323.5 399.1C321.4 400.1 318.9 400.1 316.8 399.1L145.2 320L169.3 308.9L112.1 282.4zM77.9 426.2C69.4 430.1 64 438.6 64 448C64 457.4 69.4 465.9 77.9 469.8L296.5 570.8C311.4 577.7 328.6 577.7 343.5 570.8L562.1 469.8C570.6 465.9 576 457.4 576 448C576 438.6 570.6 430.1 562.1 426.2L528 410.4L470.8 436.8L494.9 447.9L323.5 527.1C321.4 528.1 318.9 528.1 316.8 527.1L145.4 447.9L169.5 436.8L112.3 410.4L78.2 426.2z"/></svg>
               <span class="tool-tile-name">Readability gradient</span>
             </button>
         </div>
@@ -280,11 +298,11 @@
       <div class="sec" data-sec="toolbox">
         <div class="tool-cards">
           <button id="tool-reel" class="tool-tile" title="Turn the active square sequence into a 9:16 reel — original centred, blurred fill behind.">
-            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M464 512C464 520.8 456.8 528 448 528L192 528C183.2 528 176 520.8 176 512L176 128C176 119.2 183.2 112 192 112L448 112C456.8 112 464 119.2 464 128L464 512zM512 128C512 92.7 483.3 64 448 64L192 64C156.7 64 128 92.7 128 128L128 512C128 547.3 156.7 576 192 576L448 576C483.3 576 512 547.3 512 512L512 128z"/></svg>
+            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M352 528L128 528C119.2 528 112 520.8 112 512L112 288C112 279.2 119.2 272 128 272L176 272L176 224L128 224C92.7 224 64 252.7 64 288L64 512C64 547.3 92.7 576 128 576L352 576C387.3 576 416 547.3 416 512L416 464L368 464L368 512C368 520.8 360.8 528 352 528zM288 368C279.2 368 272 360.8 272 352L272 128C272 119.2 279.2 112 288 112L512 112C520.8 112 528 119.2 528 128L528 352C528 360.8 520.8 368 512 368L288 368zM224 352C224 387.3 252.7 416 288 416L512 416C547.3 416 576 387.3 576 352L576 128C576 92.7 547.3 64 512 64L288 64C252.7 64 224 92.7 224 128L224 352z"/></svg>
             <span class="tool-tile-name">Square → Reel</span>
           </button>
           <button id="tool-package" class="tool-tile" title="Copy every file the project uses into one clean, type-sorted folder + a portable relinked copy of the project. Original untouched.">
-            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M400 112C408.8 112 416 119.2 416 128L416 240L464 240L464 128C464 92.7 435.3 64 400 64L240 64C204.7 64 176 92.7 176 128L176 240L224 240L224 128C224 119.2 231.2 112 240 112L272 112L272 168C272 181.3 282.7 192 296 192L344 192C357.3 192 368 181.3 368 168L368 112L400 112zM379.9 576L512 576C547.3 576 576 547.3 576 512L576 352C576 316.7 547.3 288 512 288L379.9 288C392.6 306.1 400 328.2 400 352L400 414.6C402.5 415.5 405.2 416 408 416L456 416C469.3 416 480 405.3 480 392L480 336L512 336C520.8 336 528 343.2 528 352L528 512C528 520.8 520.8 528 512 528L398.9 528C396.4 545.7 389.7 562 380 576zM304 352L304 512C304 512 304 512 304 512.1C304 520.9 296.8 528 288 528L128 528C119.2 528 112 520.8 112 512L112 352C112 343.2 119.2 336 128 336L160 336L160 392C160 405.3 170.7 416 184 416L232 416C245.3 416 256 405.3 256 392L256 336L288 336C296.8 336 303.9 343.1 304 351.9L304 352zM128 288C92.7 288 64 316.7 64 352L64 512C64 547.3 92.7 576 128 576L288 576C323.3 576 352 547.3 352 512L352 352C352 316.7 323.3 288 288 288L128 288z"/></svg>
+            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M528 144L528 208L112 208L112 144L528 144zM64 208C64 228.9 77.4 246.7 96 253.3L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 253.3C562.6 246.7 576 228.9 576 208L576 144C576 117.5 554.5 96 528 96L112 96C85.5 96 64 117.5 64 144L64 208zM144 480L144 256L496 256L496 480C496 488.8 488.8 496 480 496L160 496C151.2 496 144 488.8 144 480zM248 304C234.7 304 224 314.7 224 328C224 341.3 234.7 352 248 352L392 352C405.3 352 416 341.3 416 328C416 314.7 405.3 304 392 304L248 304z"/></svg>
             <span class="tool-tile-name">Package project</span>
           </button>
           <button id="tool-clean" class="tool-tile" title="Remove OCHA templates that aren't used in any sequence.">
@@ -292,13 +310,29 @@
             <span class="tool-tile-name">Clean MOGRTs</span>
           </button>
           <button id="tool-webapp" class="tool-tile" title="Compression and more live in the free OCHA QuickVid web app — opens in your browser.">
-            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M296 96h48v96h72L320 296 224 192h72zM296 544h48v-96h72L320 344 224 448h72z"/><rect x="144" y="296" width="352" height="48" rx="12"/></svg>
+            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M192 112L304 112L304 200C304 239.8 336.2 272 376 272L464 272L464 512C464 520.8 456.8 528 448 528L192 528C183.2 528 176 520.8 176 512L176 128C176 119.2 183.2 112 192 112zM352 131.9L444.1 224L376 224C362.7 224 352 213.3 352 200L352 131.9zM192 64C156.7 64 128 92.7 128 128L128 512C128 547.3 156.7 576 192 576L448 576C483.3 576 512 547.3 512 512L512 250.5C512 233.5 505.3 217.2 493.3 205.2L370.7 82.7C358.7 70.7 342.5 64 325.5 64L192 64zM208 168C208 181.3 218.7 192 232 192L248 192C261.3 192 272 181.3 272 168C272 154.7 261.3 144 248 144L232 144C218.7 144 208 154.7 208 168zM208 248C208 261.3 218.7 272 232 272L264 272C277.3 272 288 261.3 288 248C288 234.7 277.3 224 264 224L232 224C218.7 224 208 234.7 208 248zM272 304L240 304C222.3 304 208 318.3 208 336L208 384C208 410.5 229.5 432 256 432C282.5 432 304 410.5 304 384L304 336C304 318.3 289.7 304 272 304zM256 368C264.8 368 272 375.2 272 384C272 392.8 264.8 400 256 400C247.2 400 240 392.8 240 384C240 375.2 247.2 368 256 368z"/></svg>
             <span class="tool-tile-name">Compress a video</span>
           </button>
           <button id="tool-gradient" class="tool-tile" type="button" title="Drop a black readability gradient on its own track — the same one on the Text and Captions tabs.">
-              <svg class="tool-tile-icon" viewBox="0 0 576 512" fill="currentColor" aria-hidden="true"><path d="M264.5 5.2c14.9-6.9 32.1-6.9 47 0l218.6 101c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 149.8C37.4 145.8 32 137.3 32 128s5.4-17.9 13.9-21.8L264.5 5.2zM476.9 209.6l53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 277.8C37.4 273.8 32 265.3 32 256s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0l152-70.2zm-152 198.2l152-70.2 53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 405.8C37.4 401.8 32 393.3 32 384s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0z"/></svg>
+              <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M323.4 112.7L494.8 192L323.4 271.2C321.3 272.2 318.8 272.2 316.7 271.2L145.2 192L316.6 112.7C318.7 111.7 321.2 111.7 323.3 112.7zM343.5 69.2C328.6 62.3 311.4 62.3 296.5 69.2L77.9 170.2C69.4 174.1 64 182.6 64 192C64 201.4 69.4 209.9 77.9 213.8L296.5 314.8C311.4 321.7 328.6 321.7 343.5 314.8L562.1 213.8C570.6 209.9 576 201.4 576 192C576 182.6 570.6 174.1 562.1 170.2L343.5 69.2zM112.1 282.4L77.9 298.2C69.4 302.1 64 310.6 64 320C64 329.4 69.4 337.9 77.9 341.8L296.5 442.8C311.4 449.7 328.6 449.7 343.5 442.8L562.1 341.8C570.6 337.9 576 329.4 576 320C576 310.6 570.6 302.1 562.1 298.2L528 282.4L470.8 308.8L494.9 319.9L323.5 399.1C321.4 400.1 318.9 400.1 316.8 399.1L145.2 320L169.3 308.9L112.1 282.4zM77.9 426.2C69.4 430.1 64 438.6 64 448C64 457.4 69.4 465.9 77.9 469.8L296.5 570.8C311.4 577.7 328.6 577.7 343.5 570.8L562.1 469.8C570.6 465.9 576 457.4 576 448C576 438.6 570.6 430.1 562.1 426.2L528 410.4L470.8 436.8L494.9 447.9L323.5 527.1C321.4 528.1 318.9 528.1 316.8 527.1L145.4 447.9L169.5 436.8L112.3 410.4L78.2 426.2z"/></svg>
               <span class="tool-tile-name">Readability gradient</span>
             </button>
+          <button id="tool-fixcolor" class="tool-tile" type="button" title="Set the sequence to standard SDR Rec. 709 when it has drifted to HLG or another wide-gamut space and looks washed out.">
+            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M528 322.2C528 324.9 527 327.4 523.8 330.2C520 333.3 513.7 336 506 336L408 336C355 336 312 379 312 432C312 438.8 312.7 445.4 314.1 451.8C317.4 467.5 324.3 482.9 328.5 492.4L328.5 492.4C329.2 494 329.9 495.4 330.4 496.7C335.4 508.2 336 512.1 336 513.8C336 519.1 334.1 523.3 332.2 525.6C331.3 526.7 330.6 527.2 330.2 527.4C329.9 527.6 329.4 527.7 328.6 527.8C325.7 527.9 322.9 528 320 528C205.1 528 112 434.9 112 320C112 205.1 205.1 112 320 112C434.9 112 528 205.1 528 320C528 320.7 528 321.4 528 322.2zM576 322.7C576 321.8 576 320.9 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576C323.5 576 327.1 575.9 330.6 575.8C362.4 574.5 384 545.7 384 513.8C384 499.3 377.9 485.5 371.9 471.8C367.6 462 363.2 452.1 361.1 441.9C360.4 438.7 360.1 435.4 360.1 432C360.1 405.5 381.6 384 408.1 384L506 384C542.5 384 575.7 359.2 576.1 322.7zM224 320C224 302.3 209.7 288 192 288C174.3 288 160 302.3 160 320C160 337.7 174.3 352 192 352C209.7 352 224 337.7 224 320zM224 256C241.7 256 256 241.7 256 224C256 206.3 241.7 192 224 192C206.3 192 192 206.3 192 224C192 241.7 206.3 256 224 256zM352 192C352 174.3 337.7 160 320 160C302.3 160 288 174.3 288 192C288 209.7 302.3 224 320 224C337.7 224 352 209.7 352 192zM416 256C433.7 256 448 241.7 448 224C448 206.3 433.7 192 416 192C398.3 192 384 206.3 384 224C384 241.7 398.3 256 416 256z"/></svg>
+            <span class="tool-tile-name">Fix colour</span>
+          </button>
+          <button id="tool-tidy" class="tool-tile" type="button" title="Sort loose media in the Project panel into bins by type. Sequences and bins you made yourself are left alone.">
+            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M80 88C80 74.7 69.3 64 56 64C42.7 64 32 74.7 32 88L32 456C32 486.9 57.1 512 88 512L272 512L272 464L88 464C83.6 464 80 460.4 80 456L80 224L272 224L272 176L80 176L80 88zM417.5 112L449.4 133.3C459.9 140.3 472.3 144 484.9 144L560.1 144L560.1 240L368.1 240L368.1 112L417.6 112zM320 112L320 240C320 266.5 341.5 288 368 288L560 288C586.5 288 608 266.5 608 240L608 144C608 117.5 586.5 96 560 96L484.8 96C481.6 96 478.6 95.1 475.9 93.3L444.1 72.1C436.2 66.8 426.9 64 417.5 64L368 64C341.5 64 320 85.5 320 112zM417.5 400L451.4 422.6C460.6 428.7 471.4 432 482.5 432L560.1 432L560.1 528L368.1 528L368.1 400L417.6 400zM320 400L320 528C320 554.5 341.5 576 368 576L560 576C586.5 576 608 554.5 608 528L608 432C608 405.5 586.5 384 560 384L482.4 384C480.8 384 479.3 383.5 478 382.7L444.1 360.1C436.2 354.8 427 352 417.5 352L368 352C341.5 352 320 373.5 320 400z"/></svg>
+            <span class="tool-tile-name">Tidy project</span>
+          </button>
+          <button id="tool-unused" class="tool-tile" type="button" title="List everything in the project that isn't on any timeline, then remove what you tick.">
+            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M262.2 48C248.9 48 236.9 56.3 232.2 68.8L216 112L120 112C106.7 112 96 122.7 96 136C96 149.3 106.7 160 120 160L520 160C533.3 160 544 149.3 544 136C544 122.7 533.3 112 520 112L424 112L407.8 68.8C403.1 56.3 391.2 48 377.8 48L262.2 48zM128 208L128 512C128 547.3 156.7 576 192 576L448 576C483.3 576 512 547.3 512 512L512 208L464 208L464 512C464 520.8 456.8 528 448 528L192 528C183.2 528 176 520.8 176 512L176 208L128 208zM288 280C288 266.7 277.3 256 264 256C250.7 256 240 266.7 240 280L240 456C240 469.3 250.7 480 264 480C277.3 480 288 469.3 288 456L288 280zM400 280C400 266.7 389.3 256 376 256C362.7 256 352 266.7 352 280L352 456C352 469.3 362.7 480 376 480C389.3 480 400 469.3 400 456L400 280z"/></svg>
+            <span class="tool-tile-name">Remove unused</span>
+          </button>
+          <button id="tool-vignette" class="tool-tile" type="button" title="Darken the edges of the frame so the centre reads first — sized to your sequence.">
+            <svg class="tool-tile-icon" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M528 320C528 205.1 434.9 112 320 112C205.1 112 112 205.1 112 320C112 434.9 205.1 528 320 528C434.9 528 528 434.9 528 320zM64 320C64 178.6 178.6 64 320 64C461.4 64 576 178.6 576 320C576 461.4 461.4 576 320 576C178.6 576 64 461.4 64 320zM320 416C373 416 416 373 416 320C416 267 373 224 320 224C267 224 224 267 224 320C224 373 267 416 320 416zM320 176C399.5 176 464 240.5 464 320C464 399.5 399.5 464 320 464C240.5 464 176 399.5 176 320C176 240.5 240.5 176 320 176zM288 320C288 302.3 302.3 288 320 288C337.7 288 352 302.3 352 320C352 337.7 337.7 352 320 352C302.3 352 288 337.7 288 320z"/></svg>
+            <span class="tool-tile-name">Vignette</span>
+          </button>
         </div>
       </div>
 
@@ -310,7 +344,7 @@
          amber "heads up, still in flight" + a one-click feedback path. No dismiss
          on purpose. Remove this block when the plugin exits beta. -->
     <div id="beta-banner">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      <svg width="12" height="12" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M320 112C434.9 112 528 205.1 528 320C528 434.9 434.9 528 320 528C205.1 528 112 434.9 112 320C112 205.1 205.1 112 320 112zM320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM280 400C266.7 400 256 410.7 256 424C256 437.3 266.7 448 280 448L360 448C373.3 448 384 437.3 384 424C384 410.7 373.3 400 360 400L352 400L352 312C352 298.7 341.3 288 328 288L280 288C266.7 288 256 298.7 256 312C256 325.3 266.7 336 280 336L304 336L304 400L280 400zM320 256C337.7 256 352 241.7 352 224C352 206.3 337.7 192 320 192C302.3 192 288 206.3 288 224C288 241.7 302.3 256 320 256z"/></svg>
       <span class="beta-banner-text">Beta — feedback to <a href="#" class="ext-link beta-banner-link" data-url="mailto:ochavisual@un.org?subject=OCHA%20QuickVid%20plugin%20feedback">ochavisual@un.org</a></span>
     </div>
 
@@ -324,21 +358,46 @@
       <div class="modal-head">
         <span class="modal-title" id="modal-title">Tool</span>
         <button class="modal-x" id="modal-x" type="button" aria-label="Close">
-          <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M183.1 137.4C170.6 124.9 150.3 124.9 137.8 137.4C125.3 149.9 125.3 170.2 137.8 182.7L275.1 320L137.8 457.4C125.3 469.9 125.3 490.2 137.8 502.7C150.3 515.2 170.6 515.2 183.1 502.7L320.4 365.3L457.8 502.7C470.3 515.2 490.6 515.2 503.1 502.7C515.6 490.2 515.6 469.9 503.1 457.4L365.7 320L503.1 182.7C515.6 170.2 515.6 149.9 503.1 137.4C490.6 124.9 470.3 124.9 457.8 137.4L320.4 274.7L183.1 137.4z"/></svg>
+          <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M135.5 169C126.1 159.6 126.1 144.4 135.5 135.1C144.9 125.8 160.1 125.7 169.4 135.1L320.4 286.1L471.4 135.1C480.8 125.7 496 125.7 505.3 135.1C514.6 144.5 514.7 159.7 505.3 169L354.3 320L505.3 471C514.7 480.4 514.7 495.6 505.3 504.9C495.9 514.2 480.7 514.3 471.4 504.9L320.4 353.9L169.4 504.9C160 514.3 144.8 514.3 135.5 504.9C126.2 495.5 126.1 480.3 135.5 471L286.5 320L135.5 169z"/></svg>
         </button>
       </div>
       <p class="modal-desc" id="modal-desc">…</p>
       <!-- Optional settings, shown only for tools that declare them (the gradient). -->
+      <!-- Tick-list for tools that must SHOW what they will change before doing it
+           (Remove unused). Everything ticked by default; the user unticks. -->
+      <div class="modal-list" id="modal-list" hidden>
+        <div class="modal-list__bar">
+          <button type="button" id="modal-list-all" class="seg__opt">Select all</button>
+          <button type="button" id="modal-list-none" class="seg__opt">Select none</button>
+          <span id="modal-list-count" class="modal-list__count"></span>
+        </div>
+        <div id="modal-list-items" class="modal-list__items"></div>
+      </div>
       <div class="modal-settings" id="modal-settings" hidden>
         <div class="seg" id="grad-pos">
           <span class="seg__label">Position</span>
           <button class="seg__opt is-active" data-pos="bottom" type="button">Bottom</button>
           <button class="seg__opt" data-pos="top" type="button">Top</button>
-          <button class="seg__opt" data-pos="middle" type="button">Middle</button>
           <button class="seg__opt" data-pos="full" type="button">Full screen</button>
+          <!-- Middle sits LAST: it is the only option that opens a sub-choice, so it
+               belongs at the end of the row rather than pushing the panel around
+               from the middle of it. -->
+          <button class="seg__opt" data-pos="middle" type="button">Middle</button>
+        </div>
+        <!-- Middle-only sub-choice. Its own boxed mini section because it is a
+             SECOND decision that only exists inside the first one - inline it
+             read as a fifth position. Shown by openTool/setMidUI when Middle
+             is the active position. -->
+        <div class="seg-sub" id="grad-mid" hidden>
+          <div class="seg" id="grad-mid-w">
+            <span class="seg__label">Middle width</span>
+            <button class="seg__opt is-active" data-half="full" type="button">Full width</button>
+            <button class="seg__opt" data-half="left" type="button">Left half</button>
+            <button class="seg__opt" data-half="right" type="button">Right half</button>
+          </div>
         </div>
         <div class="adj-row" style="margin-top:10px">
-          <span class="adj-lab">Fade</span>
+          <span class="adj-lab" id="grad-op-lab">Fade</span>
           <input id="grad-op"   class="adj-slider" type="range"  min="10" max="100" step="5" value="80" />
           <input id="grad-op-n" class="adj-num"   type="number" min="10" max="100" step="5" value="80" />
           <span class="adj-u">%</span>
@@ -353,6 +412,6 @@
     </div>
   </div>
 
-  <script src="js/main.js"></script>
+  <script src="js/main.js?v=2026.0.44"></script>
 </body>
 </html>

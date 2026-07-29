@@ -36,7 +36,7 @@
 }
 .dropzone:hover, .dropzone.drag { border-color: var(--ocha-cyan); color: var(--ocha-blue-dark); }
 .dropzone.has-file { border-style: solid; border-color: var(--ocha-cyan); color: var(--ink); }
-.dropzone .fa-solid { font-size: 1.5rem; color: var(--ocha-cyan); }
+.dropzone .fa-regular { font-size: 1.5rem; color: var(--ocha-cyan); }
 
 /* ---- Titles & branding : lower-third rows ----
    One person per block: the three text fields stack a line each (they were
@@ -185,7 +185,7 @@
 .st-setup > li::marker { font-weight: 800; color: var(--ocha-blue-dark); }
 .st-setup .st-btn-row { margin-top: var(--sp-8); }
 .st-setup__note { margin-top: var(--sp-8); font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
-.st-setup__note .fa-solid { color: var(--ocha-cyan); margin-inline-end: 0.4rem; }
+.st-setup__note .fa-regular { color: var(--ocha-cyan); margin-inline-end: 0.4rem; }
 
 /* copy-paste command box (Mac install one-liner) */
 .cmd-box { display: flex; align-items: center; gap: var(--sp-8); margin-top: var(--sp-8);
@@ -205,7 +205,7 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
 
 /* autosave indicator + resume banner */
 .st-autosave { font-size: 0.75rem; color: var(--muted); display: flex; align-items: center; gap: var(--sp-4); margin: 0 0 var(--sp-8); }
-.st-autosave .fa-solid { color: var(--ocha-cyan); }
+.st-autosave .fa-regular { color: var(--ocha-cyan); }
 #st-resume .st-btn-row { margin-top: var(--sp-8); }
 .st-total { font-size: 0.9rem; }
 .st-seg-list { display: flex; flex-direction: column; gap: var(--sp-4); max-height: 24rem; overflow-y: auto; }
@@ -225,7 +225,7 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
 .st-frame-drag { cursor: grab; touch-action: none; user-select: none; -webkit-user-drag: none; }
 .st-frame-drag.is-dragging { cursor: grabbing; outline: 2px solid var(--ocha-cyan); outline-offset: 1px; }
 .st-zoom-row { display: flex; align-items: center; gap: var(--sp-8); margin-top: var(--sp-4); }
-.st-zoom-row .fa-solid { font-size: 0.7rem; color: var(--muted); }
+.st-zoom-row .fa-regular { font-size: 0.7rem; color: var(--muted); }
 .st-zoom-row input[type="range"] { flex: 1 1 auto; min-width: 0; }
 .st-frame-hint { margin: var(--sp-4) 0 0; font-size: 0.72rem; min-height: 1em; max-width: 100%; }
 .st-check { display: flex; gap: var(--sp-8); align-items: center; font-size: 0.9rem; }
@@ -233,7 +233,7 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
 .st-thumb { height: 150px; width: auto; border: 2px solid var(--line); border-radius: var(--radius-sm); cursor: pointer; }
 .st-thumb.is-on { border-color: var(--ocha-cyan); }
 .end-opt--soon { opacity: 0.45; pointer-events: none; }
-.end-opt__icon .fa-solid { font-size: 1.6rem; color: var(--ocha-cyan); }
+.end-opt__icon .fa-regular { font-size: 1.6rem; color: var(--ocha-cyan); }
 
 /* ---- Ending picker : selectable option cards with example thumbnails ---- */
 .end-options { display: flex; flex-wrap: wrap; gap: var(--sp-12); }

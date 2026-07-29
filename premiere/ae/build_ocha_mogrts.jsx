@@ -188,7 +188,16 @@ var DATA = {
   "height_frac": 0.45,
   "opacity": 80,
   "feather_frac": 0.75,
-  "mid_center": 0.5
+  "mid_center": 0.5,
+  "cloud_rx_frac": 0.34,
+  "cloud_ry_frac": 0.3,
+  "cloud_feather_frac": 0.14
+ },
+ "vignette": {
+  "radius_frac": 0.62,
+  "feather_frac": 0.36,
+  "opacity": 55,
+  "size_range": 0.25
  },
  "bug_height_frac": 0.065,
  "ending": {
@@ -1200,21 +1209,100 @@ function buildGradient(fmt) {
   wipe2.property("Transition Completion").expression = fsExpr + midExpr +
     "(mid && !fs) ? value : 0;";
 
-  sol.transform.opacity.expression =
-    "thisComp.layer('Controls').effect('Opacity')('Slider');";
+  // A HALF-WIDTH middle is a separate CLOUD layer, not another Linear Wipe: a wipe
+  // can only give a straight feathered edge, and the ask was for a cloud - soft all
+  // round, darkest in the middle - for text that sits on one side of the frame.
+  // Exactly one of the two layers is ever visible, so they never stack up.
+  var halfExpr = "var L = thisComp.layer('Controls').effect('Middle left')('Checkbox') > 0;\n" +
+                 "var R = thisComp.layer('Controls').effect('Middle right')('Checkbox') > 0;\n";
+  var cloud = comp.layers.addSolid([0, 0, 0], "Cloud", W, H, 1, DUR);
+  var crx = W * G.cloud_rx_frac, cry = H * G.cloud_ry_frac;
+  var ccx = W / 2, ccy = MC * H;                      // same band centre as the wipes
+  var CK = 0.5522847498, ckx = crx * CK, cky = cry * CK;
+  var csh = new Shape();
+  csh.closed = true;
+  csh.vertices    = [[ccx, ccy - cry], [ccx + crx, ccy], [ccx, ccy + cry], [ccx - crx, ccy]];
+  csh.outTangents = [[ckx, 0], [0, cky], [-ckx, 0], [0, -cky]];
+  csh.inTangents  = [[-ckx, 0], [0, -cky], [ckx, 0], [0, cky]];
+  var cmask = cloud.property("ADBE Mask Parade").addProperty("ADBE Mask Atom");
+  cmask.property("ADBE Mask Shape").setValue(csh);
+  var cft = Math.round(W * G.cloud_feather_frac);
+  cmask.property("ADBE Mask Feather").setValue([cft, cft]);
+  // The mask is baked at the comp centre; the LAYER slides a quarter-frame either
+  // way, so one shape serves both halves and there is no left/right geometry to
+  // get backwards.
+  cloud.transform.position.expression = halfExpr +
+    "[" + (W / 2) + " + (L ? " + (-W / 4) + " : (R ? " + (W / 4) + " : 0)), " + (H / 2) + "];";
+  cloud.transform.opacity.expression = halfExpr + fsExpr + midExpr +
+    "(mid && !fs && (L || R)) ? thisComp.layer('Controls').effect('Opacity')('Slider') : 0;";
+
+  // the full-width band steps aside whenever a half is chosen
+  sol.transform.opacity.expression = halfExpr + fsExpr + midExpr +
+    "(mid && !fs && (L || R)) ? 0 : thisComp.layer('Controls').effect('Opacity')('Slider');";
 
   var ctl = ctlNull(comp);
   addCheckbox(ctl, "Top", false);
   addCheckbox(ctl, "Middle", false);
+  addCheckbox(ctl, "Middle left", false);
+  addCheckbox(ctl, "Middle right", false);
   addCheckbox(ctl, "Full screen", false);
   addSlider(ctl, "Opacity", G.opacity);
   var mv = new MarkerValue("gradient"); mv.duration = DUR; mv.protectedRegion = true;
   comp.markerProperty.setValueAtTime(0, mv);     // fixed piece - protect it all
   comp.motionGraphicsTemplateName = comp.name;
-  addEGP(ctl.effect("Opacity").property(1), comp, "Opacity");   // display: Top, Middle, Full screen, Opacity
+  // added in REVERSE display order -> reads Top / Middle / Middle left /
+  // Middle right / Full screen / Opacity in Essential Graphics
+  addEGP(ctl.effect("Opacity").property(1), comp, "Opacity");
   addEGP(ctl.effect("Full screen").property(1), comp, "Full screen");
+  addEGP(ctl.effect("Middle right").property(1), comp, "Middle right");
+  addEGP(ctl.effect("Middle left").property(1), comp, "Middle left");
   addEGP(ctl.effect("Middle").property(1), comp, "Middle");
   addEGP(ctl.effect("Top").property(1), comp, "Top");
+  return comp;
+}
+
+function buildVignette(fmt) {
+  var W = fmt.w, H = fmt.h, V = DATA.vignette;
+  var DUR = 5;
+  var comp = S.proj.items.addComp("OCHA Vignette - " + fmt.label, W, H, 1, DUR, 30);
+  comp.parentFolder = S.root;
+
+  // An INVERTED elliptical mask on a black solid: the black survives only OUTSIDE
+  // the ellipse, so the corners darken and the middle stays clear. Radii and
+  // feather are fractions of THIS comp, and the comp is built at each format's
+  // size, so the vignette is proportional everywhere with no runtime scaling.
+  var sol = comp.layers.addSolid([0, 0, 0], "Vignette", W, H, 1, DUR);
+  var cx = W / 2, cy = H / 2;
+  var rx = W * V.radius_frac, ry = H * V.radius_frac;
+  var K = 0.5522847498;                              // bezier circle constant
+  var kx = rx * K, ky = ry * K;
+  var sh = new Shape();
+  sh.closed = true;
+  sh.vertices    = [[cx, cy - ry], [cx + rx, cy], [cx, cy + ry], [cx - rx, cy]];
+  sh.outTangents = [[kx, 0], [0, ky], [-kx, 0], [0, -ky]];
+  sh.inTangents  = [[-kx, 0], [0, -ky], [kx, 0], [0, ky]];
+  var mask = sol.property("ADBE Mask Parade").addProperty("ADBE Mask Atom");
+  mask.property("ADBE Mask Shape").setValue(sh);
+  mask.inverted = true;
+  var fth = Math.round(Math.min(W, H) * V.feather_frac);
+  mask.property("ADBE Mask Feather").setValue([fth, fth]);
+
+  var ctl = ctlNull(comp);
+  addSlider(ctl, "Amount", V.opacity);
+  addSlider(ctl, "Size", 50);
+  sol.transform.opacity.expression =
+    "thisComp.layer('Controls').effect('Amount')('Slider');";
+  // MOGRT sliders clamp to 0-100, so Size is a 0-100 dial with 50 = as designed.
+  // It drives Mask Expansion: higher = wider clear centre = subtler vignette.
+  mask.property("ADBE Mask Offset").expression =
+    "(thisComp.layer('Controls').effect('Size')('Slider') - 50) / 50 * " +
+    Math.round(Math.min(W, H) * V.size_range) + ";";
+
+  var mv = new MarkerValue("vignette"); mv.duration = DUR; mv.protectedRegion = true;
+  comp.markerProperty.setValueAtTime(0, mv);
+  comp.motionGraphicsTemplateName = comp.name;
+  addEGP(ctl.effect("Size").property(1), comp, "Size");        // display: Amount, Size
+  addEGP(ctl.effect("Amount").property(1), comp, "Amount");
   return comp;
 }
 
@@ -1236,8 +1324,8 @@ function exportComp(comp, cname, fmtKey) {
   }
 }
 
-var builders = [buildLT, buildPin, buildBug, buildEnding, buildText, buildGradient];
-var builderNames = ["LT", "Pin", "Bug", "Ending", "Text", "Gradient"];
+var builders = [buildLT, buildPin, buildBug, buildEnding, buildText, buildGradient, buildVignette];
+var builderNames = ["LT", "Pin", "Bug", "Ending", "Text", "Gradient", "Vignette"];
 try {
   for (var f = 0; f < DATA.formats.length; f++) {
     var fmt = DATA.formats[f];

@@ -60,6 +60,12 @@ logbook). This file is just the map + standing rules.
   and `--cd-max-*` are all available here too; `sync.py` fails if a token dangles.
 - **`host.jsx` is ExtendScript (ES3): `var` only, no arrows/template-literals,
   ASCII-only, and never `--` inside a comment** (it breaks the manifest XML too).
+  Its `File` writes Mac line endings: set `f.lineFeed = "Unix"` or every `\n`
+  silently becomes `\r` (cost us a whole afternoon on the packager's relink).
+- **Panel icons are Font Awesome Classic REGULAR, inlined** from
+  `…/OCHA_design_system/assets/FA_classic_regular/` — never the FA kit script (a
+  CDN breaks offline), never Solid, never hand-drawn. `python3 tools/check-icons.py`
+  enforces it; the five `.card__icon` schematics are the one documented exception.
 - **Never rebuild/sign the `.zxp` without Javier's explicit go.** Stage
   everything; he authorises the release.
 - **Restart the engine for backend (Python) changes** — the launch config has no

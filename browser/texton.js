@@ -87,7 +87,7 @@ const OchaTextOn = (() => {
         </select>
       </span>
       <button class="cd-button cd-button--outline cd-button--small tx-remove" type="button" title="Remove this text block">
-        <i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="cd-button__text">Remove</span>
+        <i class="fa-regular fa-trash-can" aria-hidden="true"></i><span class="cd-button__text">Remove</span>
       </button>
     </div>`;
 

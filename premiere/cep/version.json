@@ -1,7 +1,7 @@
 {
-  "version": "2026.0.42",
-  "date": "2026-07-23",
-  "notes": "Captions: the Boxed style now really includes its box (Raleway Medium 48) - reinstall the styles from the Captions tab. New: Caption position guides (installed automatically; View > Guide Templates), a Middle option on the readability gradient, and Position sliders are back - pixel values with 1px arrows, stopping at the frame edges. Lower third and Text defaults sit clear of captions, title lines are bigger, and the second title field is now '3rd line'.",
+  "version": "2026.0.44",
+  "date": "2026-07-29",
+  "notes": "Package project no longer touches your open project: it copies the media, copies the .prproj as a file, and rewrites the paths inside that copy - so Premiere stays exactly where it is, and OCHA templates relink too (the old route used an API that refuses templates outright). Files that were already offline are simply skipped and listed, not treated as a failure. Every package now contains a _package_report.txt. Fixes: Fix colour no longer reports a false failure and restores the preview codec; the vignette no longer shows position options; the readability gradient's Middle row is laid out properly with Middle last. Tidy project sorts the whole panel, emptying existing folders into the standard bins. Fix colour and Tidy grey out once run. New: Remove unused. All panel icons are Font Awesome Classic Regular.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
-  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=2026.0.42"
+  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=2026.0.44"
 }

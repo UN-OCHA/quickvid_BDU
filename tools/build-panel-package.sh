@@ -102,6 +102,9 @@ else
   echo "  signed   : NO — unsigned zip (add tools/sign.env to sign)"
 fi
 echo "  size     : $(du -h "$OUT" | cut -f1)"
-echo "  templates: $n_mogrt  (expected 24)"
+# one .mogrt per element per format: 7 elements (LT, Location, Bug, Ending,
+# Text, Gradient, Vignette) x 4 formats. Bump this when the AE builder gains one.
+n_expect=28
+echo "  templates: $n_mogrt  (expected $n_expect)"
 echo "  copied   : distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp"
-[ "$n_mogrt" -eq 24 ] || echo "  WARNING: expected 24 templates — run the AE builder?"
+[ "$n_mogrt" -eq "$n_expect" ] || echo "  WARNING: expected $n_expect templates — run the AE builder?"

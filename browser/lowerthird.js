@@ -62,7 +62,7 @@ const OchaLowerThirds = (() => {
        <span class="lt-cell lt-cell--align"><span class="lt-cap">Alignment</span>
          <select class="cd-form__input lt-align" title="Alignment"><option value="left">Left</option><option value="center">Centre</option></select>
        </span>
-       <button class="cd-button cd-button--outline cd-button--small lt-remove" type="button" title="Remove this lower third"><i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="cd-button__text">Remove</span></button>
+       <button class="cd-button cd-button--outline cd-button--small lt-remove" type="button" title="Remove this lower third"><i class="fa-regular fa-trash-can" aria-hidden="true"></i><span class="cd-button__text">Remove</span></button>
      </div>`;
 
   function mount({ rows, add, onChange, defaults }) {

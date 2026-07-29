@@ -20,7 +20,8 @@ var OCHA_EL_NAME = {
   bug: "OCHA Bug",
   ending: "OCHA Ending",
   text: "OCHA Text",
-  gradient: "OCHA Gradient"
+  gradient: "OCHA Gradient",
+  vignette: "OCHA Vignette"
 };
 // ONE matcher for "is this clip/item an OCHA template?", derived from OCHA_EL_NAME
 // so a newly added element can never be half-recognised. This test was hand-written
@@ -43,8 +44,9 @@ var OCHA_FMT = {
   event:  { folder: "event",  label: "Event 16x9" }
 };
 // value coercion per control (everything not listed is text)
-var OCHA_BOOL = { "Centre align": 1, "Show pin icon": 1, "Over black": 1, "Top": 1, "Middle": 1, "Full screen": 1 };
-var OCHA_NUM  = { "Pin colour": 1, "Size": 1, "Opacity": 1 };
+var OCHA_BOOL = { "Centre align": 1, "Show pin icon": 1, "Over black": 1, "Top": 1, "Middle": 1,
+                    "Middle left": 1, "Middle right": 1, "Full screen": 1 };
+var OCHA_NUM  = { "Pin colour": 1, "Size": 1, "Opacity": 1, "Amount": 1 };
 // Renamed EGP controls: panel sends the CURRENT name; clips placed with an older
 // template still carry the old one, so writers fall back through this map instead
 // of warning "could not set" on every edit of an old clip.
@@ -57,6 +59,22 @@ function ochaFmtFromSize(w, h) {
   if (r < 0.92)  return "feed45";
   if (r <= 1.12) return "square";
   return "event";
+}
+
+// "OK|<n>|V1,V2,..."  - how many video tracks the active sequence has, for the
+// panel's track picker. Read-only.
+function ochaTrackList() {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return "none";
+    var n = seq.videoTracks.numTracks, names = [];
+    for (var i = 0; i < n; i++) {
+      var nm = "V" + (i + 1);
+      try { if (seq.videoTracks[i].name) nm = "" + seq.videoTracks[i].name; } catch (e) {}
+      names.push(nm);
+    }
+    return "OK|" + n + "|" + names.join(",");
+  } catch (e) { return "none"; }
 }
 
 function ochaGetFormat() {
@@ -201,7 +219,7 @@ function ochaApplyMotion(seq, clip, m) {
   if (m.posX != null || m.posY != null) {
     // 0.42: prefer the template's own Position X/Y controls (element-edge px,
     // clamped element-exact inside the template); Motion is the old-clip
-    // fallback — its param is NORMALIZED fractions (see ochaReadMotion).
+    // fallback - its param is NORMALIZED fractions (see ochaReadMotion).
     var tp = ochaPosParams(clip);
     if (tp) {
       // px -> PERCENT of frame (the sliders' 0-100 range; see ochaReadMotion)
@@ -382,7 +400,40 @@ function ochaInsertedTrack(seq, elName, timeTicks, fallback) {
   return fallback;
 }
 
-function ochaAdd(el, fmtKey, extRoot, kvBlob) {
+// Is a video track free at this moment? Used to place the gradient as LOW as
+// possible without landing on the footage.
+function ochaTrackFreeAt(seq, vIdx, ticks) {
+  try {
+    var clips = seq.videoTracks[vIdx].clips, t = parseFloat(ticks);
+    for (var i = 0; i < clips.numItems; i++) {
+      var c = clips[i];
+      var s0 = parseFloat(c.start.ticks), e0 = parseFloat(c.end.ticks);
+      if (t >= s0 && t < e0) return false;
+    }
+    return true;
+  } catch (e) { return false; }
+}
+
+// The track ladder to try, in order, for one element.
+//   pref = "" | "top"   -> one-past-top, top, 0   (graphics sit above everything)
+//   pref = "bottom"     -> the LOWEST free track upward from V1, so a readability
+//                          gradient lands UNDER the text/captions it is there to
+//                          make legible, instead of on top of them
+//   pref = "<n>"        -> that exact 0-based track first, then the usual ladder
+function ochaTrackTries(seq, pref, ticks) {
+  var vCount = seq.videoTracks.numTracks;
+  var normal = [vCount, vCount - 1, 0];
+  if (pref === "bottom") {
+    var low = [];
+    for (var i = 0; i < vCount; i++) if (ochaTrackFreeAt(seq, i, ticks)) low.push(i);
+    return low.concat([vCount]).concat(normal);      // free-from-bottom, then a new track
+  }
+  var n = parseInt(pref, 10);
+  if (!isNaN(n) && n >= 0) return [n].concat(normal);
+  return normal;
+}
+
+function ochaAdd(el, fmtKey, extRoot, kvBlob, trackPref) {
   try {
     var seq = app.project.activeSequence;
     if (!seq) return "ERR|Open a sequence first.";
@@ -395,8 +446,9 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob) {
     var aCount = seq.audioTracks.numTracks;
     var aIdx = (el === "ending") ? Math.max(0, aCount - 1) : 0;
 
-    // track ladder: one-past-top (in case the API auto-creates), then top, then 0
-    var tries = [vCount, vCount - 1, 0], seen = {}, clip = null, usedV = -1, errs = [];
+    // track ladder: explicit choice / gradient-low / one-past-top, then top, then 0
+    var tries = ochaTrackTries(seq, trackPref || (el === "gradient" ? "bottom" : "top"), timeTicks);
+    var seen = {}, clip = null, usedV = -1, errs = [];
     for (var t = 0; t < tries.length; t++) {
       var v = tries[t];
       if (v < 0 || seen["i" + v]) continue;
@@ -511,6 +563,360 @@ function ochaInstallCaptionStyles(extRoot) {
     var out = "OK|installed=" + done.join(", ");
     if (fail.length) out += "|warn=" + fail.join("; ");
     return out;
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
+/* ---------------- Tidy the project panel into bins ----------------
+   Sorts loose media into "01 Footage / 02 Images / 03 Graphics / 04 Audio /
+   05 Other", reusing the SAME categoriser the packager uses so a tidied project
+   and a packaged one group things identically.
+
+   Deliberately conservative: sequences are never moved (they are the things you
+   open, and burying them helps nobody), OCHA template items are left where they
+   are, anything already inside a bin is left alone (that is the user's own
+   filing), and nothing is ever deleted or renamed. Numbered names keep the bins
+   in a sensible order in Premiere's alphabetical list. */
+var OCHA_BIN_NAMES = { footage: "01 Footage", images: "02 Images",
+                       graphics: "03 Graphics", audio: "04 Audio", other: "05 Other",
+                       missing: "06 Missing (offline)" };
+
+function ochaFindOrMakeBin(name) {
+  var root = app.project.rootItem, i;
+  for (i = 0; i < root.children.numItems; i++) {
+    var it = root.children[i], nm = "";
+    try { nm = it.name; } catch (e) {}
+    if (nm === name) {
+      var kids = null; try { kids = it.children; } catch (e2) {}
+      if (kids && kids.numItems !== undefined) return it;      // existing bin
+    }
+  }
+  try { return root.createBin(name); } catch (e3) { return null; }
+}
+
+// "OK|<moved>|<summary>" - counts only, no destructive step beyond emptied bins.
+function ochaTidyProject() {
+  try {
+    var root = app.project.rootItem, i;
+
+    // Our own bins, by name - never treated as a user bin to flatten.
+    var ours = {};
+    for (var k in OCHA_BIN_NAMES) if (OCHA_BIN_NAMES.hasOwnProperty(k)) ours[OCHA_BIN_NAMES[k]] = 1;
+
+    // Walk the WHOLE tree, not just the top level: existing bins are flattened
+    // into the standard ones, so a project that was already sorted some other way
+    // ends up sorted this way. Collected first, because moving items while walking
+    // mutates the collections underneath the walk.
+    var loose = [], bins = [];
+    ochaEachItem(root, function (it) {
+      if (it === root) return;
+      var kids = null; try { kids = it.children; } catch (e) {}
+      if (kids && kids.numItems !== undefined) {
+        var bn = ""; try { bn = it.name; } catch (e1) {}
+        if (!ours[bn]) bins.push(it);                    // a user bin - flatten later
+        return;
+      }
+      var isSeq = false;
+      try { if (typeof it.isSequence === "function") isSeq = it.isSequence(); } catch (e2) {}
+      if (isSeq) return;                                  // sequences are what you open
+      var nm = ""; try { nm = it.name; } catch (e3) {}
+      var mp = ""; try { mp = it.getMediaPath(); } catch (e4) { mp = ""; }
+      var cat;
+      if (mp && !new File(mp).exists) cat = "missing";
+      else cat = ochaPkgCategory(mp || nm);
+      loose.push({ item: it, cat: cat });
+    });
+    if (!loose.length && !bins.length) return "OK|0|Nothing to tidy - the project panel is already organised.";
+
+    var made = {}, moved = 0, counts = {}, failed = 0;
+    for (var j = 0; j < loose.length; j++) {
+      var c0 = loose[j].cat, binName = OCHA_BIN_NAMES[c0] || OCHA_BIN_NAMES.other;
+      if (!made[c0]) made[c0] = ochaFindOrMakeBin(binName);
+      if (!made[c0]) { failed++; continue; }
+      try { loose[j].item.moveBin(made[c0]); moved++; counts[c0] = (counts[c0] || 0) + 1; }
+      catch (e5) { failed++; }
+    }
+
+    // Remove the emptied bins - DEEPEST FIRST, and only when genuinely empty.
+    // "Only when empty" is the whole safety story: a bin still holding a sequence
+    // (or anything we chose not to move) survives, so nothing can be deleted by
+    // being swept up inside its parent.
+    var removed = 0;
+    for (var b = bins.length - 1; b >= 0; b--) {
+      var n = -1;
+      try { n = bins[b].children.numItems; } catch (e6) { n = -1; }
+      if (n !== 0) continue;
+      try { bins[b].deleteBin(); removed++; } catch (e7) {}
+    }
+
+    var parts = [];
+    for (var c in counts) if (counts.hasOwnProperty(c)) parts.push(counts[c] + " " + c);
+    var msg = "Moved " + moved + " item(s) into bins (" + parts.join(", ") + ").";
+    if (removed) msg += " Removed " + removed + " now-empty folder(s).";
+    if (bins.length - removed > 0) {
+      msg += " " + (bins.length - removed) + " folder(s) kept - they still hold a sequence or something that wasn't moved.";
+    }
+    if (counts.missing) msg += " " + counts.missing + " offline item(s) are in \"06 Missing (offline)\" - relink or replace them.";
+    if (failed) msg += " " + failed + " couldn't be moved.";
+    return "OK|" + moved + "|" + msg;
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
+
+
+/* ---------------- Remove unused: list first, delete only what is ticked --------
+   "Unused" = a project item that appears in NO sequence. Premiere has no usage
+   API, so the only honest way is to walk every sequence's video and audio tracks
+   and collect the nodeIds actually placed, then treat everything else as unused.
+   Bins and sequences are never candidates.
+
+   Deliberately two calls: ochaUnusedList() reports, the panel shows tick boxes,
+   and ochaUnusedDelete() removes ONLY the indexes sent back. Nothing is deleted
+   on the strength of the scan alone. */
+function ochaUsedNodeIds() {
+  var used = {}, i, t, c;
+  for (i = 0; i < app.project.sequences.numSequences; i++) {
+    var sq = app.project.sequences[i];
+    var pools = [];
+    try { pools.push(sq.videoTracks); } catch (e) {}
+    try { pools.push(sq.audioTracks); } catch (e1) {}
+    for (var pi = 0; pi < pools.length; pi++) {
+      var pool = pools[pi];
+      for (t = 0; t < pool.numTracks; t++) {
+        var clips = null; try { clips = pool[t].clips; } catch (e2) { clips = null; }
+        if (!clips) continue;
+        for (c = 0; c < clips.numItems; c++) {
+          try {
+            var pit = clips[c].projectItem;
+            if (pit && pit.nodeId) used[pit.nodeId] = 1;
+          } catch (e3) {}
+        }
+      }
+    }
+  }
+  return used;
+}
+
+// "OK|<n>|name<US>name<US>..."   (US = the same 0x1F the panel already uses)
+function ochaUnusedList() {
+  try {
+    var used = ochaUsedNodeIds(), names = [];
+    OCHA_UNUSED = [];
+    ochaEachItem(app.project.rootItem, function (it) {
+      if (it === app.project.rootItem) return;
+      var kids = null; try { kids = it.children; } catch (e) {}
+      if (kids && kids.numItems !== undefined) return;        // a bin
+      var isSeq = false;
+      try { if (typeof it.isSequence === "function") isSeq = it.isSequence(); } catch (e1) {}
+      if (isSeq) return;                                       // sequences are never "unused"
+      var id = null; try { id = it.nodeId; } catch (e2) {}
+      if (id && used[id]) return;                              // on a timeline somewhere
+      var nm = ""; try { nm = it.name; } catch (e3) { nm = "(unnamed)"; }
+      OCHA_UNUSED.push(it);
+      names.push(nm);
+    });
+    return "OK|" + names.length + "|" + names.join(String.fromCharCode(31));
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+var OCHA_UNUSED = [];
+
+// idxCsv = the indexes the user left TICKED, against the last ochaUnusedList()
+function ochaUnusedDelete(idxCsv) {
+  try {
+    if (!OCHA_UNUSED || !OCHA_UNUSED.length) return "ERR|Run the scan again - the list has gone stale.";
+    var want = {}, parts = String(idxCsv || "").split(",");
+    for (var i = 0; i < parts.length; i++) {
+      var n = parseInt(parts[i], 10);
+      if (!isNaN(n)) want[n] = 1;
+    }
+    var gone = 0, kept = 0, failed = 0;
+    // delete back-to-front: removing an item can renumber the collection
+    for (var j = OCHA_UNUSED.length - 1; j >= 0; j--) {
+      if (!want[j]) { kept++; continue; }
+      try { OCHA_UNUSED[j].deleteBin(); gone++; } catch (e) { failed++; }
+    }
+    OCHA_UNUSED = [];
+    var msg = "Removed " + gone + " unused item(s).";
+    if (kept) msg += " " + kept + " left in place.";
+    if (failed) msg += " " + failed + " couldn't be removed.";
+    return "OK|" + gone + "|" + msg;
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
+/* ---------------- Sequence colour: detect + fix ----------------
+   Measured on Premiere 26.3 (the colour probe): getSettings() carries
+   `workingColorSpace` and `workingColorSpaceList` (4 entries), and a ColorSpace
+   exposes name / primaries / transferCharacteristic. Rec. 709 is matched by the
+   NUMERIC codes (primaries 1, transfer 1 - ITU-T H.273), never by the display
+   name, which could be localised.
+
+   Why this matters: iPhones shoot HDR (HLG) by default, so a sequence created
+   from that footage is born Rec. 2100 HLG. Everything then looks flat and OCHA
+   blue reads wrong, and it is invisible until export. */
+var OCHA_CS_709 = { primaries: 1, transfer: 1 };
+
+function ochaIs709(cs) {
+  if (!cs) return false;
+  try {
+    return cs.primaries === OCHA_CS_709.primaries &&
+           cs.transferCharacteristic === OCHA_CS_709.transfer &&
+           !cs.isSceneReferred;
+  } catch (e) { return false; }
+}
+
+function ochaCsName(cs) {
+  try { return "" + (cs.name || "unknown"); } catch (e) { return "unknown"; }
+}
+
+// "OK|<prose>|<needsFix 0|1>|<is709 0|1>|<name>"  - read-only, so it is safe to
+// poll (only the blind write-back is dangerous). Field order is dictated by the
+// panel's GENERIC modal path, which reads field 1 as the status line and field 2
+// as a count that gates the CTA - so an already-correct sequence disables the
+// button for free. The banner reads fields 3 and 4.
+function ochaColorStatus() {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return "ERR|Open the sequence you want to check first.|0";
+    var st = seq.getSettings();
+    var cs = st ? st.workingColorSpace : null;
+    if (!cs) return "ERR|Couldn't read this sequence's colour settings.|0";
+    var ok = ochaIs709(cs), nm = ochaCsName(cs);
+    var prose = ok ? "This sequence is standard Rec. 709 - nothing to fix."
+                   : "This sequence is set to " + nm + ", not Rec. 709.";
+    return "OK|" + prose + "|" + (ok ? "0" : "1") + "|" + (ok ? "1" : "0") + "|" + nm;
+  } catch (e) { return "ERR|" + e.toString() + "|0"; }
+}
+
+// Snapshot every setting as a comparable string, so a write can be AUDITED.
+function ochaSettingsSnap(st) {
+  var snap = {};
+  for (var k in st) {
+    try {
+      var v = st[k];
+      snap[k] = (k === "workingColorSpace") ? ochaCsName(v)
+              : (k === "workingColorSpaceList") ? "list" : ("" + v);
+    } catch (e) { snap[k] = "(unreadable)"; }
+  }
+  return snap;
+}
+
+// Restore a clip's position to the TEMPLATE'S DESIGNED SPOT.
+//
+// "Reset" used to write the frame CENTRE. That is right for Motion (its default
+// really is the centre) but wrong for our templates, whose default is the
+// designed edge - a left-anchored lower third belongs at the safe margin, not
+// the middle of the frame. Worse, because the panel wrote a value either way it
+// looked like a one-step undo rather than a reset.
+//
+// The template default is recoverable without hard-coding anything: our
+// sizeGroup expressions treat "slider exactly on its baked default" as
+// AS-DESIGNED, and Premiere hands back a MOGRT parameter's own default. Where
+// that isn't available we fall back to Motion's real default, the centre.
+// Returns "OK|<x>|<y>" in the panel's pixel space so the sliders can follow.
+function ochaResetPos() {
+  try {
+    var clip = ochaSelectedOchaClip();
+    if (!clip) return "ERR|Select an OCHA clip first.";
+    var seq = app.project.activeSequence;
+    var w = seq.frameSizeHorizontal, h = seq.frameSizeVertical;
+    var tp = ochaPosParams(clip);
+    if (tp) {
+      var dx = null, dy = null;
+      // the parameter knows what it was born as; name varies by API version
+      try { if (typeof tp.x.getDefaultValue === "function") dx = tp.x.getDefaultValue(); } catch (e1) {}
+      try { if (typeof tp.y.getDefaultValue === "function") dy = tp.y.getDefaultValue(); } catch (e2) {}
+      if (dx === null || dy === null) {
+        try { if (tp.x.defaultValue !== undefined) dx = tp.x.defaultValue; } catch (e3) {}
+        try { if (tp.y.defaultValue !== undefined) dy = tp.y.defaultValue; } catch (e4) {}
+      }
+      if (dx !== null && dy !== null) {
+        tp.x.setValue(parseFloat(dx), true);
+        tp.y.setValue(parseFloat(dy), true);
+        return "OK|" + Math.round(parseFloat(dx) / 100 * w) + "|" + Math.round(parseFloat(dy) / 100 * h);
+      }
+      return "ERR|This template does not report its default position - move it back by hand, or delete the clip and add it again.";
+    }
+    // Motion-only clip (placed before the template gained Position controls):
+    // its genuine default IS the centre.
+    var mo = ochaFindComp(clip, "AE.ADBE Motion");
+    var pp = mo ? ochaFindParam(mo.properties, "Position") : null;
+    if (!pp) return "ERR|No position to reset on that clip.";
+    pp.setValue([0.5, 0.5], true);
+    return "OK|" + Math.round(w / 2) + "|" + Math.round(h / 2);
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
+function ochaFixColor() {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return "ERR|Open the sequence you want to fix first.";
+    var st = seq.getSettings();
+    if (!st) return "ERR|Couldn't read this sequence's settings.";
+    var was = ochaCsName(st.workingColorSpace);
+    if (ochaIs709(st.workingColorSpace)) return "OK|already|" + was + "|" + seq.name;
+
+    // pick Rec. 709 out of the sequence's OWN list - never build a ColorSpace
+    var list = st.workingColorSpaceList, target = null, n = 0;
+    try { n = list.length; } catch (eL) { n = 0; }
+    for (var i = 0; i < n; i++) { if (ochaIs709(list[i])) { target = list[i]; break; } }
+    if (!target) return "ERR|Rec. 709 isn't offered for this sequence (found " + n + " option(s)).";
+
+    // AUDIT the write. setSettings takes the whole object, and a lossy round trip
+    // is exactly what we suspect wrecked a project's colour once - so snapshot
+    // before, write, snapshot after, and REPORT anything that moved besides the
+    // fields we meant to touch. Silent collateral damage is the thing to avoid.
+    var before = ochaSettingsSnap(st);
+    st.workingColorSpace = target;
+    st.autoToneMapEnabled = true;      // converts the HDR footage instead of passing it raw
+    seq.setSettings(st);
+
+    // VERDICT from a fresh read, tested with the SAME predicate the banner uses.
+    // Comparing serialised names was fragile: the round-tripped object reported
+    // workingColorSpace as "list" and the tool cried "didn't take" on a fix that
+    // had actually worked. What we care about is "is it Rec. 709 now?", so ask
+    // exactly that.
+    var fresh = app.project.activeSequence.getSettings();
+    var nowCs = fresh ? fresh.workingColorSpace : null;
+    var ok = ochaIs709(nowCs);
+    var nowName = ochaCsName(nowCs);
+
+    var after = ochaSettingsSnap(fresh);
+    var intended = { workingColorSpace: 1, autoToneMapEnabled: 1 };
+    var drift = [];
+    for (var k in before) {
+      if (intended[k]) continue;
+      if (after[k] !== undefined && after[k] !== before[k]) {
+        drift.push(k + ": " + before[k] + " -> " + after[k]);
+      }
+    }
+    // setSettings is a whole-object write, so Premiere sometimes re-defaults a
+    // field we never touched - previewCodec drops ProRes HQ to LT. That only
+    // affects PREVIEW renders, never the export, but it is still not ours to
+    // change: put it back and re-audit rather than leaving a silent downgrade.
+    var restored = "";
+    if (drift.length && before.previewCodec !== undefined &&
+        after.previewCodec !== before.previewCodec) {
+      try {
+        fresh.previewCodec = before.previewCodec;
+        app.project.activeSequence.setSettings(fresh);
+        var after2 = ochaSettingsSnap(app.project.activeSequence.getSettings());
+        if (after2.previewCodec === before.previewCodec) {
+          restored = "previewCodec";
+          var d2 = [];
+          for (var k2 in before) {
+            if (intended[k2]) continue;
+            if (after2[k2] !== undefined && after2[k2] !== before[k2]) {
+              d2.push(k2 + ": " + before[k2] + " -> " + after2[k2]);
+            }
+          }
+          drift = d2;
+        }
+      } catch (eR) {}
+    }
+
+    var msg = (ok ? "OK|fixed|" : "ERR|didn't take|") + was + " -> " + nowName + "|" + seq.name;
+    if (restored) msg += "|restored=" + restored;
+    if (drift.length) msg += "|drift=" + drift.join("; ");
+    return msg;
   } catch (e) { return "ERR|" + e.toString(); }
 }
 
@@ -665,14 +1071,39 @@ function ochaWrite(path, text) {
   try { var f = new File(path); f.encoding = "UTF-8"; f.open("w"); f.write(text); f.close(); } catch (e) {}
 }
 
-function ochaKeys(o) { var k = []; for (var p in o) { try { k.push(p); } catch (e) {} } return k.join(","); }
-
-function ochaResizeSeq(seq, newH) {
-  var st; try { st = seq.getSettings(); } catch (e) { return "getSettings ERR " + e; }
-  var field = null, cand = ["videoFrameHeight", "frameHeight", "height"], i;
-  for (i = 0; i < cand.length; i++) { if (cand[i] in st) { field = cand[i]; break; } }
-  if (!field) return "no height field (" + ochaKeys(st) + ")";
-  try { st[field] = newH; seq.setSettings(st); return "resized"; } catch (e) { return "setSettings ERR " + e; }
+function ochaResizeSeq(seq, newW, newH) {
+  // NEVER round-trip getSettings() -> setSettings() to change one number.
+  //
+  // That is what this function used to do, and it WASHED OUT THE COLOUR of the
+  // whole project (Javi, 2026-07-27: "the blue is no longer OCHA blue... in all
+  // sequences"). The settings object does not survive the round trip: fields the
+  // API doesn't fully expose - colour management / working colour space above all
+  // - come back defaulted, and writing the object back APPLIES those defaults.
+  // Colour management is project-level in current Premiere, so the damage is not
+  // scoped to the sequence we meant to resize.
+  //
+  // QE's setVideoFrameSize touches ONLY the frame size. Measured present on
+  // Premiere 26.3 (it shows up in the QE sequence's reflection list).
+  try {
+    app.enableQE();
+    var qs = (typeof qe !== "undefined" && qe) ? qe.project.getActiveSequence() : null;
+    if (qs && typeof qs.setVideoFrameSize === "function") {
+      qs.setVideoFrameSize(newW, newH);
+      // The PREVIEW frame size does not follow the video frame size. A reel cloned
+      // from a square kept previewFrameWidth/Height at 1080x1080 on a 1080x1920
+      // sequence (measured 2026-07-28 in the colour probe) - previews then render
+      // at the wrong shape. Best-effort: never let this fail the resize.
+      try {
+        if (typeof qs.setPreviewFrameSize === "function") {
+          qs.setPreviewFrameSize(newW, newH);
+        }
+      } catch (eP) {}
+      return "resized";
+    }
+  } catch (e) { return "resize ERR " + e.toString(); }
+  // Deliberately NO settings-object fallback: an unresized sequence is obvious
+  // and harmless, silently wrecked colour is neither.
+  return "resize FAILED (QE setVideoFrameSize unavailable) - sequence left at its original size";
 }
 
 function ochaClearSequence(seq) {
@@ -680,6 +1111,75 @@ function ochaClearSequence(seq) {
   try { for (t = 0; t < seq.videoTracks.numTracks; t++) { var vc = seq.videoTracks[t].clips; for (c = vc.numItems - 1; c >= 0; c--) { try { vc[c].remove(false, false); n++; } catch (e) {} } } } catch (e) {}
   try { for (t = 0; t < seq.audioTracks.numTracks; t++) { var ac = seq.audioTracks[t].clips; for (c = ac.numItems - 1; c >= 0; c--) { try { ac[c].remove(false, false); } catch (e) {} } } } catch (e) {}
   return n;
+}
+
+/* Captions are their own track layer and the DOM has never exposed it (measured
+   26.3: seq.captionTracks is undefined, a selected cue reports zero components).
+   It matters here because clone() copies the caption track wholesale - so a reel
+   cloned from a captioned square showed the subtitles TWICE: once from the copied
+   track, once from the nested square rendering its own captions through the nest.
+   The real fix is to not clone at all (see ochaReelBase); this stays as the
+   belt-and-braces for the clone fallback. Best effort, and it reports which path
+   worked so a real run tells us the truth instead of us guessing again. */
+function ochaClearCaptions(seq) {
+  var n = 0, found = "none", t, c, cc;
+  try {
+    var ct = seq.captionTracks;
+    if (ct && ct.numTracks) {
+      found = "dom" + ct.numTracks;
+      for (t = 0; t < ct.numTracks; t++) {
+        cc = null; try { cc = ct[t].clips; } catch (e1) {}
+        if (!cc) continue;
+        for (c = cc.numItems - 1; c >= 0; c--) { try { cc[c].remove(false, false); n++; } catch (e2) {} }
+      }
+    }
+  } catch (e) {}
+  if (found === "none") {
+    try {
+      app.enableQE();
+      var qs = (typeof qe !== "undefined" && qe) ? qe.project.getActiveSequence() : null;
+      if (qs && qs.numCaptionTracks) {
+        found = "qe" + qs.numCaptionTracks;
+        for (t = 0; t < qs.numCaptionTracks; t++) {
+          var qt = null; try { qt = qs.getCaptionTrackAt(t); } catch (e3) {}
+          if (!qt) continue;
+          for (c = (qt.numItems || 0) - 1; c >= 0; c--) {
+            try { qt.getItemAt(c).remove(false); n++; } catch (e4) {}
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  return found === "none" ? "captions=not-scriptable" : "captions=" + found + "/removed" + n;
+}
+
+/* An empty sequence carrying the square's settings - the reel is built into it.
+   PREFERRED: createNewSequenceFromClips makes a BRAND NEW sequence matched to the
+   source, so there is no caption track to inherit. FALLBACK: the original
+   clone-and-empty path, which does inherit one (hence the caption wipe). */
+function ochaReelBase(src, srcPI, srcName, L) {
+  var reelName = srcName + " - Reel", made = null;
+  try {
+    if (typeof app.project.createNewSequenceFromClips === "function") {
+      made = app.project.createNewSequenceFromClips(reelName, [srcPI], app.project.rootItem);
+      // some builds return nothing but still create and activate it
+      if (!made) { var a = app.project.activeSequence; if (a && a.name !== srcName) made = a; }
+      if (made) {
+        try { app.project.openSequence(made.sequenceID); } catch (eO) {}
+        made = app.project.activeSequence;
+      }
+    }
+  } catch (eC) { L.push("fromClips ERR " + eC.toString()); made = null; }
+  if (made && made.name !== srcName) {
+    L.push("base=new(no captions) cleared=" + ochaClearSequence(made));
+    return made;
+  }
+  src.clone();
+  var reel = app.project.activeSequence;
+  if (!reel || reel.name === srcName) return null;
+  try { reel.name = reelName; } catch (eN) {}
+  L.push("base=clone cleared=" + ochaClearSequence(reel) + " " + ochaClearCaptions(reel));
+  return reel;
 }
 
 function ochaSetMotionScale(clip, pct) {
@@ -728,13 +1228,10 @@ function ochaSquareToReel() {
     ochaEachItem(app.project.rootItem, function (it) { if (!srcPI) { var n = ""; try { n = it.name; } catch (e) {} if (n === srcName) srcPI = it; } });
     if (!srcPI) return "ERR|Couldn't find '" + srcName + "' in the project to nest.";
 
-    // clone -> reel, then empty it so we control the track layout
-    src.clone();
-    var reel = app.project.activeSequence;
-    if (!reel || reel.name === srcName) return "ERR|clone didn't activate (active='" + (reel ? reel.name : "?") + "').";
-    try { reel.name = srcName + " - Reel"; } catch (e) {}
-    L.push("cleared=" + ochaClearSequence(reel));
-    L.push(ochaResizeSeq(reel, reelH));
+    // an empty sequence with the square's settings, then we own the track layout
+    var reel = ochaReelBase(src, srcPI, srcName, L);
+    if (!reel) return "ERR|Couldn't create the reel sequence (" + L.join(" / ") + ").";
+    L.push(ochaResizeSeq(reel, w, reelH));
 
     // BG on V1: nested source, scaled to fill, blurred
     var fillPct = Math.round((reelH / h) * 100);
@@ -808,11 +1305,11 @@ function ochaSelectedOchaClip() {
 /* 0.42 rework, round 2: the sliders drive the TEMPLATE's own "Position X/Y"
    controls (element's LEFT/TOP edge in px; the template clamps against the
    element's REAL text-aware bbox, so 0 = flush with the edge and it can never
-   leave the comp). Clips placed with OLDER templates have no such controls —
+   leave the comp). Clips placed with OLDER templates have no such controls -
    they fall back to Motion > Position, whose anchor knows nothing about the
    element (that's why it was replaced), clamped to the frame as before.
    Motion gotcha kept for the fallback: the param is NORMALIZED (fractions of
-   the frame, [0.5,0.5] = centre) while Effect Controls displays px — writing
+   the frame, [0.5,0.5] = centre) while Effect Controls displays px - writing
    raw px multiplied by the frame (measured: panel 6 -> 6480 = 6 x 1080).
    Scale stays PARKED: read/write touch position only. */
 function ochaPosParams(clip) {
@@ -834,7 +1331,7 @@ function ochaReadMotion() {
     var tp = ochaPosParams(clip);
     if (tp) {
       // template sliders hold PERCENT of frame (Premiere clamps MOGRT sliders
-      // to 0-100 — see sizeGroup in the AE builder); panel speaks px
+      // to 0-100 - see sizeGroup in the AE builder); panel speaks px
       try { x = Math.round(tp.x.getValue() / 100 * w); y = Math.round(tp.y.getValue() / 100 * h); mode = "t"; } catch (eT) {}
     }
     if (mode === "m") {
@@ -998,7 +1495,7 @@ function ochaCleanMogrts() {
 // ---- Package project ----
 // Copy every file the project depends on into one clean folder (sorted by type)
 // beside the .prproj, then save a portable, relinked copy of the project inside
-// it. The ORIGINAL project + media are never modified (saveAs writes a new file).
+// it. The ORIGINAL project + media are never modified (everything is a copy).
 function ochaPkgExt(p) { var m = /\.([A-Za-z0-9]+)\s*$/.exec(p); return m ? m[1].toLowerCase() : ""; }
 // No spaces in anything the packager creates: spaces -> underscore, collapse runs,
 // trim leading/trailing underscores. Keeps a file's extension intact (only the base
@@ -1053,6 +1550,24 @@ function ochaPkgMediaItems() {
   });
   return out;
 }
+
+// Items that point at a file which ISN'T on disk right now. These used to be
+// dropped silently by ochaPkgMediaItems - so an offline clip was never copied,
+// never relinked, and the packaged project quietly kept pointing at the
+// original. The user only found out later, as a "locate the file" dialog.
+function ochaPkgMissingItems() {
+  var out = [];
+  ochaEachItem(app.project.rootItem, function (it) {
+    var p = ""; try { p = it.getMediaPath(); } catch (e) { p = ""; }
+    if (p && !new File(p).exists) {
+      var nm = ""; try { nm = decodeURI(new File(p).name); } catch (e2) { nm = p; }
+      // name for the message, full path for the report file - a bare name tells you
+      // nothing about WHY it is offline (moved? renamed? pointing into an old package?)
+      out.push({ name: nm, path: p });
+    }
+  });
+  return out;
+}
 function ochaPkgDest() {
   var projPath = ""; try { projPath = app.project.path; } catch (e) {}
   if (!projPath) return null;
@@ -1082,6 +1597,19 @@ function ochaPackageInfo() {
   } catch (e) { return "ERR|" + e.toString(); }
 }
 
+/* Package a project so it travels.
+
+   THE OPEN PROJECT IS NEVER TOUCHED. An earlier cut used app.project.saveAs() to
+   produce the relinked copy, which switches Premiere INTO that copy - so after
+   packaging you were unknowingly editing the package, and packaging again
+   packaged a package. It also meant relinking went through changeMediaPath(),
+   which Premiere flatly refuses for Motion Graphics templates, so MOGRTs could
+   never be made to point inside.
+
+   Instead: copy the media, copy the .prproj as a FILE, and rewrite the paths
+   inside that copy as text (the panel does it - CEP has Node + zlib). No project
+   switching, and templates relink like everything else because Premiere's API
+   never gets a say. */
 function ochaPackageProject() {
   try {
     var projPath = ""; try { projPath = app.project.path; } catch (e) {}
@@ -1093,13 +1621,18 @@ function ochaPackageProject() {
     if (!root.exists && !root.create()) return "ERR|Couldn't create the package folder at " + root.fsName;
 
     var items = ochaPkgMediaItems();
+    var missing = ochaPkgMissingItems();          // already offline - nothing to copy
     if (!items.length) return "ERR|No media files found on disk to package.";
 
+    // Package what is on screen: save first so the copy matches the current edit.
+    try { app.project.save(); } catch (eS) {}
+
     // 1) copy each unique source file into its category folder (dedupe by path)
-    var map = {}, counts = { footage: 0, images: 0, graphics: 0, audio: 0, other: 0 }, copied = 0, failed = 0, firstErr = "";
+    var map = {}, counts = { footage: 0, images: 0, graphics: 0, audio: 0, other: 0 };
+    var copied = 0, failed = 0, firstErr = "";
     for (var i = 0; i < items.length; i++) {
       var src = items[i].path;
-      if (map[src]) continue;                       // same file used by several clips - copy once
+      if (map[src]) continue;
       var cat = ochaPkgCategory(src);
       var srcFile = new File(src);
       var destFolder = ochaPkgFolder(root.fsName, cat);
@@ -1113,48 +1646,60 @@ function ochaPackageProject() {
     }
     if (copied === 0) return "ERR|Couldn't copy any files: " + firstErr;
 
-    // 2) save a COPY of the project into the package root (original file untouched)
+    // 2) copy the PROJECT FILE itself - a plain file copy, so Premiere's state
+    //    never changes and the user stays exactly where they were
     var newProj = new File(root.fsName + "/" + ochaSafeName(d.projName) + ".prproj");
-    var savedAs = false;
-    try { app.project.saveAs(newProj.fsName); savedAs = true; } catch (e2) { firstErr = firstErr || e2.toString(); }
+    var projCopied = false;
+    try { projCopied = new File(projPath).copy(newProj.fsName); } catch (e2) { firstErr = firstErr || e2.toString(); }
 
-    // 3) relink the (now packaged) project's items to the copied media
-    var relinked = 0;
-    if (savedAs) {
-      var live = ochaPkgMediaItems();               // re-read: same items, paths still original
-      for (var j = 0; j < live.length; j++) {
-        var np = map[live[j].path];
-        if (!np) continue;
-        try { if (live[j].item.canChangeMediaPath(np)) { live[j].item.changeMediaPath(np); relinked++; } } catch (e3) {}
-      }
-      try { app.project.save(); } catch (e4) {}
-    }
-
-    // 3b) The OCHA MOGRT sources travel too. Premiere can't relink an .aegraphic via
-    //     script (changeMediaPath is a no-op on MOGRT media), so copying the project's
-    //     "OCHA Branding Elements" folder into the package keeps the .mogrt sources with
-    //     it. Same NAME (spaces kept) so the reference still resolves. projPath was
-    //     captured before saveAs, so it's the ORIGINAL project's folder.
+    // 3) bundle the OCHA templates folder
     var brandingCopied = 0;
     try {
-      var origBrand = new Folder(new File(projPath).parent.fsName + "/" + OCHA_ASSET_DIR);
-      if (origBrand.exists) {
-        brandingCopied = ochaCopyTree(origBrand, new Folder(root.fsName + "/" + OCHA_ASSET_DIR));
-      }
-    } catch (eBr) {}
+      var assetDir = new Folder(new File(projPath).parent.fsName + "/" + OCHA_ASSET_DIR);
+      if (assetDir.exists) brandingCopied = ochaCopyTree(assetDir, new Folder(root.fsName + "/" + OCHA_ASSET_DIR));
+    } catch (e3) {}
 
-    var parts = [];
-    if (counts.footage) parts.push("footage " + counts.footage);
-    if (counts.images) parts.push("images " + counts.images);
-    if (counts.graphics) parts.push("graphics " + counts.graphics);
-    if (counts.audio) parts.push("audio " + counts.audio);
-    if (counts.other) parts.push("other " + counts.other);
-    var msg = "Packaged " + copied + " file(s) into '" + decodeURI(root.name) + "' (" + parts.join(", ") + ").";
-    if (savedAs) msg += " Saved a relinked copy - you're now in the package; your original is unchanged.";
-    else msg += " NOTE: couldn't save the project copy (" + firstErr + ") - files were still copied.";
+    // 4) hand every old->new pair to the panel, which rewrites them inside the
+    //    copied .prproj. Sidecar file, not the return string: these are long
+    //    absolute paths and packing them into a reply is a truncation bug waiting.
+    var fixFile = "", pairs = 0;
+    if (projCopied) {
+      try {
+        var ff = new File(Folder.temp.fsName + "/ocha_pkg_fix.txt");
+        ff.encoding = "UTF-8"; ff.lineFeed = "Unix"; ff.open("w");
+        ff.write(newProj.fsName);
+        for (var k in map) if (map.hasOwnProperty(k)) { ff.write("\n" + k + "\t" + map[k]); pairs++; }
+        ff.close();
+        fixFile = ff.fsName;
+      } catch (e4) { fixFile = ""; }
+    }
+
+    // 5) manifest, for the person receiving this
+    try {
+      var rep = new File(root.fsName + "/_package_report.txt");
+      rep.encoding = "UTF-8"; rep.lineFeed = "Unix"; rep.open("w");
+      rep.write("OCHA QuickVid - package report\n" + d.projName + "\n\n");
+      rep.write("COPIED: " + copied + " file(s)  (footage " + counts.footage + ", images " +
+                counts.images + ", graphics " + counts.graphics + ", audio " + counts.audio +
+                ", other " + counts.other + ")\n");
+      if (brandingCopied) rep.write("OCHA templates bundled: " + brandingCopied + " file(s)\n");
+      if (missing.length) {
+        rep.write("\nSKIPPED - these were already offline in the project, so there was " +
+                  "nothing to copy (" + missing.length + "):\n");
+        for (var r = 0; r < missing.length; r++) rep.write("  " + missing[r].name + "\n      " + missing[r].path + "\n");
+      }
+      rep.close();
+    } catch (e5) {}
+
+    var msg = "Packaged " + copied + " file(s) into '" + root.name + "' (footage " + counts.footage +
+              ", images " + counts.images + ", graphics " + counts.graphics + ", audio " + counts.audio + ").";
     if (brandingCopied) msg += " Bundled the OCHA branding folder (" + brandingCopied + " template file(s)).";
-    if (counts.graphics) msg += " If a MOGRT shows OFFLINE, run File > Project Manager - Premiere can't relink templates by script.";
+    if (!projCopied) msg += " NOTE: couldn't copy the project file (" + firstErr + ") - the media is there, but you'll need to copy the .prproj yourself.";
     if (failed) msg += " " + failed + " file(s) failed to copy.";
-    return "OK|" + msg;
+    // Offline items are NOT a failure of the package: they were already missing
+    // before we started. Say it plainly once and move on.
+    if (missing.length) msg += " " + missing.length + " item(s) were already offline and were skipped (listed in _package_report.txt).";
+    msg += " Your own project is untouched and still open.";
+    return "OK|" + msg + (fixFile ? "|fix=" + fixFile : "");
   } catch (e) { return "ERR|" + e.toString(); }
 }
