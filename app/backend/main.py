@@ -457,7 +457,12 @@ def st_still(src: str, t: float, shot: str = "general", preset: str = "reels",
     if download and dir:
         engine_bridge.save_still_to_export(out, dir)   # keep the thumbnail with the job
     kwargs = {"filename": "quickvid_thumbnail.jpg"} if download else {}
-    return FileResponse(str(out), media_type="image/jpeg", **kwargs)
+    # The URL encodes every input that changes the picture, so a given URL is the
+    # same image forever — let the browser keep it. Without this, dragging the
+    # framing back and forth re-requested stills it already had, which is what made
+    # the sliders feel sluggish on a slower machine.
+    headers = {} if download else {"Cache-Control": "private, max-age=86400, immutable"}
+    return FileResponse(str(out), media_type="image/jpeg", headers=headers, **kwargs)
 
 
 class StRenderReq(BaseModel):

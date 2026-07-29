@@ -264,7 +264,9 @@ async function stSyncContinue() {
       });
       const { job_id } = await r.json();
       if (job_id) {
-        const j = await stJob(job_id, (jj) => stStatus(jj.progress || "Syncing…", "busy"));
+        // pass the percent through — every other step does; without it the bake
+        // ran with no bar and looked frozen
+        const j = await stJob(job_id, (jj) => stStatus(jj.progress || "Syncing…", "busy", jj.percent));
         ST.src = j.result.path;
       }
     }
@@ -491,7 +493,11 @@ function stFrameURL(shot, width) {
   const f = ST.framing[shot];
   return `${ENGINE}/api/statement/still?src=${encodeURIComponent(ST.src)}&t=${stFrameT().toFixed(2)}` +
          `&shot=${shot}&preset=${preset}&sx=${f.x.toFixed(3)}&sy=${f.y.toFixed(3)}&zoom=${(f.zoom || 1).toFixed(2)}` +
-         `&width=${width}&cb=${Date.now()}`;
+         // No cache-buster: every parameter that changes the picture is already in
+         // the URL, so the same URL is always the same image. `cb=Date.now()` made
+         // every request unique, so dragging back to a framing you had just seen
+         // cost a fresh round trip instead of hitting the browser cache.
+         `&width=${width}`;
 }
 function stFrameLoad(onlyShot) {
   for (const shot of ["general", "close"]) {
@@ -500,9 +506,13 @@ function stFrameLoad(onlyShot) {
     stFrameHint(shot);
   }
 }
-function stFrameRefresh() {
+// `shot` omitted = refresh both (preset or time changed). Passing a shot matters:
+// the zoom sliders used to call this bare, so nudging the general zoom ALSO
+// re-rendered the close-up — twice the ffmpeg work per tick, and the other picture
+// flickered. That is most of why framing felt slow on a slower machine.
+function stFrameRefresh(shot) {
   clearTimeout(frameTimer);
-  frameTimer = setTimeout(stFrameLoad, 250);
+  frameTimer = setTimeout(() => stFrameLoad(shot), 250);
 }
 
 // Drag the picture itself — content follows the pointer; locked axes simply don't move
@@ -540,8 +550,8 @@ function stWireDrag(sel, shot) {
 stWireDrag("#st-frame-general", "general");
 stWireDrag("#st-frame-close", "close");
 
-$st("#st-zoom-general").oninput = (e) => { ST.framing.general.zoom = e.target.value / 100; stFrameHint("general"); stFrameRefresh(); stSave(); };
-$st("#st-zoom-close").oninput = (e) => { ST.framing.close.zoom = e.target.value / 100; stFrameHint("close"); stFrameRefresh(); stSave(); };
+$st("#st-zoom-general").oninput = (e) => { ST.framing.general.zoom = e.target.value / 100; stFrameHint("general"); stFrameRefresh("general"); stSave(); };
+$st("#st-zoom-close").oninput = (e) => { ST.framing.close.zoom = e.target.value / 100; stFrameHint("close"); stFrameRefresh("close"); stSave(); };
 document.querySelectorAll('input[name="st-preset"]').forEach((r) => (r.onchange = stFrameRefresh));
 
 // ---------- E8: render + thumbnail ----------

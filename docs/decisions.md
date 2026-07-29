@@ -2058,3 +2058,36 @@ A rebind also drops any pending debounce from the previous clip.
 **Position accordion never auto-opens** (and a new binding closes it again):
 Javi — "I don't want people to play around much with it". It used to open
 itself whenever a clip bound.
+
+## 2026-07-29 — Sync bake had no progress bar; framing was slow on Windows (2026.0.30)
+
+**No bar on "Baking A/V offset".** Two causes, both needed fixing. The UI call
+passed no percent — every other step does `stStatus(jj.progress, "busy",
+jj.percent)`, that one stopped at "busy". And the engine never emitted a
+`PROGRESS` token for it either, so there was nothing to pass. `do_applysync` now
+runs ffmpeg with `-progress pipe:1` and converts `out_time_us` into PROGRESS
+against the probed duration. A long audio re-encode is exactly the step that
+needs a bar — it printed one line and then sat silent, which reads as frozen.
+
+**Framing sliders "painfully slow" on Windows/Chrome** (Javi's colleague; not
+reproducible on his Mac, which is the clue — it is per-request cost, and process
+spawn plus AV scanning is far dearer on Windows).
+
+Two real causes:
+
+1. `stFrameRefresh()` called `stFrameLoad()` with NO argument, which reloads
+   BOTH stills. Nudging the general zoom therefore re-rendered the close-up too:
+   double the ffmpeg work per tick, and the other picture flickered. It now takes
+   a shot; no-arg still means both, which is what the preset/time callers want.
+
+2. The still URL carried `&cb=${Date.now()}`. Every parameter that changes the
+   picture is ALREADY in the URL, so the cache-buster bought nothing and cost
+   everything: each request was unique, so the browser could never reuse an image,
+   and dragging back to a framing you had just seen was another round trip. Removed,
+   and the endpoint now sends `Cache-Control: immutable` so the browser really keeps
+   them. Measured locally: cold render 157ms, warm server-side 29ms, browser-cached
+   0 and no request at all.
+
+RULE: a cache-buster on a URL that already encodes its inputs is not a safety
+net, it is a permanent cache miss. Only add `cb=` when the same URL can genuinely
+return different bytes (a job preview being overwritten, say).

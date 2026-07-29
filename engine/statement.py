@@ -261,6 +261,51 @@ def cues_real_timeline(segments, max_len=7.0):
 
 
 # ---------------- actions ----------------
+def _duration(path):
+    """Seconds of media, or 0 when ffprobe can't say. Only used to scale a % bar,
+    so a failure degrades to 'no bar', never to a broken step."""
+    fp = FF.replace("ffmpeg", "ffprobe")
+    if not os.path.exists(fp):
+        fp = "ffprobe"
+    try:
+        r = subprocess.run([fp, "-v", "error", "-show_entries", "format=duration",
+                            "-of", "default=nw=1:nk=1", path], capture_output=True, text=True)
+        return float((r.stdout or "0").strip() or 0)
+    except Exception:
+        return 0.0
+
+
+def _run_ff_progress(cmd, total):
+    """Run ffmpeg and turn its -progress stream into PROGRESS tokens.
+
+    Re-encoding the audio of a long clip takes real time, and without this the
+    step printed one line and then sat silent - it read as frozen. `-progress
+    pipe:1` gives machine-readable position; everything else still goes to
+    stderr so a real failure is still a real failure.
+    """
+    proc = subprocess.Popen(cmd + ["-progress", "pipe:1", "-nostats"],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, bufsize=1, encoding="utf-8", errors="replace")
+    last = -1
+    print("PROGRESS 0", flush=True)
+    for line in proc.stdout:
+        line = line.strip()
+        if not (total and line.startswith("out_time_us=")):
+            continue
+        try:
+            pct = int(min(99, max(0, float(line.split("=", 1)[1]) / 1_000_000 / total * 100)))
+        except (ValueError, ZeroDivisionError):
+            continue
+        if pct != last:
+            last = pct
+            print(f"PROGRESS {pct}", flush=True)
+    err = proc.stderr.read()
+    proc.wait()
+    if proc.returncode != 0:
+        raise subprocess.CalledProcessError(proc.returncode, cmd, stderr=err)
+    print("PROGRESS 100", flush=True)
+
+
 def do_applysync(spec):
     off = float(spec["offset"])
     src, out = spec["src"], spec["out"]
@@ -269,8 +314,8 @@ def do_applysync(spec):
         af = f"adelay={int(off * 1000)}|{int(off * 1000)}"
     else:
         af = f"atrim=start={-off},asetpts=PTS-STARTPTS"
-    subprocess.run([FF, "-y", "-loglevel", "error", "-i", src, "-c:v", "copy",
-                    "-af", af, "-c:a", "aac", "-b:a", "192k", out], check=True)
+    _run_ff_progress([FF, "-y", "-loglevel", "error", "-i", src, "-c:v", "copy",
+                      "-af", af, "-c:a", "aac", "-b:a", "192k", out], _duration(src))
     print("RESULT " + json.dumps({"path": out}), flush=True)
 
 
