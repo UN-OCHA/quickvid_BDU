@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "2026.0.45";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "2026.0.46";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -281,11 +281,16 @@ function gradOpacity() { return clampNum($("grad-op-n").value, 80); }
 async function addElement() {
   hideStatus();
   if (boundClip) {                       // bound to a clip -> update it, never duplicate
-    const res = await jsx(`ochaWriteText(${lit(collectValues())})`) || "";
-    return show(res.indexOf("OK|") === 0
-      ? `Updated <strong>${boundClip}</strong>.`
+    const res = await jsx(`ochaWriteText(${lit(collectValues())},true,${lit(boundClip)})`) || "";
+    const ok = res.indexOf("OK|") === 0;
+    // Update renames the item to match the edit — follow it, or the next poll
+    // would treat our own rename as a brand-new selection.
+    const named = (res.match(/named=([^|]*)/) || [])[1];
+    if (ok && named) setBound(named, curEl);
+    return show(ok
+      ? `Updated <strong>${esc(named || boundClip)}</strong>.`
       : (res.replace(/^ERR\|/, "") || "Couldn't update the clip."),
-      res.indexOf("OK|") === 0 ? "ok" : "err");
+      ok ? "ok" : "err");
   }
   if (!curFmt) return show("This sequence isn’t one of the OCHA formats (9:16, 4:5, 1:1, 16:9).", "warn");
   const btn = $("add");
@@ -442,7 +447,7 @@ async function syncAdjust() {
   if (res === "none" || res.indexOf("|") < 0) {
     // unbound → back to placement mode at the frame centre, so the LAST clip's
     // position can't silently ride into the NEXT Add
-    if (adjEditClip !== null) { adjEditClip = null; setAdjustEditing(null); resetAdjust(); }
+    if (adjEditClip !== null) { adjEditClip = null; setAdjustEditing(null); resetAdjust(); collapseAdjust(); }
     return;
   }
   // <name>|<x>|<y>|<W>|<H> — absolute px + the clip's own sequence frame size
@@ -450,7 +455,9 @@ async function syncAdjust() {
   if (p[0] !== adjEditClip) {                    // newly selected clip → bind + populate
     adjEditClip = p[0];
     setAdjustEditing(p[0]);
-    setAdjustOpen(true);
+    // stays COLLAPSED on purpose (Javi): position is a use-with-caution control,
+    // so it never opens itself — a new binding even closes it again
+    collapseAdjust();
     if (+p[3] && +p[4]) { curW = +p[3]; curH = +p[4]; }
     setAdjRanges();
     $("adj-x").value = $("adj-x-n").value = clampPos(+p[1], "w");
@@ -515,10 +522,16 @@ function fillFields(blob) {
 }
 
 let mirrorTick = 0;
+// Unbind + drop any pending debounced write: it belonged to the clip we are
+// letting go of, and must never land on whatever gets selected next.
+function dropBinding() {
+  clearTimeout(textWriteTimer);
+  textWriteBusy = false;
+  setBound(null, null);
+  hideStatus();          // any message about that clip is now stale
+}
 async function syncText() {
   if (!hostReady) return;
-  if (document.activeElement && document.activeElement.closest("section.pane")) return;  // don't fight the typist
-  if (textWriteBusy) return;                 // our own edit is in flight — fields lead the clip
 
   // Fast path: ask only WHICH clip is selected. Reading every text property on every
   // tick meant a getMGTComponent() plus a getValue() per control a few times a second
@@ -527,7 +540,7 @@ async function syncText() {
   // in Premiere's own panel.
   const head = await jsx("ochaSelectedName()") || "none";
   if (head === "none") {
-    if (boundClip !== null) setBound(null, null);
+    if (boundClip !== null) dropBinding();
     return;
   }
   const i = head.indexOf("|");
@@ -536,17 +549,27 @@ async function syncText() {
   // editing something, drop it: the selection genuinely moved to a clip the panel
   // can't edit, so staying in "Update selected" would be a lie.
   if (!EDITABLE_EL[el]) {
-    if (boundClip !== null) setBound(null, null);
+    if (boundClip !== null) dropBinding();
     return;
   }
   const changed = name !== boundClip;
+  if (changed) {
+    // rebind FIRST — a pending write belonged to the previous clip, drop it
+    clearTimeout(textWriteTimer); textWriteBusy = false;
+    setBound(name, el);
+  }
+  // Only the FIELD REFILL yields to the typist / an in-flight write. These guards
+  // used to sit at the TOP of the poll, so with focus parked in any field a
+  // deselect in Premiere was never noticed — the panel claimed something was
+  // selected with nothing selected. Selection truth is reconciled above, always.
+  if (document.activeElement && document.activeElement.closest("section.pane")) return;
+  if (textWriteBusy) return;
   if (!changed && (++mirrorTick % 4) !== 0) return;
 
   const res = await jsx("ochaReadText()") || "none";
   if (res === "none" || res.indexOf("|") < 0) return;
   const i1 = res.indexOf("|"), i2 = res.indexOf("|", i1 + 1);
   const blob = res.slice(i2 + 1);
-  if (changed) setBound(name, el);
   if (!textWriteBusy) fillFields(blob);      // re-check: a write may have started
 }
 
@@ -557,10 +580,32 @@ function textEdited() {
   if (!boundClip) return;
   clearTimeout(textWriteTimer);
   textWriteBusy = true;                 // without this, a poll landing inside the debounce
+  const expect = boundClip;             // the clip this edit belongs to
   textWriteTimer = setTimeout(async () => {   // window would revert the field and the stale
     try {                                     // value would then get WRITTEN — a lost edit.
-      const res = await jsx(`ochaWriteText(${lit(collectValues())})`) || "";
-      if (res.indexOf("OK|") !== 0) show(res.replace(/^ERR\|/, "") || "Couldn't update the clip.", "err");
+      if (!boundClip || boundClip !== expect) return;   // unbound or moved mid-debounce — void
+      // Renames live, so the item tracks what you typed. Safe now: the host
+      // no-ops when the name is unchanged, and we ADOPT the new name below so the
+      // poll never mistakes our own rename for a new selection (that mistake is
+      // what made the fields refill under the typist).
+      // `expect` is the name as of the KEYSTROKE. Our own live rename can move it
+      // under an in-flight write, so a name mismatch here is usually us, not the
+      // user — resend once against the current name rather than cry wolf.
+      let res = await jsx(`ochaWriteText(${lit(collectValues())},true,${lit(expect)})`) || "";
+      if (res.indexOf("Selection changed") !== -1 && boundClip && boundClip !== expect) {
+        res = await jsx(`ochaWriteText(${lit(collectValues())},true,${lit(boundClip)})`) || "";
+      }
+      if (res.indexOf("OK|") !== 0) {
+        // The selection going away mid-debounce is a no-op, not a failure. Errors
+        // are sticky by design, so a background write must never raise one for it:
+        // deselecting after typing left a red banner sitting there forever.
+        const benign = res.indexOf("Selection changed") !== -1 ||
+                       res.indexOf("Select an OCHA clip first") !== -1;
+        if (!benign) show(res.replace(/^ERR\|/, "") || "Couldn't update the clip.", "err");
+        return;
+      }
+      const named = (res.match(/named=([^|]*)/) || [])[1];
+      if (named && boundClip === expect) setBound(named, curEl);
     } finally { textWriteBusy = false; }
   }, 400);
 }

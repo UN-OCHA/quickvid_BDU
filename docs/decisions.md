@@ -2020,3 +2020,41 @@ path containing `*/` inside a CSS comment is as load-bearing as the CSS itself,
 and the failure is silent rather than loud. When a style "just isn't applying"
 and the source looks right, ask the browser what it PARSED before re-reading the
 file again.
+
+## 2026-07-29 — Naming placed items by content, and the two bugs it flushed out (2026.0.46)
+
+Javi: rename placed MOGRTs by their content ("OCHA Lower Third - John Doe"),
+drop the format from the name, number the ones with nothing to name them by
+(Ending 1, Ending 2), settings-based labels for gradient/vignette. Feasible
+because every "is this an OCHA item?" test matches the PREFIX only (OCHA_EL_RE);
+the tail was never load-bearing. The name shows on the timeline clip too, which
+is the bigger win.
+
+**Bug 1 — rename on the debounced keystroke.** The first cut renamed in
+ochaWriteText, which runs 400ms after every keystroke. Each rename changed
+clip.name, the poller stopped recognising the bound clip, treated it as a NEW
+selection and refilled the fields from the clip — under the user's typing.
+Whether you noticed depended on whether a poll landed between keystrokes:
+Javi saw it fail once, then "work" on retest. Renaming now happens on Add and on
+an explicit Update only, and the panel follows the rename via `named=` in the
+reply so its binding stays current.
+
+**Bug 2 — the poll's guards sat above its truth.** syncText() began with
+"don't fight the typist" (focus inside a pane -> return) and "write in flight ->
+return", THEN read the selection. CEP panels keep DOM focus until you click
+back inside the panel, so focus parked in any field meant the poll never ran —
+deselect in Premiere and the panel stayed in "Update selected" forever with
+nothing selected (Javi's report). The reconciliation (unbind / rebind) now runs
+FIRST, unconditionally; only the FIELD REFILL yields to the typist. RULE worth
+remembering: an early-return guard must never sit above the state
+reconciliation it was meant to protect — scope the guard to the write, not the
+whole function.
+
+**Belt and braces:** a debounced write now carries the clip name it was typed
+for, and the host REFUSES if the selection changed in between ("Selection
+changed - nothing was written") — one clip's text can never land on another.
+A rebind also drops any pending debounce from the previous clip.
+
+**Position accordion never auto-opens** (and a new binding closes it again):
+Javi — "I don't want people to play around much with it". It used to open
+itself whenever a clip bound.

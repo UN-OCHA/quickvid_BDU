@@ -52,6 +52,96 @@ var OCHA_NUM  = { "Pin colour": 1, "Size": 1, "Opacity": 1, "Amount": 1 };
 // of warning "could not set" on every edit of an old clip.
 var OCHA_FIELD_ALIAS = { "3rd line (optional)": "Title line 2 (optional)" };
 
+/* ---------------- Naming placed items by what they contain ----------------
+   Six lower thirds all called "OCHA Lower Third - Square 1x1" are six identical
+   rows in the Project panel, and Premiere prints that name on the timeline clip
+   too. Naming by CONTENT makes both readable.
+
+   The format is dropped on purpose: it is implied by the sequence the clip sits
+   in, the .mogrt file on disk keeps it, and in the panel it is dead weight.
+
+   SAFE because every "is this an OCHA item?" test in this file matches the
+   PREFIX only (OCHA_EL_RE = ^OCHA <Element>), never the tail. Keep that prefix
+   and the selected-clip binder, Remove unused, Tidy and the packager all
+   continue to work. */
+function ochaShort(s, n) {
+  s = String(s == null ? "" : s).replace(/\s+/g, " ");
+  var t = "";
+  for (var i = 0; i < s.length; i++) { var c = s.charAt(i); if (c !== "\n" && c !== "\r") t += c; }
+  t = t.replace(/^\s+|\s+$/g, "");
+  if (t.length <= n) return t;
+  return t.substring(0, n - 1) + "\u2026";
+}
+
+// kv = the same {label: value} the panel sent, so the name reflects what was set
+function ochaItemLabel(el, kv) {
+  var g = function (k) { return kv && kv[k] !== undefined ? String(kv[k]) : ""; };
+  if (el === "lt")   return ochaShort(g("Name"), 40);
+  if (el === "loc")  return ochaShort(g("Place"), 40);
+  if (el === "text") return ochaShort(g("Line 1"), 40);
+  if (el === "gradient") {
+    var pos = g("Full screen") === "true" ? "Full screen"
+            : g("Middle") === "true" ? "Middle"
+            : g("Top") === "true" ? "Top" : "Bottom";
+    if (pos === "Middle") {
+      if (g("Middle left") === "true") pos += " left half";
+      else if (g("Middle right") === "true") pos += " right half";
+    }
+    var op = g("Opacity");
+    return pos + (op ? " " + Math.round(parseFloat(op)) : "");
+  }
+  if (el === "vignette") {
+    var am = g("Amount");
+    return am ? Math.round(parseFloat(am)) + "%" : "";
+  }
+  return "";                       // logo + ending carry nothing to name them by
+}
+
+// "OCHA Lower Third - John Doe", numbered when there is nothing to tell them apart
+function ochaNameFor(el, kv, currentName) {
+  var base = OCHA_EL_NAME[el] || "OCHA";
+  var label = ochaItemLabel(el, kv);
+  var name = label ? base + " - " + label : base;
+
+  // Already right? Do nothing - and crucially, skip the project-wide walk below.
+  // This runs on every debounced keystroke, so the common case must be a string
+  // compare rather than a scan of every item in the project.
+  if (currentName && currentName === name) return name;
+  // A numbered variant of the same base is also already correct ("OCHA Ending 2"
+  // must not renumber itself to 3 on every edit).
+  if (currentName && !label && currentName.indexOf(base + " ") === 0 &&
+      /^[0-9]+$/.test(currentName.substring(base.length + 1))) return currentName;
+
+  // Count what is already in the project so a second one does not collide. For
+  // elements with no label (logo, ending) ALWAYS number - "OCHA Ending 1",
+  // "OCHA Ending 2" - since otherwise they are indistinguishable.
+  var taken = {};
+  ochaEachItem(app.project.rootItem, function (it) {
+    var n = ""; try { n = it.name; } catch (e) {}
+    if (n) taken[n] = 1;
+  });
+  if (!label) {
+    for (var i = 1; i < 999; i++) { if (!taken[name + " " + i]) return name + " " + i; }
+    return name;
+  }
+  if (!taken[name]) return name;
+  for (var j = 2; j < 999; j++) { if (!taken[name + " " + j]) return name + " " + j; }
+  return name;
+}
+
+function ochaRenameClipItem(clip, el, kv) {
+  try {
+    var pit = clip ? clip.projectItem : null;
+    if (!pit) return "";
+    var cur = ""; try { cur = clip.name; } catch (eC) {}
+    var nm = ochaNameFor(el, kv, cur);
+    if (nm === cur) return nm;                 // nothing to do
+    pit.name = nm;
+    try { clip.name = nm; } catch (e1) {}      // the timeline label follows too
+    return nm;
+  } catch (e) { return ""; }
+}
+
 function ochaFmtFromSize(w, h) {
   if (!w || !h) return null;
   var r = w / h;
@@ -340,18 +430,33 @@ function ochaReadText() {
 
 // Write text values back to the SELECTED clip. Same kv blob shape as ochaAdd, so
 // the panel builds it with the one collectValues() it already has.
-function ochaWriteText(kvBlob) {
+/* `doRename` is deliberately OFF for live typing. This runs on a DEBOUNCED
+   keystroke, and renaming there was corrosive: each rename changed clip.name, the
+   poller saw a name it did not recognise as the bound clip, treated it as a new
+   selection and re-filled the fields from the clip - on top of what was being
+   typed. It also walked the whole project tree per keystroke to find a free name.
+   The item is renamed on Add and on an explicit Update, which is when a name is
+   actually finished. */
+function ochaWriteText(kvBlob, doRename, expectName) {
   try {
     var clip = ochaSelectedOchaClip();
     if (!clip) return "ERR|Select an OCHA clip first.";
+    // The panel says which clip it BELIEVES it is editing. If the selection moved
+    // between the debounce and this call, refuse - never write one clip's text
+    // onto another.
+    if (expectName) {
+      var curNm = ""; try { curNm = clip.name; } catch (eE) {}
+      if (curNm !== expectName) return "ERR|Selection changed - nothing was written.";
+    }
     var mgt = null; try { mgt = clip.getMGTComponent(); } catch (e1) { mgt = null; }
     if (!mgt) return "ERR|Controls not reachable on that clip.";
     var entries = kvBlob ? kvBlob.split("\u001E") : [];
-    var set = [], fail = [];
+    var set = [], fail = [], kvMap = {};
     for (var n = 0; n < entries.length; n++) {
       if (!entries[n]) continue;
       var kv = entries[n].split("\u001F"), key = kv[0], raw = kv[1];
       if (key.charAt(0) === "@") continue;              // Motion is handled elsewhere
+      kvMap[key] = raw;
       var pr = ochaFindParam(mgt.properties, key);
       if (!pr && OCHA_FIELD_ALIAS[key]) pr = ochaFindParam(mgt.properties, OCHA_FIELD_ALIAS[key]);
       if (!pr) { fail.push(key); continue; }
@@ -362,7 +467,17 @@ function ochaWriteText(kvBlob) {
         set.push(key);
       } catch (e2) { fail.push(key); }
     }
+    // Rename to match the edit. Which element is it? Read it back off the clip's
+    // existing name rather than trusting the caller - the panel only sends fields.
+    var cur = ""; try { cur = clip.name; } catch (e3) {}
+    var el2 = "";
+    for (var k in OCHA_EL_NAME) {
+      if (OCHA_EL_NAME.hasOwnProperty(k) && cur.indexOf(OCHA_EL_NAME[k]) === 0) { el2 = k; break; }
+    }
+    var renamed = (doRename && el2) ? ochaRenameClipItem(clip, el2, kvMap) : "";
+
     var out = "OK|set=" + set.join(",");
+    if (renamed) out += "|named=" + renamed;
     if (fail.length) out += "|warn=could not set: " + fail.join("; ");
     return out;
   } catch (e) { return "ERR|" + e.toString(); }
@@ -468,13 +583,14 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob, trackPref) {
       if (!mgt) { $.sleep(250); waited += 250; }
     }
 
-    var setNames = [], failNames = [];
+    var setNames = [], failNames = [], kvMap = {};
     var motion = { scale: null, posX: null, posY: null };   // at-keys route to Motion
     var entries = kvBlob ? kvBlob.split("\u001E") : [];
     for (var n = 0; n < entries.length; n++) {
       if (!entries[n]) continue;
       var kv = entries[n].split("\u001F");
       var key = kv[0], raw = kv[1];
+      if (key.charAt(0) !== "@") kvMap[key] = raw;         // kept for the item name
       if (key === "@scale") { motion.scale = parseFloat(raw); continue; }
       if (key === "@posX")  { motion.posX  = parseFloat(raw); continue; }
       if (key === "@posY")  { motion.posY  = parseFloat(raw); continue; }
@@ -495,7 +611,11 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob, trackPref) {
     try { clip.setSelected(true, true); } catch (e4) {}
 
     var realV = ochaInsertedTrack(seq, OCHA_EL_NAME[el], timeTicks, usedV);
+    // Name it by what it holds. Do this LAST: ochaInsertedTrack still looks the
+    // clip up by the template's name, so renaming earlier would hide it.
+    var newName = ochaRenameClipItem(clip, el, kvMap);
     var out = "OK|track=V" + (realV + 1) + "|set=" + setNames.join(",");
+    if (newName) out += "|named=" + newName;
     var warns = [];
     if (loc.note) warns.push(loc.note);
     if (!mgt) warns.push("controls not reachable after " + waited + "ms");

@@ -1,7 +1,7 @@
 {
-  "version": "2026.0.45",
+  "version": "2026.0.46",
   "date": "2026-07-29",
-  "notes": "Clean MOGRTs is gone - Remove unused does the same job and more: it lists everything on no timeline (not just OCHA templates), you untick what to keep, and it deletes the leftover template files from disk as well. Removing project items also uses the reliable method now; the old direct call silently did nothing on clip items.",
+  "notes": "Placed graphics are named by what they contain - 'OCHA Lower Third - John Doe', 'OCHA Gradient - Middle left half 60' - and the name follows what you type. Items with nothing to name them by are numbered (Ending 1, Ending 2). The format is no longer in the name; the sequence already tells you. Editing is solid: the panel always notices a deselect, an edit can never land on a different clip than the one it was typed for, and deselecting after typing no longer leaves a red banner behind. The Position accordion stays closed unless you open it, and the readability gradient's Middle width row is laid out properly.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
-  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=2026.0.45"
+  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=2026.0.46"
 }

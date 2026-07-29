@@ -278,14 +278,16 @@ body {
 /* A sub-choice that only exists inside another one (Middle width, under the
    gradient's Position). Boxed and indented so it reads as "part of Middle"
    rather than as another top-level option. */
+/* The sub-choice under Position. It used to pull itself UP with a negative top
+   margin, straight into the row above - the "crumbled" look. Real margins now. */
 .seg-sub {
   border: 1px solid var(--border-field); border-left: 3px solid var(--accent);
   border-radius: var(--r-md); background: var(--bg-layer-1);
-  padding: var(--sp-50) var(--sp-150) var(--sp-100);
-  margin: calc(-1 * var(--sp-100)) 0 var(--sp-200) var(--sp-150);
+  padding: var(--sp-100) var(--sp-150) var(--sp-150);
+  margin: var(--sp-100) 0 var(--sp-200) var(--sp-150);
 }
 .seg-sub[hidden] { display: none; }
-.seg-sub .seg { margin: var(--sp-100) 0 var(--sp-100); }
+.seg-sub .seg { margin: 0; }
 .seg-sub__hint { margin: 0; font-size: var(--fs-xs); line-height: 1.45; color: var(--text-secondary); }
 
 /* The `hidden` attribute must always win. The UA sheet's [hidden]{display:none}
@@ -296,9 +298,16 @@ body {
 /* Label on its own line, options flowing below and sharing the width. As a single
    flex ROW the label plus four buttons had nowhere to go in a narrow CEP panel and
    overlapped each other. */
-.seg { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-75); margin: var(--sp-200) 0; }
-.seg__label { flex: 1 1 100%; }
-.seg__opt { flex: 1 1 auto; justify-content: center; }
+/* A GRID, not a flex row. As flex the options sized themselves by TEXT LENGTH,
+   so "Full width" and "Left half" came out different widths and the last one
+   wrapped alone; auto-fit gives equal columns that reflow cleanly in a panel
+   this narrow, and the label spans the whole width above them. */
+.seg {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
+  gap: var(--sp-75); margin: var(--sp-200) 0;
+}
+.seg__label { grid-column: 1 / -1; }
+.seg__opt { width: 100%; justify-content: center; }
 .seg__label { font-size: 10px; font-weight: var(--fw-semibold); color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; }
 .seg__opt {
   display: inline-flex; align-items: center; gap: 5px;
@@ -462,7 +471,10 @@ body {
 .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-100); margin-bottom: var(--sp-100); }
 .modal-title { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--text-primary); }
 .modal-x {
-  flex: 0 0 auto; width: 24px; height: 24px; padding: 5px; margin: -3px -3px 0 0;
+  /* No corner nudge. It was a -3px margin, then a 3px transform - both push the
+     button outside .modal-head and count as overflow. 3px of optical polish is
+     not worth a container that overflows. */
+  flex: 0 0 auto; width: 24px; height: 24px; padding: 5px;
   background: none; border: 0; color: var(--text-tertiary); cursor: pointer; border-radius: var(--r-sm);
   transition: color var(--dur-2) var(--ease), background var(--dur-2) var(--ease);
 }
