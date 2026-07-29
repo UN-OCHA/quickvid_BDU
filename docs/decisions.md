@@ -1929,3 +1929,94 @@ the same patch landed. Caught only by reading the handler back. **Rule, now
 earned twice: use an anchored editor that FAILS on no-match for edits into
 existing code; if a scripted replace is unavoidable, assert on the new text at
 its destination, not merely on its presence somewhere in the file.**
+
+## 2026-07-29 — The App Kit now DERIVES from the CDS instead of retyping it
+
+Javi, on being told the kit didn't carry the Design System's token names: *"the
+app kit was supposed to be connected to OCHA CD. Doesn't make sense if it's
+different"* — and, setting the bar for the fix: *"we don't do quick fixes and
+patches. We do coordinated and synched work."*
+
+**I had the diagnosis half wrong first.** I reported that the kit *should* expose
+`--cd-*` names and doesn't. The kit's own CLAUDE.md says otherwise: short
+app-facing names are deliberate, and the contract is that their VALUES come from
+the CDS ramp. So the naming was never the defect.
+
+**The real defect was that the contract was documentation, not mechanism.** Every
+kit value was a hand-typed hex. An audit against `tokens/brand.css` found 11 of 13
+colours still matched by luck and **two had already drifted off the ramp** —
+`--ocha-blue-footer` (which I introduced during the footer work, taking the colour
+off brand.unocha.org rather than the ramp) and `--line`. Worse, `.cd-flow` — the
+vertical rhythm under every screen of both apps — referenced `--cd-flow-space`,
+which nothing anywhere defined, so it had always been running on its hardcoded
+1rem fallback instead of the CDS value.
+
+**Fix (kit v0.4.0).** `:root` is three layers: the CDS token block generated into
+the kit from `tokens/brand.css`; the short names as `var()` aliases onto it; and
+an explicit kit-owned section for what the CDS lacks. Embedded, not `@import`-ed,
+because the kit must stay one self-contained file — `sync.py` copies it wholesale
+into apps, where a relative import resolves to nothing. `sync.py` gained
+`refresh_cds()` (re-embed before every sync) and `verify_kit()`, which FAILS the
+sync on a dangling `var()` or a raw value in the alias layer. Both guards were
+tested by deliberately breaking the kit; both blocked it and named the offender.
+
+**Consequence for QuickVid, and the reason this was worth doing properly:** the
+app now has the whole CDS vocabulary — `--cd-font-size--*`, `--cd-bp--*`,
+`--cd-container-padding`, `--cd-max-*` — where before it had colours and radii
+only. Javi's global layout rule ("always use the real cd-* tokens") was
+unfollowable here until now; it is literally true from this commit.
+
+**Spacing.** The CDS defines no space tokens at all, which is why every app was
+eyeballing margins — QuickVid had 63 of 118 spacing values off any scale (11.2px,
+9.6px, 14.4px). The kit now owns a 4pt scale `--sp-4…48` and `browser/style.css`
+is migrated onto it: 48 values snapped, none moving more than 2.4px. Two
+deliberate exclusions, both documented at the top of the file: sub-4px optical
+nudges on labels and pills, and the timefield/durfield paddings, which are overlay
+geometry (room for the spinner and the "sec" unit) rather than rhythm — snapping
+those would have clipped the controls. Verified the spinner and unit still sit
+inside their inputs afterwards.
+
+**Verified zero visual change:** all 16 short tokens resolve to byte-identical
+values through the new alias chain. This was a structural change, not a restyle.
+
+**Found while testing: `style.css` had NO cache-bust at all.** The kit and layout
+changes would have reached nobody on GitHub Pages. Both stylesheets now carry
+`?v=<VERSION>`. Same class of bug as the stale `texton.js?v=2` earlier the same
+day — **any file the page links must carry the version, not just the scripts.**
+
+Open upstream (handoff `h9`): promote or reject the two kit-owned values, decide
+whether the CDS should own the spacing scale, and note that `--cd-font--roboto` is
+defined twice in `tokens/brand.css` (lines 109 and 253) with different fallback
+stacks — the second silently wins.
+
+## 2026-07-29 — A `*/` inside a CSS comment ate every blue in the app
+
+An hour after the kit v0.4.0 restructure, Javi asked to "bring back the blue
+circles on the numbers, the blue icons and the blue selected highlight" — framing
+it as a design divergence worth discussing. It wasn't a divergence. It was a bug
+I had just introduced.
+
+The comment I wrote above the alias layer contained `--cd-*/--brand-*`. The `*/`
+in the middle of that **closes the CSS comment early**. The remaining prose parses
+as garbage, and the CSS error-recovery rule ("skip to the next semicolon") then
+swallows the first real declaration after it — `--ocha-cyan`. That single token is
+where every blue in the app comes from, so step-number circles, the selected
+Statement-clip card, the tool icons and the active Look card all silently lost
+their colour. Both apps, since the kit is shared.
+
+**Why it was hard to see:** the file greps clean (`--ocha-cyan` is right there on
+line 287), the token chain is correct, `sync.py`'s existing checks passed, and
+nothing errors — CSS drops the declaration silently. It only showed up by asking
+the BROWSER what it had parsed: `:root` listed 149 declarations where the file has
+157 names, and diffing the two lists named the single casualty.
+
+**Guard added:** `verify_kit()` now counts `/*` against `*/` and fails the sync on
+a mismatch. The bad comment had 1 opener and 2 closers — a one-line check that
+would have caught it before it ever reached an app.
+
+**The general lesson, which is the same shape as the ExtendScript `--` rule
+already in CLAUDE.md:** a comment is code. Writing a token family, a glob, or a
+path containing `*/` inside a CSS comment is as load-bearing as the CSS itself,
+and the failure is silent rather than loud. When a style "just isn't applying"
+and the source looks right, ask the browser what it PARSED before re-reading the
+file again.

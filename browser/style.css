@@ -2,22 +2,27 @@
    All tokens + components come from the OCHA App Kit (vendor/ocha-app-kit.css,
    synced from the design system). Do NOT add colors or component styling here —
    change the kit instead (see /CLAUDE.md). This file is only QuickVid-specific
-   layout that no other app needs. Colours below are kit *tokens* (consumed, not defined). */
+   layout that no other app needs. Colours below are kit *tokens* (consumed, not defined).
+
+   SPACING: use the kit's 4pt scale — var(--sp-4/8/12/16/24/32/48). Never type a
+   raw rem for margin/padding/gap. The only exceptions in here are sub-4px optical
+   nudges on labels and pills, and the timefield/durfield paddings, which are
+   overlay geometry (room for the spinner and the "sec" unit), not rhythm. */
 
 /* ---- Vertical rhythm: the main "do it" buttons + status were cramped in the flow ---- */
 #run, #st-render {
   display: flex; width: 100%;
-  margin: 1.6rem 0 0.4rem;
-  padding-block: 0.72rem;
+  margin: var(--sp-24) 0 var(--sp-8);
+  padding-block: var(--sp-12);
   font-size: 1rem;
 }
-.status-slot { margin-top: 0.9rem; }               /* the alert under the action button needs air */
+.status-slot { margin-top: var(--sp-16); }               /* the alert under the action button needs air */
 .status-slot .cd-alert { margin-block: 0.15rem; }
 /* result-card export buttons shouldn't hug the video/thumbnail above them */
-#preview .cd-button--export, #st-card-out .cd-button--export { margin-top: 0.6rem; }
+#preview .cd-button--export, #st-card-out .cd-button--export { margin-top: var(--sp-8); }
 
 /* ---- Mode chip (browser vs engine-connected) ---- */
-.mode-chip { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 700; padding: 0.3rem 0.75rem; border-radius: var(--radius-pill); }
+.mode-chip { display: inline-flex; align-items: center; gap: var(--sp-8); font-size: 0.78rem; font-weight: 700; padding: var(--sp-4) var(--sp-12); border-radius: var(--radius-pill); }
 .mode-chip--browser { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
 .mode-chip--full { background: color-mix(in srgb, var(--ocha-cyan) 14%, var(--card)); color: var(--ocha-blue-dark); border: 1px solid var(--ocha-cyan); }
 .mode-chip--full .fa-bolt { color: var(--ocha-cyan); }
@@ -25,7 +30,7 @@
 /* ---- File drop zone (browser file picker) ---- */
 .dropzone {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 0.5rem; padding: 1.6rem 1rem; cursor: pointer; text-align: center;
+  gap: var(--sp-8); padding: var(--sp-24) var(--sp-16); cursor: pointer; text-align: center;
   border: 2px dashed var(--input-border); border-radius: var(--radius); color: var(--muted);
   background: color-mix(in srgb, var(--ocha-cyan) 4%, var(--card));
 }
@@ -39,13 +44,13 @@
    Each control carries its own caption, so there's no shared column header. */
 /* Each lower third is an enclosed card, so it's obvious which fields belong
    together once there are several people. */
-#lt-rows, #st-lt-rows { counter-reset: lt; }
+#lt-rows, #st-lt-rows { counter-reset: lt; display: grid; gap: var(--sp-12); }
 .lt-row {
-  display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;
+  display: flex; gap: var(--sp-8); align-items: center; flex-wrap: wrap;
   counter-increment: lt;
   border: 1px solid var(--input-border); border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--ocha-cyan) 3%, var(--card));
-  padding: 0.7rem 0.75rem;
+  padding: var(--sp-12) var(--sp-12);
 }
 /* auto-numbered header — a CSS counter, so removing a row renumbers by itself */
 .lt-row::before {
@@ -57,7 +62,7 @@
 .lt-name, .lt-org, .lt-org2 { flex: 1 1 100%; min-width: 0; }   /* one field per line */
 /* flex-start so the CAPTIONS share a baseline (a select is ~2px shorter than the
    composite timefields, so bottom-aligning would stagger the labels instead) */
-.lt-meta { flex: 1 1 100%; display: flex; gap: 0.5rem; align-items: flex-start; flex-wrap: wrap; }
+.lt-meta { flex: 1 1 100%; display: flex; gap: var(--sp-8); align-items: flex-start; flex-wrap: wrap; }
 .lt-cell { display: block; }                        /* block, so the caption sits above its control */
 .lt-cap {
   display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
@@ -74,8 +79,8 @@
   color: var(--err); border-color: var(--err);
   background: color-mix(in srgb, var(--err) 8%, var(--card));
 }
-#lt-rows, #st-lt-rows { margin-top: 0.3rem; }
-.lt-row + .lt-row { margin-top: 0.6rem; }           /* cards carry their own border now */
+#lt-rows, #st-lt-rows { margin-top: var(--sp-4); }
+/* sibling spacing is the container's `gap` — see #lt-rows above */
 
 /* ---- Start-time selector (mm:ss with ▲▼ nudge) ---- */
 .timefield { position: relative; display: block; }
@@ -98,38 +103,38 @@
   display: block; height: auto; max-height: 280px; width: auto; max-width: 100%;
   border: 1px solid var(--line); border-radius: var(--radius-sm);
 }
-.ex-thumb figcaption { font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem; }
+.ex-thumb figcaption { font-size: 0.78rem; color: var(--muted); margin-top: var(--sp-8); }
 
 /* subsection divider — Subtitles / Ending stacked in the one Edit branding card
    (the Titles tab splits these into separate cards, so it doesn't need this) */
-.st-subsection { border-top: 1px solid var(--line); margin-top: 2rem; padding-top: 1.5rem; }
+.st-subsection { border-top: 1px solid var(--line); margin-top: var(--sp-32); padding-top: var(--sp-24); }
 
 /* ---- Statement clip wizard (Edit tab) — layout only, kit tokens throughout ---- */
-.st-source-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.st-source-row { display: flex; gap: var(--sp-8); flex-wrap: wrap; }
 .st-source-row .cd-form__input { flex: 1 1 16rem; min-width: 0; }
-.st-chip-row { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
-.st-btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.st-chip-row { display: flex; gap: var(--sp-8); flex-wrap: wrap; align-items: center; }
+.st-btn-row { display: flex; gap: var(--sp-8); flex-wrap: wrap; }
 /* "Try another moment" row under the sync preview */
-.st-sync-toolbar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.st-sync-toolbar { display: flex; align-items: center; gap: var(--sp-8); flex-wrap: wrap; }
 .st-sync-toolbar .app-hint { margin: 0; }
 /* +4f = the usual broadcast fix: draw the eye to it while it is NOT the selected chip.
    Soft cyan ring on the outline (unselected) state; none once picked (it fills cyan). */
 .st-sync-usual.cd-button--outline { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ocha-cyan) 45%, transparent); }
 /* the little "usual fix" pill — white so it reads on both the white chip and the cyan selected chip */
 .st-sync-tag {
-  display: inline-block; margin-inline-start: 0.35rem; padding: 0 0.36rem; border-radius: var(--radius-pill);
+  display: inline-block; margin-inline-start: 0.35rem; padding: 0 var(--sp-4); border-radius: var(--radius-pill);
   font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;
   background: #fff; color: var(--ocha-blue-dark); border: 1px solid var(--ocha-cyan); vertical-align: middle;
 }
-.st-optional { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 0.05rem 0.5rem; margin-inline-start: 0.4rem; vertical-align: middle; }
-.field-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: end; }
-.field-row label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; font-weight: 700; color: var(--muted); }
+.st-optional { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 0.05rem var(--sp-8); margin-inline-start: 0.4rem; vertical-align: middle; }
+.field-row { display: flex; gap: var(--sp-12); flex-wrap: wrap; align-items: end; }
+.field-row label { display: flex; flex-direction: column; gap: var(--sp-4); font-size: 0.8rem; font-weight: 700; color: var(--muted); }
 .st-time { width: 6rem; }
 /* "Find the words" window: compact mm:ss steppers (reuses the .timefield component) */
 .st-timefield { display: block; width: 6.25rem; }
 /* step 1: job-folder picker (layout only) */
-.st-folder { margin-top: 0.5rem; }
-.st-folder-row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.st-folder { margin-top: var(--sp-8); }
+.st-folder-row { display: flex; gap: var(--sp-8); align-items: center; flex-wrap: wrap; }
 .st-folder-row .cd-button { flex: none; }
 .st-folder-row .app-hint { margin: 0; flex: 1 1 18rem; }
 
@@ -143,7 +148,7 @@
    turns the whole block red rather than only printing a message somewhere else on
    the page — the error and the thing to fix have to be visible together. */
 .field-err {
-  margin: 0.4rem 0 0; display: flex; align-items: flex-start; gap: 0.4rem;
+  margin: var(--sp-8) 0 0; display: flex; align-items: flex-start; gap: var(--sp-8);
   font-size: 0.85rem; font-weight: 600; color: var(--err);
 }
 .st-folder.is-missing .cd-form__input {
@@ -157,17 +162,17 @@
 .st-folder.is-missing .req { color: var(--err); }
 .st-proj-name { flex: 1 1 16rem; min-width: 0; }
 /* "Open a saved project" — a secondary entry point under the new-project fields */
-.st-open-row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid var(--line); }
+.st-open-row { display: flex; gap: var(--sp-8); align-items: center; flex-wrap: wrap; margin-top: var(--sp-16); padding-top: var(--sp-16); border-top: 1px solid var(--line); }
 .st-open-row .cd-button { flex: none; }
 .st-open-row .app-hint { margin: 0; flex: 1 1 16rem; }
 /* Use-AI modal paste box */
 .st-ai-paste { width: 100%; font-family: var(--mono-font, ui-monospace, monospace); font-size: 0.8rem; resize: vertical; }
 /* Locked-Edit card: installer / starter blocks */
-.st-setup-block { margin-top: 1.1rem; padding-top: 0.35rem; }
-.st-setup-block + .st-setup-block { border-top: 1px solid var(--line); margin-top: 1.35rem; padding-top: 1.1rem; }
-.st-setup-block .app-hint { margin-top: 0.5rem; }
+.st-setup-block { margin-top: var(--sp-16); padding-top: var(--sp-4); }
+.st-setup-block + .st-setup-block { border-top: 1px solid var(--line); margin-top: var(--sp-24); padding-top: var(--sp-16); }
+.st-setup-block .app-hint { margin-top: var(--sp-8); }
 /* step 4: stacked from/to range rows */
-#st-ranges { display: flex; flex-direction: column; gap: 0.5rem; }
+#st-ranges { display: flex; flex-direction: column; gap: var(--sp-8); }
 .st-range .st-range-del { align-self: end; }
 /* step 7: keep the title fields a normal size — cap the width, and stop the kit's
    `.field-row .cd-form__input{flex:1 1 18rem}` from growing inputs VERTICALLY (18rem
@@ -175,36 +180,36 @@
 #st-card-brand .field-row label { flex: 1 1 11rem; }
 .field-row label .cd-form__input { flex: 0 0 auto; }
 /* ---- Engine setup steps (E0 card, browser mode) ---- */
-.st-setup { margin: 0; padding-inline-start: 1.4rem; display: flex; flex-direction: column; gap: 1rem; }
+.st-setup { margin: 0; padding-inline-start: 1.4rem; display: flex; flex-direction: column; gap: var(--sp-16); }
 .st-setup > li { padding-inline-start: 0.3rem; }
 .st-setup > li::marker { font-weight: 800; color: var(--ocha-blue-dark); }
-.st-setup .st-btn-row { margin-top: 0.5rem; }
-.st-setup__note { margin-top: 0.5rem; font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+.st-setup .st-btn-row { margin-top: var(--sp-8); }
+.st-setup__note { margin-top: var(--sp-8); font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
 .st-setup__note .fa-solid { color: var(--ocha-cyan); margin-inline-end: 0.4rem; }
 
 /* copy-paste command box (Mac install one-liner) */
-.cmd-box { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;
-  background: var(--ink); border-radius: var(--radius-sm); padding: 0.5rem 0.5rem 0.5rem 0.85rem; }
+.cmd-box { display: flex; align-items: center; gap: var(--sp-8); margin-top: var(--sp-8);
+  background: var(--ink); border-radius: var(--radius-sm); padding: var(--sp-8) var(--sp-8) var(--sp-8) var(--sp-12); }
 .cmd-box code { flex: 1 1 auto; min-width: 0; overflow-x: auto; white-space: nowrap;
   font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-size: 0.82rem;
   color: #fff; -webkit-overflow-scrolling: touch; }
 .cmd-box__copy { flex: 0 0 auto; }
 /* numbered install steps */
-.setup-steps { margin: 0.5rem 0 0; padding-inline-start: 1.4rem; display: flex; flex-direction: column; gap: 0.4rem;
+.setup-steps { margin: var(--sp-8) 0 0; padding-inline-start: 1.4rem; display: flex; flex-direction: column; gap: var(--sp-8);
   font-size: 0.9rem; color: var(--ink); line-height: 1.5; }
 .setup-steps li { padding-inline-start: 0.2rem; }
 .setup-steps li::marker { color: var(--ocha-cyan); font-weight: 700; }
 kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-size: 0.8em;
   background: var(--bg); border: 1px solid var(--line); border-bottom-width: 2px;
-  border-radius: var(--radius-sm); padding: 0.05rem 0.35rem; }
+  border-radius: var(--radius-sm); padding: 0.05rem var(--sp-4); }
 
 /* autosave indicator + resume banner */
-.st-autosave { font-size: 0.75rem; color: var(--muted); display: flex; align-items: center; gap: 0.35rem; margin: 0 0 0.6rem; }
+.st-autosave { font-size: 0.75rem; color: var(--muted); display: flex; align-items: center; gap: var(--sp-4); margin: 0 0 var(--sp-8); }
 .st-autosave .fa-solid { color: var(--ocha-cyan); }
-#st-resume .st-btn-row { margin-top: 0.5rem; }
+#st-resume .st-btn-row { margin-top: var(--sp-8); }
 .st-total { font-size: 0.9rem; }
-.st-seg-list { display: flex; flex-direction: column; gap: 0.3rem; max-height: 24rem; overflow-y: auto; }
-.st-seg { display: flex; gap: 0.5rem; align-items: center; padding: 0.35rem 0.5rem; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.st-seg-list { display: flex; flex-direction: column; gap: var(--sp-4); max-height: 24rem; overflow-y: auto; }
+.st-seg { display: flex; gap: var(--sp-8); align-items: center; padding: var(--sp-4) var(--sp-8); border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .st-seg.is-sel { border-color: var(--ocha-cyan); background: color-mix(in srgb, var(--ocha-cyan) 5%, var(--card)); }
 .st-seg__dur { flex: none; font-size: 0.72rem; color: var(--muted); width: 2.9rem; text-align: right; }
 .st-seg__text { flex: 1 1 auto; min-width: 0; border: none; background: transparent; font: inherit; color: var(--ink); }
@@ -212,29 +217,29 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
 .st-seg__shot { display: flex; gap: 2px; flex: none; }
 .st-shot { width: 1.7rem; height: 1.7rem; border: 1px solid var(--input-border); background: var(--card); border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-weight: 700; color: var(--muted); }
 .st-shot.is-on { background: var(--ocha-cyan); border-color: var(--ocha-cyan); color: #fff; }
-.st-frames { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
+.st-frames { display: flex; gap: var(--sp-16); flex-wrap: wrap; align-items: flex-start; }
 .st-frames figure { margin: 0; max-width: 260px; }
 .st-frames img { display: block; height: 240px; width: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); }
-.st-frames figcaption { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
+.st-frames figcaption { font-size: 0.75rem; color: var(--muted); margin-top: var(--sp-4); }
 /* each frame is its own editor: drag the picture, zoom below it */
 .st-frame-drag { cursor: grab; touch-action: none; user-select: none; -webkit-user-drag: none; }
 .st-frame-drag.is-dragging { cursor: grabbing; outline: 2px solid var(--ocha-cyan); outline-offset: 1px; }
-.st-zoom-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.35rem; }
+.st-zoom-row { display: flex; align-items: center; gap: var(--sp-8); margin-top: var(--sp-4); }
 .st-zoom-row .fa-solid { font-size: 0.7rem; color: var(--muted); }
 .st-zoom-row input[type="range"] { flex: 1 1 auto; min-width: 0; }
-.st-frame-hint { margin: 0.25rem 0 0; font-size: 0.72rem; min-height: 1em; max-width: 100%; }
-.st-check { display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem; }
-.st-thumbs { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.st-frame-hint { margin: var(--sp-4) 0 0; font-size: 0.72rem; min-height: 1em; max-width: 100%; }
+.st-check { display: flex; gap: var(--sp-8); align-items: center; font-size: 0.9rem; }
+.st-thumbs { display: flex; gap: var(--sp-8); flex-wrap: wrap; }
 .st-thumb { height: 150px; width: auto; border: 2px solid var(--line); border-radius: var(--radius-sm); cursor: pointer; }
 .st-thumb.is-on { border-color: var(--ocha-cyan); }
 .end-opt--soon { opacity: 0.45; pointer-events: none; }
 .end-opt__icon .fa-solid { font-size: 1.6rem; color: var(--ocha-cyan); }
 
 /* ---- Ending picker : selectable option cards with example thumbnails ---- */
-.end-options { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.end-options { display: flex; flex-wrap: wrap; gap: var(--sp-12); }
 .end-opt {
-  position: relative; flex: 1 1 12rem; display: flex; flex-direction: column; gap: 0.3rem;
-  padding: 0.6rem; cursor: pointer;
+  position: relative; flex: 1 1 12rem; display: flex; flex-direction: column; gap: var(--sp-4);
+  padding: var(--sp-8); cursor: pointer;
   background: var(--card); border: 1px solid var(--input-border); border-radius: var(--radius-sm);
 }
 .end-opt input { position: absolute; opacity: 0; width: 0; height: 0; }
@@ -254,18 +259,18 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
 
 /* ---- ending tail control (Edit step 7) ---- */
 .st-tail-input { width: 5rem; flex: 0 0 auto; }
-#st-tail-row { align-items: center; gap: 0.6rem; }
+#st-tail-row { align-items: center; gap: var(--sp-8); }
 
 /* ---- Location strips (pin locator) — ONE component, both tabs (location.js) ----
    Same enclosed-card treatment as the lower thirds, so a video with two locations
    reads as two cards rather than one long row of fields. */
-#t-loc-rows, #st-loc-rows { counter-reset: loc; margin-top: 0.3rem; }
+#t-loc-rows, #st-loc-rows { counter-reset: loc; display: grid; gap: var(--sp-12); margin-top: var(--sp-4); }
 .loc-row {
-  display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;
+  display: flex; gap: var(--sp-8); align-items: center; flex-wrap: wrap;
   counter-increment: loc;
   border: 1px solid var(--input-border); border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--ocha-cyan) 3%, var(--card));
-  padding: 0.7rem 0.75rem;
+  padding: var(--sp-12) var(--sp-12);
 }
 /* auto-numbered header — a CSS counter, so removing a card renumbers by itself */
 .loc-row::before {
@@ -274,20 +279,20 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
   font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.5px; color: var(--ocha-blue-dark); margin-bottom: 0.1rem;
 }
-.loc-row + .loc-row { margin-top: 0.6rem; }
-#t-loc-rows:not(:empty) + #t-loc-add, #st-loc-rows:not(:empty) + #st-loc-add { margin-top: 0.6rem; }
+/* spacing: #t-loc-rows `gap` */
+#t-loc-rows:not(:empty) + #t-loc-add, #st-loc-rows:not(:empty) + #st-loc-add { margin-top: var(--sp-8); }
 
 /* Text-on-screen cards — the same card model as the location strip (add, fill,
    remove, auto-numbered), so the two read as one pattern. The meta row reuses
    .loc-meta / .loc-cell wholesale; only the card shell and the line inputs are
    text-specific. */
-#t-tx-rows, #st-tx-rows { counter-reset: tx; margin-top: 0.3rem; }
+#t-tx-rows, #st-tx-rows { counter-reset: tx; display: grid; gap: var(--sp-12); margin-top: var(--sp-4); }
 .tx-row {
-  display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;
+  display: flex; gap: var(--sp-8); align-items: center; flex-wrap: wrap;
   counter-increment: tx;
   border: 1px solid var(--input-border); border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--ocha-cyan) 3%, var(--card));
-  padding: 0.7rem 0.75rem;
+  padding: var(--sp-12) var(--sp-12);
 }
 .tx-row::before {
   content: "Text " counter(tx);
@@ -295,10 +300,10 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
   font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.5px; color: var(--ocha-blue-dark); margin-bottom: 0.1rem;
 }
-.tx-row + .tx-row { margin-top: 0.6rem; }
-#t-tx-rows:not(:empty) + #t-tx-add, #st-tx-rows:not(:empty) + #st-tx-add { margin-top: 0.6rem; }
+/* spacing: #t-tx-rows `gap` */
+#t-tx-rows:not(:empty) + #t-tx-add, #st-tx-rows:not(:empty) + #st-tx-add { margin-top: var(--sp-8); }
 /* the three lines stack: they ARE stacked on screen, so the field order shows it */
-.tx-fields { flex: 1 1 100%; display: flex; flex-direction: column; gap: 0.35rem; }
+.tx-fields { flex: 1 1 100%; display: flex; flex-direction: column; gap: var(--sp-4); }
 .tx-fields .cd-form__input { font-weight: 400; width: 100%; }
 .tx-remove { flex: none; width: auto; align-self: flex-end; margin-inline-start: auto; }
 .tx-remove:hover, .tx-remove:focus-visible {
@@ -306,10 +311,10 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
   background: color-mix(in srgb, var(--err) 8%, var(--card));
 }
 
-.loc-fields { flex: 1 1 100%; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.loc-fields { flex: 1 1 100%; display: flex; gap: var(--sp-8); flex-wrap: wrap; }
 /* id-scoped twin overrides #st-card-brand's `flex: 1 1 11rem` on labels in the Edit tab */
 .loc-fields label, #st-card-brand .loc-fields label {
-  display: flex; flex-direction: column; gap: 0.25rem;
+  display: flex; flex-direction: column; gap: var(--sp-4);
   font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
   color: var(--muted); flex: 1 1 14rem;
 }
@@ -317,19 +322,21 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
 .loc-fields .cd-form__input { font-weight: 400; }
 
 /* flex-start so the CAPTIONS share a baseline (matches .lt-meta) */
-.loc-meta { flex: 1 1 100%; display: flex; gap: 0.5rem; align-items: flex-start; flex-wrap: wrap; }
+.loc-meta { flex: 1 1 100%; display: flex; gap: var(--sp-8); align-items: flex-start; flex-wrap: wrap; }
 .loc-cell { display: block; }                       /* block, so the caption sits above its control */
 .loc-cell--start  { width: 5.75rem; }               /* mm:ss + spinner (matches .lt-cell--start) */
 .loc-cell--dur    { width: 6rem; }                  /* secs + unit + spinner */
 .loc-cell--colour { width: auto; }
+.loc-cell--grad   { width: 10.5rem; }               /* "80% — default" without truncating */
+.loc-cell--grad select { width: 100%; }
 .loc-cell > .timefield { width: 100%; }
 .loc-cell .cd-form__input { width: 100%; font-weight: 400; }
-.loc-colour { display: inline-flex; gap: 0.3rem; }
+.loc-colour { display: inline-flex; gap: var(--sp-4); }
 /* the icon toggle stays a single [box] label row in BOTH tabs — the id-scoped twin
    beats #st-card-brand's flex:1 1 11rem, which would otherwise stack it */
 .loc-meta .loc-icon-check, #st-card-brand .loc-meta .loc-icon-check {
-  display: flex; flex-direction: row; align-items: center; gap: 0.5rem;
-  flex: 0 0 auto; align-self: flex-end; padding-bottom: 0.35rem;
+  display: flex; flex-direction: row; align-items: center; gap: var(--sp-8);
+  flex: 0 0 auto; align-self: flex-end; padding-bottom: var(--sp-4);
 }
 /* Remove: labelled (not a bare ×) and reads as destructive on hover — as .lt-remove */
 .loc-remove { flex: none; width: auto; align-self: flex-end; margin-inline-start: auto; }
@@ -362,6 +369,27 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
 
 /* ---- footage Look picker (shared component, both tabs) — layout only ---- */
 .look-review { margin-top: 12px; }
+/* Option-card grid — the house pattern for "here are N choices, each needing a
+   line of explanation". Used by Extra settings (both tabs) and the Help modal's
+   Windows downloads. A GRID, not stacked rows: hints crammed inline beside a
+   control wrap into a tangle. auto-fit gives side-by-side when there's room and
+   one per row when there isn't, so there's no breakpoint to maintain. */
+.opt-grid {
+  display: grid; gap: var(--sp-8); margin-top: var(--sp-12);
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+/* NO `display` here on purpose — gate classes like .look-review ride on this
+   element, and any display value would beat the `hidden` attribute. */
+.opt-card {
+  border: 1px solid var(--input-border); border-radius: var(--radius-sm);
+  background: var(--card); padding: var(--sp-12);
+}
+.opt-card .st-check { font-weight: 600; }
+.opt-card__title { font-weight: 600; font-size: 0.9rem; margin: 0; }
+.opt-card__hint { margin: var(--sp-4) 0 0; font-size: 0.8rem; line-height: 1.45; color: var(--muted); }
+.opt-card .st-check + .opt-card__hint { margin-left: var(--sp-24); }    /* clear the checkbox */
+.opt-card .cd-button { margin-top: var(--sp-8); }
+.extra-review .look-review { margin-top: 0; }
 .look-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 10px 0; }
 .look-card {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -406,5 +434,18 @@ kbd { font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace); font-
   display: block; width: 100%; box-sizing: border-box;
   font-family: var(--mono-font); font-size: 0.8rem; line-height: 1.5;
   background: #161616; color: #f2f2f2; border-radius: var(--radius-sm);
-  padding: 0.7rem 0.85rem; overflow-x: auto; white-space: pre; user-select: all;
+  padding: var(--sp-12) var(--sp-12); user-select: all;
+  /* WRAPS, never scrolls sideways: `white-space: pre` cut the tail off the URL
+     (703px of text in a 659px box) and there is no reason to hide half a command
+     the user is meant to read before pasting. break-all because it is one long
+     unbroken token. */
+  white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all;
 }
+/* Help modal — a labelled step, so the OS switch and each block read as sections
+   rather than a stack of loose rows. */
+.help-step { margin-top: var(--sp-16); }
+.help-step__label {
+  display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--muted); margin-bottom: var(--sp-8);
+}
+.help-copy-row { display: flex; gap: var(--sp-8); align-items: center; flex-wrap: wrap; margin-top: var(--sp-8); }

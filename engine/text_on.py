@@ -108,12 +108,18 @@ def render_seq(g, dur, fps, outdir):
     return n
 
 
-def mid_gradient_svg(W, H):
+def mid_gradient_svg(W, H, opacity=None):
     """The static feather-dark-feather band (full frame, black, transparent
-    outside): dark core between the feathers, alpha ramps on both edges."""
+    outside): dark core between the feathers, alpha ramps on both edges.
+
+    `opacity` is 0..1 and is PER TEXT BLOCK — the web app offers it as a picker
+    so a block over dark footage can use a lighter band (or none) without
+    weakening the one over a bright shot. Omitted = MID_OPACITY, which stays
+    the default everywhere and is the value the plugin's AE gradient is baked
+    at (make_assets.py DATA.gradient.opacity), so the two stay in step."""
     top, bot = MID_TOP_FRAC, MID_BOT_FRAC
     f = MID_FEATHER_FRAC / 2       # the feather STRADDLES each band edge (half
-    a = MID_OPACITY                # in, half out) — same as AE's Linear Wipe
+    a = MID_OPACITY if opacity is None else max(0.0, min(1.0, float(opacity)))
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}">'
             f'<defs><linearGradient id="band" x1="0" y1="0" x2="0" y2="1">'
             f'<stop offset="{top - f:.4f}" stop-color="#000" stop-opacity="0"/>'
@@ -124,7 +130,7 @@ def mid_gradient_svg(W, H):
             f'<rect width="{W}" height="{H}" fill="url(#band)"/></svg>')
 
 
-def render_mid_gradient(W, H, out_png):
-    _svg2png(bytestring=mid_gradient_svg(W, H).encode(),
+def render_mid_gradient(W, H, out_png, opacity=None):
+    _svg2png(bytestring=mid_gradient_svg(W, H, opacity).encode(),
              write_to=out_png, output_width=W, output_height=H)
     return out_png

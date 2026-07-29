@@ -10,15 +10,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,400&family=Roboto+Mono:wght@400;500&family=Raleway:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
-  <link rel="stylesheet" href="vendor/ocha-app-kit.css" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="vendor/ocha-app-kit.css?v=2026.0.28" />
+  <link rel="stylesheet" href="style.css?v=2026.0.28" />
 
   <script src="field.js?v=1" defer></script>      <!-- shared required project-folder field: BOTH tabs -->
   <script src="location.js?v=2" defer></script>   <!-- shared location strip: BOTH tabs -->
   <script src="lowerthird.js?v=1" defer></script>  <!-- shared lower-third rows: BOTH tabs -->
   <script src="captions.js?v=1" defer></script>    <!-- shared caption editor: BOTH tabs -->
   <script src="look.js?v=1" defer></script>        <!-- shared footage-look picker: BOTH tabs -->
-  <script src="texton.js?v=2" defer></script>      <!-- shared text-on-screen cards: BOTH tabs -->
+  <script src="texton.js?v=3" defer></script>      <!-- shared text-on-screen cards: BOTH tabs -->
   <script src="app.js?v=26" defer></script>
   <script src="statement.js?v=18" defer></script>
   <script src="toolbox.js?v=1" defer></script>
@@ -118,23 +118,10 @@
             <li>Nothing is uploaded — OCHA QuickVid reads the file straight off your disk and it never leaves your computer.</li>
           </ul>
         </div>
-        <div class="dropzone" id="drop" role="button" tabindex="0">
-          <i class="fa-solid fa-film" aria-hidden="true"></i>
-          <span id="drop-text">Choose a video — any size, any codec, kept full-resolution.</span>
-        </div>
-
-        <div class="look-review" hidden>
-          <h3 class="cd-block-title st-subsection">Look <span class="app-hint">— optional footage polish, applied under all branding</span></h3>
-          <div id="t-look-grid" class="look-grid"></div>
-          <label class="st-check"><input type="checkbox" id="t-look-fix" /> Fix phone colours <span class="app-hint">— force the colour correction when OCHA blue looks off on a phone clip. HDR and properly-tagged phone footage is corrected automatically; this is for clips whose tags got lost.</span></label>
-          <button type="button" id="t-look-prev" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Preview on this video</span></button>
-        </div>
-
-        <div class="rtl-review">
-          <label class="st-check"><input type="checkbox" id="t-rtl" /> Right-to-left layout <span class="app-hint">— for Arabic and other RTL languages: the lower third, text on screen and location strip move to the right, and the OCHA logo mirrors to the opposite corner. Ticked automatically when Arabic is detected; untick to override.</span></label>
-        </div>
-        <!-- Same job-folder contract as the Edit tab: name it, pick where it lives,
-             and the finished video lands in <folder>/export/ instead of a temporary spot. -->
+        <!-- Name the job FIRST, then pick the video — the same order as the Edit
+             tab, where step 1 is "what are you making + where does it live" and the
+             source only arrives in step 2. Same job-folder contract too: the
+             finished video lands in <folder>/export/ instead of a temporary spot. -->
         <div class="st-folder" id="f-folder">
           <span class="cd-form__label">Project name &amp; where it lives <em class="req">required</em></span>
           <div class="st-folder-row">
@@ -147,6 +134,36 @@
             Choose a project folder first — name the job, then press <strong>Choose where to save…</strong>
           </p>
           <span class="app-hint" id="f-folder-path">Name the job, then pick a location — a folder with that name is created there and the finished video lands in its <code>export/</code> folder, with a README explaining how it was made. Your settings autosave there too, so you can reopen the job later.</span>
+        </div>
+
+        <div class="dropzone" id="drop" role="button" tabindex="0">
+          <i class="fa-solid fa-film" aria-hidden="true"></i>
+          <span id="drop-text">Choose a video — any size, any codec, kept full-resolution.</span>
+        </div>
+
+        <div class="look-review" hidden>
+          <h3 class="cd-block-title st-subsection">Look <span class="app-hint">— optional footage polish, applied under all branding</span></h3>
+          <div id="t-look-grid" class="look-grid"></div>
+          <!-- stays with the grid: it fills those four cards with real frames -->
+          <button type="button" id="t-look-prev" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Preview on this video</span></button>
+        </div>
+
+        <!-- Extra settings — the two rescue toggles, out of the main flow. Both are
+             for when something looks wrong, not part of making a normal video. -->
+        <div class="extra-review">
+          <h3 class="cd-block-title st-subsection">Extra settings</h3>
+          <div class="opt-grid">
+            <!-- the gate class goes on the CARD, never on the label: .st-check sets
+                 display:flex, which beats the `hidden` attribute -->
+            <div class="opt-card look-review" hidden>
+              <label class="st-check"><input type="checkbox" id="t-look-fix" /> Fix phone colours</label>
+              <p class="opt-card__hint">Turn on if OCHA blue looks washed out. Most phone footage is corrected automatically.</p>
+            </div>
+            <div class="opt-card rtl-review">
+              <label class="st-check"><input type="checkbox" id="t-rtl" /> Right-to-left layout</label>
+              <p class="opt-card__hint">For Arabic: text and the logo move to the right. Ticks itself when Arabic is detected.</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -265,6 +282,10 @@
             <li>Want a fourth line? Use a second block — three lines is the template's design.</li>
           </ul>
         </div>
+        <figure class="ex-thumb">
+          <img src="img/ex-texton.jpg" width="360" height="640" alt="Example: three lines of large white text across the middle of a portrait video, over a soft dark band" />
+          <figcaption>Text on screen — the lines rise in one after another, over the automatic readability gradient. Shown at 60%; each block sets its own.</figcaption>
+        </figure>
         <p class="app-hint">Off by default — add a block only if you want one.</p>
         <!-- cards are built by the shared component in texton.js (both tabs) -->
         <div id="t-tx-rows"></div>
@@ -565,12 +586,25 @@
         <div class="look-review" hidden>
           <h3 class="cd-block-title st-subsection">Look <span class="app-hint">— optional footage polish, applied under all branding</span></h3>
           <div id="st-look-grid" class="look-grid"></div>
-          <label class="st-check"><input type="checkbox" id="st-look-fix" /> Fix phone colours <span class="app-hint">— force the colour correction when OCHA blue looks off on a phone clip. HDR and properly-tagged phone footage is corrected automatically; this is for clips whose tags got lost.</span></label>
+          <!-- stays with the grid: it fills those four cards with real frames -->
           <button type="button" id="st-look-prev" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Preview on this video</span></button>
         </div>
 
-        <div class="rtl-review">
-          <label class="st-check"><input type="checkbox" id="st-rtl" /> Right-to-left layout <span class="app-hint">— for Arabic and other RTL languages: the lower third, text on screen and location strip move to the right, and the OCHA logo mirrors to the opposite corner. Ticked automatically when Arabic is detected; untick to override.</span></label>
+        <!-- Extra settings — same grouping as the Titles tab, so both tabs read alike -->
+        <div class="extra-review">
+          <h3 class="cd-block-title st-subsection">Extra settings</h3>
+          <div class="opt-grid">
+            <!-- the gate class goes on the CARD, never on the label: .st-check sets
+                 display:flex, which beats the `hidden` attribute -->
+            <div class="opt-card look-review" hidden>
+              <label class="st-check"><input type="checkbox" id="st-look-fix" /> Fix phone colours</label>
+              <p class="opt-card__hint">Turn on if OCHA blue looks washed out. Most phone footage is corrected automatically.</p>
+            </div>
+            <div class="opt-card rtl-review">
+              <label class="st-check"><input type="checkbox" id="st-rtl" /> Right-to-left layout</label>
+              <p class="opt-card__hint">For Arabic: text and the logo move to the right. Ticks itself when Arabic is detected.</p>
+            </div>
+          </div>
         </div>
           <h3 class="cd-block-title st-subsection">OCHA logo</h3>
           <label class="st-check"><input type="checkbox" id="st-bug-on" /> Add the OCHA logo <span class="app-hint">— watermark, top-right, for the whole video. Typically for event videos; off by default.</span></label>
@@ -596,6 +630,10 @@
              cards: unlimited blocks, three lines each. -->
         <div class="texton-review" hidden>
           <h3 class="cd-block-title st-subsection">Text on screen <span class="app-hint">— up to 3 lines per block that rise in and out; a soft mid gradient goes behind them automatically</span></h3>
+          <figure class="ex-thumb">
+            <img src="img/ex-texton.jpg" width="360" height="640" alt="Example: three lines of large white text across the middle of a portrait video, over a soft dark band" />
+            <figcaption>Text on screen — the lines rise in one after another, over the automatic readability gradient. Shown at 60%; each block sets its own.</figcaption>
+          </figure>
           <p class="app-hint">Off by default — add a block only if you want one. Add as many as you need.</p>
           <!-- cards are built by the shared component in texton.js (both tabs) -->
           <div id="st-tx-rows"></div>
@@ -775,29 +813,44 @@
       <button class="cd-modal__close" id="help-close" type="button" aria-label="Close">&times;</button>
       <h2 class="cd-block-title" id="help-title">Help &amp; reinstall</h2>
       <p><strong>Deleted the app, or it won’t open?</strong> Reinstall it — your projects and settings are safe.</p>
-      <div class="st-btn-row" role="tablist" aria-label="Choose your system">
-        <button class="cd-button cd-button--small" id="help-os-mac" type="button"><i class="fa-brands fa-apple" aria-hidden="true"></i><span class="cd-button__text">Mac</span></button>
-        <button class="cd-button cd-button--small cd-button--outline" id="help-os-win" type="button"><i class="fa-brands fa-windows" aria-hidden="true"></i><span class="cd-button__text">Windows</span></button>
+      <div class="help-step">
+        <span class="help-step__label">1 — Your system</span>
+        <div class="st-btn-row" role="tablist" aria-label="Choose your system">
+          <button class="cd-button cd-button--small" id="help-os-mac" type="button"><i class="fa-brands fa-apple" aria-hidden="true"></i><span class="cd-button__text">Mac</span></button>
+          <button class="cd-button cd-button--small cd-button--outline" id="help-os-win" type="button"><i class="fa-brands fa-windows" aria-hidden="true"></i><span class="cd-button__text">Windows</span></button>
+        </div>
       </div>
 
-      <div id="help-mac">
-        <p class="app-hint">Paste this into <strong>Terminal</strong> (<kbd>⌘</kbd>+<kbd>Space</kbd>, type <em>Terminal</em>) and press <kbd>Enter</kbd>:</p>
-        <div class="st-btn-row">
-          <code id="help-cmd">curl -fsSL https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/install.sh | bash</code>
-        </div>
-        <div class="st-btn-row">
+      <div id="help-mac" class="help-step">
+        <span class="help-step__label">2 — Run this in Terminal</span>
+        <p class="app-hint">Open <strong>Terminal</strong> (<kbd>⌘</kbd>+<kbd>Space</kbd>, type <em>Terminal</em>), paste the line below and press <kbd>Enter</kbd>.</p>
+        <!-- own block, full width, WRAPPING: it used to sit in a flex button row
+             with white-space:pre, so the end of the URL was cut off -->
+        <code id="help-cmd">curl -fsSL https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/install.sh | bash</code>
+        <div class="help-copy-row">
           <button class="cd-button cd-button--small" id="help-copy" type="button"><i class="fa-solid fa-copy" aria-hidden="true"></i><span class="cd-button__text">Copy the command</span></button>
           <span class="app-hint" id="help-copied" aria-live="polite"></span>
         </div>
         <p class="app-hint">It re-creates <strong>OCHA QuickVid</strong> in your Applications folder and on the Desktop. If it says the engine is already running, that’s fine — the command doesn’t need it.</p>
       </div>
 
-      <div id="help-win" hidden>
-        <p class="app-hint">Download the installer and double-click it in your Downloads — it repairs the setup without touching your videos, and starts OCHA QuickVid when it finishes.</p>
-        <div class="st-btn-row"><a class="cd-button" href="get/Install%20OCHA%20QuickVid.bat" download="Install OCHA QuickVid.bat"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span class="cd-button__text">Download the installer</span></a></div>
+      <div id="help-win" class="help-step" hidden>
+        <span class="help-step__label">2 — Download and double-click</span>
+        <!-- two choices, so two cards on the shared option grid instead of loose
+             stacked button rows -->
+        <div class="opt-grid">
+          <div class="opt-card">
+            <p class="opt-card__title">Repair the setup</p>
+            <p class="opt-card__hint">Fixes a broken or deleted install and starts OCHA QuickVid when it finishes. Your videos aren’t touched.</p>
+            <a class="cd-button" href="get/Install%20OCHA%20QuickVid.bat" download="Install OCHA QuickVid.bat"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><span class="cd-button__text">Download the installer</span></a>
+          </div>
+          <div class="opt-card">
+            <p class="opt-card__title">Just start it again</p>
+            <p class="opt-card__hint">Already installed and only need to launch it? Keep this file somewhere handy — it works every time.</p>
+            <a class="cd-button cd-button--outline" href="get/OCHA%20QuickVid.bat" download="OCHA QuickVid.bat"><i class="fa-solid fa-play" aria-hidden="true"></i><span class="cd-button__text">Download the starter</span></a>
+          </div>
+        </div>
         <div class="st-setup__note"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Windows may show <em>“Windows protected your PC”</em> (SmartScreen) — the standard notice for any installer from the internet, not a virus warning: click <strong>More info → Run anyway</strong>.</div>
-        <p class="app-hint">Just need to start it again? Grab the starter instead and keep it somewhere handy — the same file works every time:</p>
-        <div class="st-btn-row"><a class="cd-button cd-button--outline" href="get/OCHA%20QuickVid.bat" download="OCHA QuickVid.bat"><i class="fa-solid fa-play" aria-hidden="true"></i><span class="cd-button__text">Download the starter</span></a></div>
       </div>
 
       <h3 class="cd-block-title st-subsection">Engine won’t start?</h3>

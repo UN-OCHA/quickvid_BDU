@@ -33,6 +33,20 @@ logbook). This file is just the map + standing rules.
   setup + PDF guide colleagues install from. Built by `tools/build-panel-package.sh`.
 
 ## Standing rules (these have bitten us — see decisions.md)
+- **Lay UI out with a GRID and real margins — web app AND plugin.** Never stack
+  loose flex rows and hope. Whenever there are 2+ choices that each need a line of
+  explanation, use the option-card grid (`.opt-grid` / `.opt-card` /
+  `.opt-card__hint` in `browser/style.css`) — `auto-fit` so it goes side-by-side
+  when there's room and stacks when there isn't, no breakpoint to maintain. Hints
+  crammed inline next to a control are what makes a panel look "crumbled".
+  Before calling any UI done, check **at desktop and at 375px** that no element
+  overflows its container (`scrollWidth <= clientWidth`) and the page never
+  scrolls sideways. Long unbreakable strings (URLs, commands) must WRAP
+  (`white-space: pre-wrap; word-break: break-all`), never be cut off.
+- **`hidden` loses to `display`.** A gate class toggling the `hidden` attribute
+  must sit on a plain wrapper, never on an element whose CSS sets `display`
+  (`.st-check`, `.adj-row`, `.opt-card` deliberately sets none). Author styles
+  beat the UA's `[hidden] { display: none }`, so the element stays visible.
 - **Kit-first UI.** Look & feel is the shared **OCHA App Kit**. Edit the KIT
   (`…/OCHA_design_system/ocha-common-design-system-BDU/app-kit/ocha-app-kit.css`),
   never the synced copy (`browser/vendor/ocha-app-kit.css`). Reuse a `cd-*`
@@ -40,6 +54,10 @@ logbook). This file is just the map + standing rules.
   `cd …/app-kit && python3 sync.py`, log `CHANGELOG.md`, and **remind Javier to
   prompt his Design System session** (a handoff is added automatically).
   `browser/style.css` is QuickVid LAYOUT only — no colours, no component styling.
+  **Spacing comes from the kit's 4pt scale** (`--sp-4/8/12/16/24/32/48`) — never a
+  raw rem for margin/padding/gap. The kit embeds the CDS (`tokens/brand.css`) and
+  aliases onto it, so `--cd-font-size--*`, `--cd-bp--*`, `--cd-container-padding`
+  and `--cd-max-*` are all available here too; `sync.py` fails if a token dangles.
 - **`host.jsx` is ExtendScript (ES3): `var` only, no arrows/template-literals,
   ASCII-only, and never `--` inside a comment** (it breaks the manifest XML too).
 - **Never rebuild/sign the `.zxp` without Javier's explicit go.** Stage

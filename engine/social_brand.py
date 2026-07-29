@@ -257,10 +257,11 @@ def render(spec: dict, log=print) -> str:
     # Text on screen (the plugin's OCHA Text): each block renders like an LT —
     # a full-width PNG strip sequence — and the MID readability band
     # (feather-dark-feather) goes behind it AUTOMATICALLY, fading in and out
-    # with the text. One band PNG, one -loop input per block (an input stream
-    # can only feed the graph once).
+    # with the text. Each block needs its OWN -loop input anyway (an input stream
+    # can only feed the graph once), so each also gets its own band PNG — which is
+    # what lets `gradient` be per block: a block over a dark shot can go lighter
+    # without weakening the one over a bright shot. Absent = the 80% default.
     txt_gs = []
-    tx_band = None
     for i, tx in enumerate(spec.get("texts") or []):
         t_lines = [str(l).strip() for l in (tx.get("lines") or []) if str(l or "").strip()][:3]
         if not t_lines:
@@ -270,10 +271,12 @@ def render(spec: dict, log=print) -> str:
         g["dur"] = TX.total(float(tx.get("duration", 5.0)))
         g["dir"] = os.path.join(work, f"txt{i}")
         TX.render_seq(g, g["dur"], fps, g["dir"])
+        # sent as a PERCENT by the UI; None/absent keeps TX.MID_OPACITY
+        gp = tx.get("gradient")
+        g["band"] = os.path.join(work, f"txt_band{i}.png")
+        TX.render_mid_gradient(W, H, g["band"],
+                               None if gp is None else float(gp) / 100.0)
         txt_gs.append(g)
-    if txt_gs:
-        tx_band = os.path.join(work, "txt_band.png")
-        TX.render_mid_gradient(W, H, tx_band)
 
     grad_png = None
     grad_h = round(H * sub["gradient_h_frac"])
@@ -344,7 +347,7 @@ def render(spec: dict, log=print) -> str:
     for g in txt_gs:
         inputs += ["-framerate", str(fps), "-start_number", "0", "-i", os.path.join(g["dir"], "%04d.png")]
         txt_idx.append(idx); idx += 1
-        inputs += ["-loop", "1", "-i", tx_band]       # its own band copy per block
+        inputs += ["-loop", "1", "-i", g["band"]]     # this block's own band
         txb_idx.append(idx); idx += 1
     grad_idx = logo_idx = click_idx = bug_idx = None
     if grad_png:

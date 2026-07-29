@@ -23,7 +23,7 @@
  *     add:  document.querySelector("#t-tx-add"),    // "Add text on screen" button
  *     onChange: save,                               // called on every edit (autosave)
  *   });
- *   tx.collect();       // -> [{lines: [...], start, duration}, …]
+ *   tx.collect();       // -> [{lines: [...], start, duration, gradient}, …]
  *   tx.restore(list);   // the list, a legacy single {on,…} block, or null
  *
  * Load this AFTER location.js (it borrows its mm:ss helpers) and BEFORE
@@ -36,6 +36,11 @@ const OchaTextOn = (() => {
   const DUR_DEFAULT = 5;
   const DUR_MIN = 1.5;            // below this the rise-in and rise-out collide
   const MAX_LINES = 3;
+  // The readability band behind the text, as a PERCENT. 80 is the engine default
+  // (text_on.MID_OPACITY) and the value the plugin's AE gradient is baked at, so
+  // leaving it alone keeps the web app and Premiere identical. Per BLOCK, because
+  // how dark the band needs to be depends on the shot underneath it.
+  const GRAD_DEFAULT = 80;
 
   // mm:ss parsing/formatting is identical to the location strip's, so it is
   // borrowed rather than copied — one behaviour, one place to fix it.
@@ -72,6 +77,15 @@ const OchaTextOn = (() => {
           </span>
         </span>
       </span>
+      <span class="loc-cell loc-cell--grad"><span class="lt-cap">Gradient</span>
+        <select class="cd-form__input tx-grad" title="How dark the band behind this text is">
+          <option value="80">80% — default</option>
+          <option value="60">60% — lighter</option>
+          <option value="40">40% — subtle</option>
+          <option value="20">20% — barely there</option>
+          <option value="0">Off — no band</option>
+        </select>
+      </span>
       <button class="cd-button cd-button--outline cd-button--small tx-remove" type="button" title="Remove this text block">
         <i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="cd-button__text">Remove</span>
       </button>
@@ -90,6 +104,7 @@ const OchaTextOn = (() => {
       const lines = Array.isArray(v.lines) ? v.lines : [];
       [".tx-l1", ".tx-l2", ".tx-l3"].forEach((sel, i) => { q(sel).value = lines[i] || ""; });
 
+      q(".tx-grad").value = String(Number.isFinite(v.gradient) ? v.gradient : GRAD_DEFAULT);
       const tf = q(".tx-start"), df = q(".tx-dur");
       tf.value = mmss(Number.isFinite(v.start) ? v.start : START_DEFAULT);
       df.value = String(Number.isFinite(v.duration) ? v.duration : DUR_DEFAULT);
@@ -105,6 +120,7 @@ const OchaTextOn = (() => {
       q(".durfield__down").onclick = () => setDf((parseFloat(df.value) || 0) - 1);
 
       row.addEventListener("input", changed);
+      q(".tx-grad").addEventListener("change", changed);   // <select> doesn't bubble `input` everywhere
       q(".tx-remove").onclick = () => { row.remove(); changed(); };
       rows.appendChild(row);
       return row;
@@ -114,10 +130,12 @@ const OchaTextOn = (() => {
       return [...rows.querySelectorAll(".tx-row")].map((r) => {
         const lines = [...r.querySelectorAll(".tx-fields input")]
           .map((el) => (el.value || "").trim()).filter(Boolean).slice(0, MAX_LINES);
+        const gp = parseInt(r.querySelector(".tx-grad").value, 10);
         return {
           lines,
           start: secs(r.querySelector(".tx-start").value),
           duration: parseFloat(r.querySelector(".tx-dur").value) || DUR_DEFAULT,
+          gradient: Number.isFinite(gp) ? gp : GRAD_DEFAULT,
         };
       }).filter((t) => t.lines.length);     // an empty card is a card not filled in yet
     }
@@ -137,5 +155,5 @@ const OchaTextOn = (() => {
     return { addRow, collect, restore, count: () => rows.querySelectorAll(".tx-row").length };
   }
 
-  return { mount, START_DEFAULT, DUR_DEFAULT, MAX_LINES };
+  return { mount, START_DEFAULT, DUR_DEFAULT, MAX_LINES, GRAD_DEFAULT };
 })();
