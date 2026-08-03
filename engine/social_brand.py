@@ -310,7 +310,7 @@ def render(spec: dict, log=print) -> str:
         from PIL import Image
         lw, lh_ = Image.open(logo_png).size
         if end.get("click", True) and os.path.exists(BRAND_JSON):
-            asset = json.loads(open(BRAND_JSON).read()).get("ending", {}).get("asset")
+            asset = json.loads(open(BRAND_JSON, encoding="utf-8").read()).get("ending", {}).get("asset")
             cm = os.path.join(ROOT, asset) if asset else None
             if cm and os.path.exists(cm):
                 click_mov = cm
@@ -416,7 +416,12 @@ def render(spec: dict, log=print) -> str:
 
     if style == "over_footage":                        # logo snaps on over the running footage — no scrim, ever
         fc.append(f"[{logo_idx}:v]format=rgba[lg]")
-        logo_y = round(H * float(end.get("logo_y_frac", 0.58)) - lh_ / 2)   # below the face, above the caption zone
+        # TRUE vertical centre, same as ending.py's own placement — these are two
+        # implementations of one thing and they used to disagree: this default was
+        # 0.58 ("below the face, above the caption zone"), which on a 1080x1920 reel
+        # put the logo 154px BELOW centre while the Titles path centred it exactly.
+        # Nothing sets logo_y_frac yet, so 0.58 was what every Edit-tab ending shipped.
+        logo_y = round(H * float(end.get("logo_y_frac", 0.5)) - lh_ / 2)
         fc.append(f"[{prev}][lg]overlay={(W - lw) // 2}:{logo_y}:eof_action=pass:enable='gte(t,{at})',format=yuv420p[vout]")
         if has_aud:
             fc.append("[0:a]anull[amain]")
@@ -459,4 +464,4 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--spec", required=True)
     args = ap.parse_args()
-    render(json.loads(open(args.spec).read()))
+    render(json.loads(open(args.spec, encoding="utf-8").read()))

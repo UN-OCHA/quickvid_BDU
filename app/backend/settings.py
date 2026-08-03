@@ -15,7 +15,7 @@ BRAND_FILE = ROOT / "brand" / "brand.json"
 # Single source of truth for the version = the root VERSION file (the self-updating
 # starter compares it against GitHub). Fallback keeps a dev checkout working if it's missing.
 try:
-    VERSION = (ROOT / "VERSION").read_text().strip() or "0.0.0"
+    VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() or "0.0.0"
 except OSError:
     VERSION = "0.5.3"          # pin: subtler rebound + anti-crop headroom + start-time control
 ENGINE_PORT = 17870                              # fixed port the web app pings to detect the engine
@@ -82,4 +82,4 @@ if FFMPEG:
 
 
 def brand() -> dict:
-    return json.loads(BRAND_FILE.read_text())
+    return json.loads(BRAND_FILE.read_text(encoding="utf-8"))

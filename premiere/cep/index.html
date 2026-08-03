@@ -2,11 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <link rel="stylesheet" href="styles.css?v=2026.0.46" />
+  <link rel="stylesheet" href="styles.css?v=2026.0.47" />
   <!-- anonymous usage pings; a NO-OP until an endpoint is configured -->
-  <script src="js/analytics.js?v=2026.0.46"></script>
+  <script src="js/analytics.js?v=2026.0.47"></script>
   <!-- downloads + installs updates; needs --enable-nodejs (see the manifest) -->
-  <script src="js/auto-updater.js?v=2026.0.46"></script>
+  <script src="js/auto-updater.js?v=2026.0.47"></script>
 </head>
 <body>
   <div class="app">
@@ -227,15 +227,18 @@
         <section class="adjust" id="adjust">
           <button class="adj-toggle" id="adj-toggle" aria-expanded="false">
             <svg class-="adj-chev" width="12" height="12" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M303.5 473C312.9 482.4 328.1 482.4 337.4 473L537.4 273C546.8 263.6 546.8 248.4 537.4 239.1C528 229.8 512.8 229.7 503.5 239.1L320.5 422.1L137.5 239.1C128.1 229.7 112.9 229.7 103.6 239.1C94.3 248.5 94.2 263.7 103.6 273L303.6 473z"/></svg>
-            <span class="adj-toggle__label">Position</span>
-            <span class="adj-tag">advanced</span>
+            <span class="adj-toggle__label">Advanced settings</span>
+            <span class="adj-tag">use with care</span>
           </button>
           <div class="adj-body" id="adj-body" hidden>
-            <p class="adj-warn"><strong>Use with caution</strong> — each element already sits at its designed spot.</p>
+            <!-- The old "Use with caution" paragraph lived here. It said the same
+                 thing as the pill, twice, so the pill now carries it alone. -->
+            <p class="adj-group">Position</p>
             <!-- Size/scale is PARKED (0.42) — no row at all. NOTE: don't try to
                  "hidden" a row back in: .adj-row's display:flex BEATS the hidden
                  attribute, which is exactly how a parked Size row leaked into
-                 0.42's first cut. -->
+                 0.42's first cut. Same trap for the Font group below: its gate
+                 sits on a plain wrapper, never on .adj-row itself. -->
             <div class="adj-row">
               <span class="adj-lab" title="Horizontal position (px)">Horiz</span>
               <button id="adj-x-dec" class="adj-arrow" type="button" title="1 px left" aria-label="Move 1 pixel left">&lsaquo;</button>
@@ -255,6 +258,25 @@
               <button id="adj-y-r" class="adj-row__reset" type="button" title="Reset to the frame centre" aria-label="Reset vertical to the frame centre">
                 <svg viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M88 64C101.3 64 112 74.7 112 88L112 166.1L139.1 139C239.1 39 401.2 39 501.1 139C601 239 601.1 401.1 501.1 501C401.1 600.9 239 601 139.1 501C124.2 486.1 111.5 469.8 101 452.5C94.1 441.2 97.8 426.4 109.1 419.5C120.4 412.6 135.2 416.3 142.1 427.6C150.6 441.6 160.9 454.9 173.1 467C254.3 548.2 386 548.2 467.3 467C548.6 385.8 548.5 254.1 467.3 172.8C386.1 91.5 254.4 91.6 173.1 172.8L146 199.9L224.2 199.9C237.5 199.9 248.2 210.6 248.2 223.9C248.2 237.2 237.5 247.9 224.2 247.9L88 248C74.7 248 64 237.3 64 224L64 88C64 74.7 74.7 64 88 64z"/></svg>
               </button>
+            </div>
+            <!-- FONT. Self-gating: the wrapper stays hidden unless the selected
+                 clip's template actually exposes a "Font" control, so an older
+                 installed template simply never shows it. The gate is on this
+                 plain DIV, never on .adj-row (display:flex beats [hidden]). -->
+            <div id="adj-font-wrap" hidden>
+              <p class="adj-group">Font</p>
+              <div class="adj-row">
+                <span class="adj-lab" title="Typeface for this element">Face</span>
+                <!-- 0-BASED, like the Pin colour dropdown ("0-based: Red=0, Blue=1").
+                     A MOGRT dropdown is 0-based when written from PREMIERE but
+                     1-based when read by an AE EXPRESSION - the same value, two
+                     conventions. Sending 1 for Raleway selected Bebas, and 2 fell
+                     off the end (Properties showed an empty field). -->
+                <select id="adj-font" class="track-sel">
+                  <option value="0">Raleway (OCHA)</option>
+                  <option value="1">Bebas Neue (UN videos)</option>
+                </select>
+              </div>
             </div>
           </div>
         </section>
@@ -398,6 +420,18 @@
           <input id="grad-op-n" class="adj-num"   type="number" min="10" max="100" step="5" value="80" />
           <span class="adj-u">%</span>
         </div>
+        <!-- Track, HERE as well as on the Brand tab. These tools place a clip just
+             like Add does, but they run from the Toolbox — so the picker sitting
+             under the Add button was a tab away and effectively unreachable at the
+             moment you needed it. Both selects are filled by refreshTracks() from
+             one call, so they can never list different tracks. -->
+        <div class="adj-row" id="modal-track-row" style="margin-top:10px">
+          <span class="adj-lab" for="modal-track">Track</span>
+          <select id="modal-track" class="track-sel">
+            <option value="">Automatic</option>
+          </select>
+        </div>
+        <p class="modal-hint" id="modal-track-hint">Automatic puts it where it belongs: the gradient below your text, everything else on top.</p>
       </div>
       <div class="modal-info" id="modal-info">…</div>
       <div class="modal-result" id="modal-result" hidden></div>
@@ -408,6 +442,6 @@
     </div>
   </div>
 
-  <script src="js/main.js?v=2026.0.46"></script>
+  <script src="js/main.js?v=2026.0.47"></script>
 </body>
 </html>

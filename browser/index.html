@@ -13,17 +13,18 @@
        REGULAR, which is the OCHA standard for UI chrome — this does. Web app only:
        the Premiere panel inlines SVGs instead, since a CDN breaks offline. -->
   <script src="https://kit.fontawesome.com/f4c1c5435d.js" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="vendor/ocha-app-kit.css?v=2026.0.30" />
-  <link rel="stylesheet" href="style.css?v=2026.0.30" />
+  <link rel="stylesheet" href="vendor/ocha-app-kit.css?v=2026.0.32" />
+  <link rel="stylesheet" href="style.css?v=2026.0.32" />
 
   <script src="field.js?v=1" defer></script>      <!-- shared required project-folder field: BOTH tabs -->
   <script src="location.js?v=2" defer></script>   <!-- shared location strip: BOTH tabs -->
   <script src="lowerthird.js?v=1" defer></script>  <!-- shared lower-third rows: BOTH tabs -->
   <script src="captions.js?v=1" defer></script>    <!-- shared caption editor: BOTH tabs -->
-  <script src="look.js?v=1" defer></script>        <!-- shared footage-look picker: BOTH tabs -->
+  <script src="waiting.js?v=1" defer></script>   <!-- shared waiting lines: BOTH tabs -->
+  <script src="look.js?v=2" defer></script>        <!-- shared footage-look picker: BOTH tabs -->
   <script src="texton.js?v=3" defer></script>      <!-- shared text-on-screen cards: BOTH tabs -->
-  <script src="app.js?v=26" defer></script>
-  <script src="statement.js?v=19" defer></script>
+  <script src="app.js?v=27" defer></script>
+  <script src="statement.js?v=22" defer></script>
   <script src="toolbox.js?v=1" defer></script>
 </head>
 <body>
@@ -147,6 +148,7 @@
         <div class="look-review" hidden>
           <h3 class="cd-block-title st-subsection">Look <span class="app-hint">— optional footage polish, applied under all branding</span></h3>
           <div id="t-look-grid" class="look-grid"></div>
+          <div id="t-look-adjust" class="adjust-grid"></div>
           <!-- stays with the grid: it fills those four cards with real frames -->
           <button type="button" id="t-look-prev" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Preview on this video</span></button>
         </div>
@@ -334,13 +336,15 @@
 
     <button class="cd-button" id="run" type="button"><i class="fa-regular fa-wand-magic-sparkles" aria-hidden="true"></i><span class="cd-button__text">Add titles &amp; branding</span></button>
     <div id="status" class="status-slot" aria-live="polite"></div>
+    <p class="app-hint app-waiting" id="t-waiting" hidden aria-live="polite"></p>
 
     <!-- Preview -->
     <section class="cd-card" id="preview" aria-labelledby="s4" hidden>
       <div class="cd-card__content cd-flow">
-        <h2 class="cd-block-title" id="s4">Preview &amp; download</h2>
+        <h2 class="cd-block-title" id="s4">Preview</h2>
         <video id="player" class="app-player app-player--fit" controls playsinline></video>
-        <a class="cd-button cd-button--export" id="download" download="quickvid.mp4"><i class="fa-regular fa-download" aria-hidden="true"></i><span class="cd-button__text">Download MP4</span></a>
+        <!-- Same as the Edit tab: the file is already in the job's export/ folder. -->
+        <div class="st-btn-row"><button class="cd-button cd-button--export cd-button--big" id="download" type="button"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Open the export folder</span></button></div>
       </div>
     </section>
     </div><!-- /panel-titles -->
@@ -471,11 +475,19 @@
             <button class="cd-button cd-button--small cd-button--outline" id="st-set-to" type="button"><i class="fa-regular fa-arrow-down-to-line" aria-hidden="true"></i><span class="cd-button__text">Set "To" here</span></button>
           </div>
           <div id="st-ranges"></div>
+          <!-- Translate is a SETTING of the Transcribe button, so it belongs above it
+               in a card, not loose underneath — it read as an afterthought hanging off
+               the bottom of the step. -->
+          <div class="opt-grid">
+            <div class="opt-card">
+              <label class="st-check"><input type="checkbox" id="st-translate" /> Translate to English</label>
+              <p class="opt-card__hint">Speech in another language comes back as English captions, which you review and edit as usual. English only — it can't translate into other languages.</p>
+            </div>
+          </div>
           <div class="st-btn-row">
             <button class="cd-button cd-button--outline cd-button--small" id="st-range-add" type="button"><i class="fa-regular fa-plus" aria-hidden="true"></i><span class="cd-button__text">Add another range</span></button>
             <button class="cd-button" id="st-transcribe" type="button"><i class="fa-regular fa-closed-captioning" aria-hidden="true"></i><span class="cd-button__text">Transcribe</span></button>
           </div>
-          <label class="st-check"><input type="checkbox" id="st-translate" /> Translate to English <span class="app-hint">— for speech in another language, write the captions in English instead. You review and edit them like any captions. <em>(English only — it can't translate into other languages.)</em></span></label>
         </div>
       </section>
 
@@ -514,31 +526,49 @@
               <li>The previews show a frame from your first kept sentence; <strong>Try another frame</strong> jumps to a different moment if that one's a wide or in-between shot.</li>
             </ul>
           </div>
-          <div class="end-options" id="st-presets">
+          <!-- A GRID, not a wrapping flex row: with flex the fourth card was stranded
+               alone on a full-width second line. auto-fit gives 4-up when there is
+               room and a clean 2x2 when there isn't — no breakpoint to maintain.
+               Each carries its shape as an FA Classic Regular glyph. -->
+          <div class="fmt-grid" id="st-presets">
             <label class="end-opt"><input type="radio" name="st-preset" value="reels" checked />
+              <span class="fmt-shape"><i class="fa-regular fa-rectangle-vertical" aria-hidden="true"></i></span>
               <span class="end-opt__label">Reels</span><span class="end-opt__hint">9:16 portrait · boxed captions</span></label>
             <label class="end-opt"><input type="radio" name="st-preset" value="square" />
+              <span class="fmt-shape"><i class="fa-regular fa-square" aria-hidden="true"></i></span>
               <span class="end-opt__label">Square feed</span><span class="end-opt__hint">1:1 · boxed captions</span></label>
             <label class="end-opt"><input type="radio" name="st-preset" value="feed45" />
+              <span class="fmt-shape fmt-shape--45"><i class="fa-regular fa-rectangle-vertical" aria-hidden="true"></i></span>
               <span class="end-opt__label">IG / FB feed</span><span class="end-opt__hint">4:5 · boxed captions</span></label>
             <label class="end-opt"><input type="radio" name="st-preset" value="event" />
+              <span class="fmt-shape"><i class="fa-regular fa-rectangle-wide" aria-hidden="true"></i></span>
               <span class="end-opt__label">Event screen</span><span class="end-opt__hint">16:9 · clean captions over a soft gradient</span></label>
           </div>
           <label class="st-check" id="st-4k-wrap"><input type="checkbox" id="st-4k" disabled /> Export in 4K <span class="app-hint" id="st-4k-hint">— Event screen only, and only when your source is 4K. Everything keeps the same proportions, just larger. Not for social media: Instagram, TikTok and X re-encode to 1080 anyway.</span></label>
           <p class="app-hint"><strong>Drag each picture</strong> to reposition it, and use its <strong>zoom</strong> to go tighter or wider — the two frames are independent. The previews use a moment from your first kept sentence; <strong>Try another frame</strong> shows a different one.</p>
+          <!-- Fixed-size boxes: the figure used to be as wide as the picture, so a
+               16:9 Event still made the whole column (and its zoom slider) balloon,
+               while a 9:16 reel shrank it. Same footprint in every format now. The
+               zoom steps in fixed increments — free movement let it sit at 1.03,
+               which is a re-encode for no visible gain. -->
           <div class="st-frames">
             <figure>
-              <img id="st-frame-general" class="st-frame-drag" alt="General shot framing — drag to reposition" draggable="false" />
+              <div class="st-frame-box">
+                <img id="st-frame-general" class="st-frame-drag" alt="General shot framing — drag to reposition" draggable="false" />
+                <span class="st-drag-tip" id="st-tip-general" aria-hidden="true"><i class="fa-regular fa-hand-pointer"></i> Drag to reposition</span>
+              </div>
               <figcaption>General</figcaption>
-              <div class="st-zoom-row"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><input type="range" id="st-zoom-general" min="100" max="200" value="100" aria-label="General zoom" /></div>
-              <div class="app-hint st-frame-hint" id="st-hint-general"></div>
+              <div class="st-zoom-row"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><input type="range" id="st-zoom-general" min="100" max="200" step="25" list="st-zoom-steps" value="100" aria-label="General zoom" /><output class="st-zoom-val" id="st-zoomv-general">1.0×</output></div>
             </figure>
             <figure>
-              <img id="st-frame-close" class="st-frame-drag" alt="Close-up framing — drag to reposition" draggable="false" />
+              <div class="st-frame-box">
+                <img id="st-frame-close" class="st-frame-drag" alt="Close-up framing — drag to reposition" draggable="false" />
+                <span class="st-drag-tip" id="st-tip-close" aria-hidden="true"><i class="fa-regular fa-hand-pointer"></i> Drag to reposition</span>
+              </div>
               <figcaption>Close-up (punch-in)</figcaption>
-              <div class="st-zoom-row"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><input type="range" id="st-zoom-close" min="100" max="200" value="150" aria-label="Close-up zoom" /></div>
-              <div class="app-hint st-frame-hint" id="st-hint-close"></div>
+              <div class="st-zoom-row"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><input type="range" id="st-zoom-close" min="100" max="200" step="25" list="st-zoom-steps" value="150" aria-label="Close-up zoom" /><output class="st-zoom-val" id="st-zoomv-close">1.5×</output></div>
             </figure>
+            <datalist id="st-zoom-steps"><option value="100"></option><option value="125"></option><option value="150"></option><option value="175"></option><option value="200"></option></datalist>
           </div>
           <div class="st-btn-row"><button class="cd-button cd-button--small cd-button--outline" id="st-frame-another" type="button"><i class="fa-regular fa-shuffle" aria-hidden="true"></i><span class="cd-button__text">Try another frame</span></button></div>
         </div>
@@ -589,6 +619,7 @@
         <div class="look-review" hidden>
           <h3 class="cd-block-title st-subsection">Look <span class="app-hint">— optional footage polish, applied under all branding</span></h3>
           <div id="st-look-grid" class="look-grid"></div>
+          <div id="st-look-adjust" class="adjust-grid"></div>
           <!-- stays with the grid: it fills those four cards with real frames -->
           <button type="button" id="st-look-prev" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Preview on this video</span></button>
         </div>
@@ -681,7 +712,10 @@
           </div>
           <video id="st-player" class="app-player app-player--fit" controls playsinline></video>
           <p class="cd-alert cd-alert--status" id="st-saved" hidden><span class="cd-alert__message"></span></p>
-          <a class="cd-button cd-button--export" id="st-download" download="statement_clip.mp4"><i class="fa-regular fa-download" aria-hidden="true"></i><span class="cd-button__text">Download MP4</span></a>
+          <!-- The clip is ALREADY saved in the job's export/ folder. A Download button
+               only made a second copy in Downloads, which is how people ended up
+               branding the wrong file. Take them to the real one instead. -->
+          <div class="st-btn-row"><button class="cd-button cd-button--export cd-button--big" id="st-download" type="button"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Open the export folder</span></button></div>
           <h3 class="cd-block-title">Thumbnail</h3>
           <p class="app-hint">Three clean stills (no branding), same size as the video — <strong>click the one you like</strong>. None good? <strong>Show 3 more</strong>, or scrub the preview above to any moment and <strong>use that frame</strong> — every frame of the clip is available. Tip: pick a frame with the mouth closed.</p>
           <div class="st-thumbs" id="st-thumbs"></div>
@@ -698,7 +732,66 @@
       <div class="cd-modal" id="st-ai-modal" hidden>
         <div class="cd-modal__panel cd-flow" role="dialog" aria-modal="true" aria-labelledby="st-ai-title">
           <button class="cd-modal__close" id="st-ai-close" type="button" aria-label="Close">&times;</button>
-          <h2 class="cd-block-title" id="st-ai-title">Let AI pick the sentences</h2>
+          <h2 class="cd-block-title" id="st-ai-title">Use AI on the sentences</h2>
+
+          <!-- TWO different jobs, not one with options (Javi, 2026-07-30): either you
+               are still choosing, or the choice is already made and you only want the
+               numbers. Mixing them is what made the AI trim a hand-picked selection —
+               editorial criteria and a duration cap have no business in a lookup. -->
+          <div class="end-options end-options--compact" id="st-ai-mode">
+            <label class="end-opt">
+              <input type="radio" name="st-ai-mode" value="choose" checked />
+              <span class="end-opt__icon"><i class="fa-regular fa-wand-magic-sparkles" aria-hidden="true"></i></span>
+              <span class="end-opt__label">Help me choose</span>
+              <span class="end-opt__hint">You have notes, ideas or a rough script. The AI picks the sentences that make the strongest clip.</span>
+            </label>
+            <label class="end-opt">
+              <input type="radio" name="st-ai-mode" value="match" />
+              <span class="end-opt__icon"><i class="fa-regular fa-list-check" aria-hidden="true"></i></span>
+              <span class="end-opt__label">I already have the sentences</span>
+              <span class="end-opt__hint">You or a colleague already picked them. The AI only finds their numbers — it selects nothing and drops nothing.</span>
+            </label>
+          </div>
+
+          <!-- Plain wrappers: the `hidden` attribute loses to any author `display`
+               rule, so a gate must never sit on .opt-grid / .end-options itself. -->
+          <div id="st-ai-match" hidden>
+            <label class="st-check" for="st-ai-script">Paste your script, or the sentences you chose</label>
+            <textarea class="cd-form__input st-ai-paste" id="st-ai-script" rows="7" placeholder="One sentence per line. Paste straight from the script document — it doesn't need tidying."></textarea>
+            <p class="opt-card__hint">The wording doesn't have to match the transcript exactly — a written script never does. Anything the AI can't place is reported back, never silently dropped.</p>
+          </div>
+
+          <div id="st-ai-choose">
+            <div class="opt-grid" id="st-ai-opts">
+              <div class="opt-card">
+                <label class="st-check" for="st-ai-dur">Target duration</label>
+                <div class="field-row">
+                  <input class="cd-form__input" id="st-ai-dur" type="number" min="10" max="600" step="5" value="90" style="max-width:6rem" />
+                  <span class="app-hint">seconds</span>
+                </div>
+                <label class="st-check"><input type="checkbox" id="st-ai-nolimit" /> No limit — let the content decide</label>
+              </div>
+              <div class="opt-card">
+                <label class="st-check" for="st-ai-must">Sentences it must keep</label>
+                <input class="cd-form__input" id="st-ai-must" type="text" placeholder="e.g. 4, 9, 12" autocomplete="off" />
+                <p class="opt-card__hint">Numbers from the list. These are locked — if they overrun the target duration, the duration gives way.</p>
+              </div>
+              <div class="opt-card">
+                <label class="st-check" for="st-ai-avoid">Sentences to leave out</label>
+                <input class="cd-form__input" id="st-ai-avoid" type="text" placeholder="e.g. 1, 2" autocomplete="off" />
+                <p class="opt-card__hint">Optional — greetings, procedure, anything you've already ruled out.</p>
+              </div>
+              <div class="opt-card">
+                <label class="st-check"><input type="checkbox" id="st-ai-ask" /> Let the AI ask me questions first</label>
+                <p class="opt-card__hint">Off by default. On, it asks about key messages before choosing.</p>
+              </div>
+            </div>
+            <div class="st-ai-brief">
+              <label class="st-check" for="st-ai-focus">What should it focus on? <span class="app-hint">optional</span></label>
+              <textarea class="cd-form__input st-ai-paste" id="st-ai-focus" rows="3" placeholder="Key messages, the angle you want, a rough script — anything you'd otherwise have to answer in a back-and-forth."></textarea>
+            </div>
+          </div>
+
           <ol class="st-setup">
             <li>
               <strong>Copy the prompt</strong> — it contains the full transcript and instructions.
@@ -709,7 +802,8 @@
               <div class="st-setup__note" id="st-ai-long" hidden><i class="fa-regular fa-triangle-exclamation" aria-hidden="true"></i> This transcript is long — some AI chats truncate big pastes. If the AI seems to miss sentences, narrow the transcription window in step 4 and try again.</div>
             </li>
             <li>
-              <strong>Paste it into Microsoft Copilot</strong> (or any AI chat) and press send. It will ask you a couple of questions — key messages to focus on and the target length. Answer them; <strong>attach the statement or key-messages document</strong> if you have one.
+              <strong>Paste it into Microsoft Copilot</strong> (or any AI chat) and press send.
+              <span id="st-ai-step2"></span>
             </li>
             <li>
               <strong>Copy the AI's final answer and paste it here:</strong>
@@ -725,6 +819,7 @@
       </div>
 
       <div id="st-status" class="status-slot" aria-live="polite"></div>
+      <p class="app-hint app-waiting" id="st-waiting" hidden aria-live="polite"></p>
     </div><!-- /panel-edit -->
 
     <!-- ===================== TOOLBOX (utilities — no project folder) ===================== -->

@@ -376,11 +376,22 @@ body {
 }
 .adj-body { padding-top: var(--sp-100); }
 .adj-body[hidden] { display: none; }
-.adj-warn {
-  font-size: 10px; line-height: 1.5; color: var(--notice);
-  background: var(--notice-bg); border: 1px solid var(--notice-border); border-radius: var(--r-md);
-  padding: var(--sp-75) var(--sp-100); margin: 0 0 var(--sp-150);
+/* .adj-warn is gone: it repeated the pill's message inside the panel. The pill
+   ("use with care") carries it once. Kept out of the stylesheet deliberately so a
+   stray element can't reappear silently styled. */
+
+/* Group heading inside Advanced settings — Position / Font. */
+.adj-group {
+  font-size: 9px; font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-secondary); margin: 0 0 var(--sp-75);
 }
+.adj-row + .adj-group, #adj-font-wrap .adj-group { margin-top: var(--sp-150); }
+#adj-font-wrap[hidden] { display: none; }
+/* The font <select> reuses .track-sel (the Track dropdown's style) - one select
+   style in the panel, styled once. Its first cut was a bespoke .adj-sel built on
+   tokens that DO NOT EXIST here (--bg-input, --border): the background declaration
+   was invalid, the control painted its native light face, and in dark mode that
+   meant white text on a white box. Reuse the proven class; never invent tokens. */
 .adj-reset {
   display: inline-flex; align-items: center; gap: 4px; margin-top: var(--sp-50);
   background: none; border: 0; color: var(--accent);

@@ -122,7 +122,7 @@ def main():
     ap.add_argument("--spec", required=True)
     args = ap.parse_args()
     try:
-        run(json.loads(open(args.spec).read()))
+        run(json.loads(open(args.spec, encoding="utf-8").read()))
     except Exception as e:                                  # noqa: BLE001
         import traceback
         traceback.print_exc()

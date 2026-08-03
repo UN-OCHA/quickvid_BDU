@@ -63,7 +63,14 @@ var DATA = {
   "fonts": {
    "family": "Raleway",
    "name_weight": 700,
-   "org_weight": 500
+   "org_weight": 500,
+   "alt": {
+    "label": "Bebas Neue (UN videos)",
+    "postscript": "BebasNeue-Regular",
+    "scale": 1.4,
+    "uppercase_all": true,
+    "_note": "Second face offered in the panel's Advanced settings > Font. Google Bebas Neue (OFL) so the web app can bundle it too; single weight, so name and organisation share it. scale=1.4 because Bebas is a CONDENSED face: measured, its cap height is 0.99x Raleway's at the same size but its width is only 0.59x, which is what reads as 'too small'. 1.4 was checked against every band in all four formats - the ink still clears the box with 20-32px to spare, so no band geometry changes. Default stays Raleway."
+   }
   },
   "uppercase_name": true
  },
@@ -487,6 +494,78 @@ function addSlider(ctl, label, v) {
   return fx;
 }
 
+/* Source Text expression: apply the alt face when the Font dropdown is on 2.
+   HOW IT RESTYLES: the Text Style API (AE 17.0) - getStyleAt(0,0).setFont(...)
+   .setFontSize(...).setText(...) - and it RETURNS THE STYLE, which AE applies.
+
+   It must NOT assign to `value`'s attributes: in the EXPRESSION engine a
+   TextDocument's attributes are READ-ONLY, so `t.font = '...'` is a silent
+   no-op. The 2026-07-31 build shipped exactly that pattern and the dropdown
+   changed nothing, with no error anywhere. (What made it look plausible:
+   setText() above does write td.font, but that is the SCRIPTING TextDocument
+   at build time, a different, writable API. Same name, different object.)
+
+     alt          brand-lt.json fonts.alt
+     baseSize     the size baked for this layer, so `scale` can nudge it
+     alwaysUpper  true for the name (uppercase_name); titles only uppercase in alt
+
+   Guarded: missing dropdown, f stays 1; blank postscript, no alt branch at all;
+   empty text never reaches getStyleAt (it throws on an empty document). */
+function fontExpr(alt, baseSize, alwaysUpper) {
+  var ps = String(alt.postscript || "");
+  var sized = (alt.scale && Math.abs(alt.scale - 1) > 0.001)
+    ? "  s = s.setFontSize(" + Math.max(8, Math.round(baseSize * alt.scale)) + ");\n" : "";
+  var upperAlt = (alt.uppercase_all === false || alwaysUpper)
+    ? "" : "  txt = txt.toUpperCase();\n";
+  var base = "var f = 1;\n" +
+             "try { f = thisComp.layer('Controls').effect('Font')('Menu').value; } catch (e) {}\n" +
+             "var txt = '' + value;\n" +
+             (alwaysUpper ? "txt = txt.toUpperCase();\n" : "");
+  if (!ps) return base + (alwaysUpper ? "txt;" : "value;");
+  return base +
+         "if (f == 2 && txt.length) {\n" +
+         upperAlt +
+         "  var s = text.sourceText.getStyleAt(0, 0).setFont('" + ps + "');\n" +
+         sized +
+         "  s.setText(txt);\n" +
+         "} else {\n" +
+         (alwaysUpper ? "  txt;\n" : "  value;\n") +
+         "}";
+}
+
+// Dropdown Menu Control. Needs AE 17.0 (2020) for setPropertyParameters, which is
+// the same release that added the Text Style expression API (getStyleAt/setFont)
+// the font expressions rely on - so if this throws, those would not work either.
+//
+// INDEX BASE - the same stored value is counted two different ways, and mixing
+// them up is silent:
+//   * AE EXPRESSIONS are 1-BASED. First item == 1. (See the Pin colour fill:
+//     "m == 1 ? red : blue", and fontExpr's "f == 2" for the second item.)
+//   * PREMIERE's MOGRT API is 0-BASED. First item == 0, which is why the panel
+//     sends "Pin colour" as Red=0/Blue=1 and Font as Raleway=0/Bebas=1.
+// Sending a 1-based index from the panel selects the item AFTER the one you meant,
+// and the last item lands out of range (Properties shows an empty field).
+function addDropdown(ctl, label, items) {
+  var parade = ctl.property("ADBE Effect Parade");
+  var fx = parade.addProperty("ADBE Dropdown Control");
+  // ORDER IS LOAD-BEARING: setPropertyParameters REBUILDS the effect, so a name
+  // set before it is thrown away and the old reference goes stale. Naming it
+  // first is what broke the 2026-07-30 build - all four lower thirds died on
+  // ctl.effect("Font") being null while the other 24 templates were fine.
+  // Set the items first, re-fetch the effect by index, then name it.
+  try { fx.property(1).setPropertyParameters(items); }
+  catch (e) { log("Dropdown '" + label + "' needs After Effects 2020 or newer: " + e.toString()); }
+  try { fx = parade.property(parade.numProperties); } catch (e2) {}
+  fx.name = label;
+  return fx;
+}
+
+// An effect by name, or null - so a control that failed to build degrades to
+// "feature missing" instead of killing the whole template.
+function effOrNull(ctl, name) {
+  try { return ctl.effect(name); } catch (e) { return null; }
+}
+
 // A "Size" slider + "Position X/Y" sliders (on the comp's Controls) applied to
 // the WHOLE element via one parent null.
 //   Size scales about a pinned anchor: a parent null whose position ==
@@ -633,6 +712,10 @@ var results = [], failures = [];
 function buildLT(fmt) {
   var W = fmt.w, H = fmt.h, safe = DATA.safe[fmt.orient];
   var G = LT.geometry, T = LT.timing, C = LT.colors;
+  // Alt face (brand-lt.json fonts.alt). Absent -> the dropdown still builds but
+  // selecting it changes nothing, which is better than a build that dies on an
+  // older spec file.
+  var ALT = LT.fonts.alt || { label: "Alternate", postscript: "", scale: 1, uppercase_all: true };
   var NSIZE = Math.max(20, Math.round(H * G.name_ratio[fmt.orient]));
   var OSIZE = Math.max(12, Math.round(NSIZE * G.org_scale));
   var NPX = Math.round(NSIZE * G.name_pad_x), NPY = Math.round(NSIZE * G.name_pad_y);
@@ -685,9 +768,12 @@ function buildLT(fmt) {
   nameText.name = "LT Name";
   setText(nameText, "NAME SURNAME", LT.fonts.family + "-Bold", NSIZE,
           hex2rgb(C.name_text), G.letter_spacing);
-  if (LT.uppercase_name)
-    nameText.property("ADBE Text Properties").property("ADBE Text Document").expression =
-      "('' + value).toUpperCase();";
+  // Font + capitalization, driven by the Font dropdown. Returns a STYLE from the
+  // Text Style API (see fontExpr) - the only expression-side way to change the
+  // face. `value` already carries whatever the panel typed, so the two compose:
+  // the panel writes text, this restyles it.
+  nameText.property("ADBE Text Properties").property("ADBE Text Document").expression =
+    fontExpr(ALT, NSIZE, LT.uppercase_name);
   nameText.transform.position.expression = centreExpr + ohExpr +
     "var me = ('' + thisLayer.text.sourceText).replace(/^\\s+|\\s+$/g,'');\n" +
     "var r = me.length ? thisLayer.sourceRectAtTime(time, false) : {left:0, width:0, top:0, height:0};\n" +
@@ -731,6 +817,11 @@ function buildLT(fmt) {
       var st = t.property("ADBE Text Properties").property("ADBE Text Document");
       var td = st.value; td.text = ""; st.setValue(td);
     }
+    // Title lines follow the Font dropdown too. They are NOT uppercased on the
+    // Raleway default (only the name is, per uppercase_name) - but they ARE in the
+    // alt face, which is the UN video convention.
+    t.property("ADBE Text Properties").property("ADBE Text Document").expression =
+      fontExpr(ALT, OSIZE, false);
     t.transform.position.expression = centreExpr + ohExpr +
       "var me = ('' + text.sourceText).replace(/^\\s+|\\s+$/g, '');\n" +
       "var r = me.length ? thisLayer.sourceRectAtTime(time, false) : {left:0, width:0, top:0, height:0};\n" +
@@ -767,6 +858,11 @@ function buildLT(fmt) {
   var ctl = ctlNull(comp);
   addCheckbox(ctl, "Centre align", false);
   addSlider(ctl, "Size", 100);
+  // Font: 1 = Raleway (the OCHA default, and what every existing project keeps),
+  // 2 = the alt face from brand-lt.json. The QuickVid panel drives this from
+  // Advanced settings > Font; it is exposed here because a control has to be on
+  // the template for getMGTComponent().properties to reach it at all.
+  addDropdown(ctl, "Font", ["Raleway (OCHA)", ALT.label]);
   // element bbox for the position clamp: union of the visible bands (name +
   // title rows), left/centre aware. Name empty -> the block top drops to the
   // title rows; nothing filled -> zero box (clamp disabled).
@@ -795,6 +891,13 @@ function buildLT(fmt) {
   // Essential Graphics list, so the last added shows at the TOP. Desired top→bottom
   // (matching the on-screen stack): Name, Title, 3rd line, Centre align, Size,
   // Position X, Position Y.
+  // Font goes in FIRST so it lands at the BOTTOM of the list: it is the advanced
+  // control, and the QuickVid panel is where people are meant to reach it.
+  // Guarded: if the dropdown could not be built (old AE), the lower third still
+  // exports - it just has no font control, and the panel hides the group anyway.
+  var fontFx = effOrNull(ctl, "Font");
+  if (fontFx) addEGP(fontFx.property(1), comp, "Font");
+  else log("LT (" + fmt.label + "): no Font control - exporting without it");
   addEGP(ctl.effect("Position Y").property(1), comp, "Position Y");
   addEGP(ctl.effect("Position X").property(1), comp, "Position X");
   addEGP(ctl.effect("Size").property(1), comp, "Size");

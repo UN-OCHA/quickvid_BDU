@@ -1,7 +1,7 @@
 {
-  "version": "2026.0.46",
-  "date": "2026-07-29",
-  "notes": "Placed graphics are named by what they contain - 'OCHA Lower Third - John Doe', 'OCHA Gradient - Middle left half 60' - and the name follows what you type. Items with nothing to name them by are numbered (Ending 1, Ending 2). The format is no longer in the name; the sequence already tells you. Editing is solid: the panel always notices a deselect, an edit can never land on a different clip than the one it was typed for, and deselecting after typing no longer leaves a red banner behind. The Position accordion stays closed unless you open it, and the readability gradient's Middle width row is laid out properly.",
+  "version": "2026.0.47",
+  "date": "2026-07-31",
+  "notes": "Lower thirds can now use Bebas Neue, the UN video typeface, as well as OCHA Raleway. Pick it in Advanced settings > Font - before you place, or on a lower third you have already placed. Raleway stays the default and nothing changes unless you choose it; in Bebas both lines are capitals, as UN video style has them. The old Position panel is now Advanced settings, holding Position and Font, and the readability gradient and vignette let you choose which track they land on instead of always deciding for you.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
-  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=2026.0.46"
+  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=2026.0.47"
 }

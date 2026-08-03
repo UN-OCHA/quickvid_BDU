@@ -35,7 +35,7 @@ const ENGINE_MIN = "0.5.0";
 // corrected from the repo's VERSION file at load — see trackLatestVersion below.
 // It used to be hardcoded only, which meant the banner quietly went stale every
 // release: it was still advertising 0.6.3 while main had moved on to 0.7.0.
-let ENGINE_LATEST = "2026.0.30";
+let ENGINE_LATEST = "2026.0.32";
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
@@ -361,13 +361,25 @@ $("#run").onclick = async () => {
   const t0 = performance.now();
   try {
     setStatus("Rendering with the OCHA engine…" + staleNote, "busy");
-    const blob = await renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look, texts, rtl);  // real ffmpeg, no limits
+    // Same shared waiting lines as the Edit tab — this render is the one long step
+    // on this tab, so it hooks in here rather than in a poller.
+    var _wait = window.OchaWaiting ? OchaWaiting.start($("#t-waiting")) : { stop: function () {} };
+    let blob;
+    try {
+      blob = await renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look, texts, rtl);  // real ffmpeg, no limits
+    } finally { _wait.stop(); }
     if (state.url) URL.revokeObjectURL(state.url);
     state.url = URL.createObjectURL(blob);
     $("#player").src = state.url;
-    const dl = $("#download");
-    dl.href = state.url;
-    dl.download = state.enginePath.split(/[\\/]/).pop().replace(/\.[^.]+$/, "") + "_OCHA.mp4";
+    // Already saved in the job folder's export/ — take them there rather than making
+    // a second copy in Downloads (same change as the Edit tab).
+    $("#download").onclick = () => {
+      if (!state.jobDir) return;
+      fetch(`${ENGINE}/api/open-folder`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: state.jobDir }),
+      }).catch(() => {});
+    };
     $("#preview").hidden = false;
     const secs = ((performance.now() - t0) / 1000).toFixed(1);
     setStatus(`Done — full quality · ${(blob.size / 1e6).toFixed(1)} MB · ${secs}s. Preview below.`, "ok");
@@ -405,6 +417,7 @@ const tCaps = OchaCaptions.mount({ list: $("#t-caps-list"), status: $("#t-caps-s
    the same one. Preview stills use the engine's own conversion + chain. */
 const tLook = OchaLook.mount({
   grid: $("#t-look-grid"), fix: $("#t-look-fix"), previewBtn: $("#t-look-prev"),
+  adjust: $("#t-look-adjust"),
   getVideo: () => state.enginePath, getTime: () => 1, engine: ENGINE,
   onChange: () => ftSave(),
 });
@@ -447,6 +460,7 @@ $("#t-caps-gen").onclick = async () => {
       setStatus(job.progress || "Transcribing…", "busy", job.percent);
     } while (job.status !== "done" && job.status !== "error");
     if (job.status === "error") throw new Error(job.error || "Transcription failed.");
+    tCaps.setShape(ENGINE, "reels");   // Titles tab brands a finished clip; reels is the tight case
     tCaps.setCues((job.result || {}).cues || [], state.enginePath);
     setStatus("Captions ready — review below, then render.", "ok");
   } catch (e) { setStatus("Error: " + (e && e.message || e), "error"); }

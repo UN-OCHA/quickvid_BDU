@@ -58,8 +58,8 @@ def _write_job_info(dirs, job, final_path):
     segs = job.meta.get("segments", [])
     script = "\n".join((s.get("text") or "").strip() for s in segs if s.get("text")).strip()
     info = _ensure(dirs["info"])
-    (info / "script.txt").write_text(script + "\n")
-    (info / "segments_selected.json").write_text(json.dumps(segs, indent=2))
+    (info / "script.txt").write_text(script + "\n", encoding="utf-8")
+    (info / "segments_selected.json").write_text(json.dumps(segs, indent=2), encoding="utf-8")
     _write_readme(dirs, final_path,
                   "OCHA statement clip, made with **OCHA QuickVid** (Edit -> Statement clip).",
                   "UN Web TV download -> optional lip-sync -> transcribe -> pick the sentences -> "
@@ -95,7 +95,7 @@ def _write_readme(dirs, final_path, what: str, how: str) -> None:
               "## To re-edit",
               "Re-open OCHA QuickVid and pick this same folder - the project file "
               "(`*.ochaquickvid.json`) restores your settings.", ""]
-    readme.write_text("\n".join(lines))
+    readme.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _run(cmd: list[str], job) -> None:
@@ -141,7 +141,7 @@ def _statement_action(job, action: str, spec: dict) -> dict:
     workdir = settings.WORKSPACE / job.id
     workdir.mkdir(parents=True, exist_ok=True)
     spec_path = workdir / f"{action}.json"
-    spec_path.write_text(json.dumps(spec, indent=2))
+    spec_path.write_text(json.dumps(spec, indent=2), encoding="utf-8")
     _run([sys.executable, settings.ENGINE_DIR / "statement.py",
           "--do", action, "--spec", spec_path], job)
     return _result_json(job)
@@ -181,7 +181,7 @@ def statement_transcribe(job) -> None:
         # as ENGLISH text (one direction only). The user reviews it like any caption.
         "task": "translate" if job.meta.get("translate") else "transcribe",
         "model": settings.DEFAULT_MODEL, "out_json": str(out_json)})
-    segments = json.loads(out_json.read_text())
+    segments = json.loads(out_json.read_text(encoding="utf-8"))
     job.result = {"workdir": str(workdir), "segments": segments,
                   "segment_count": len(segments)}
 
@@ -214,7 +214,7 @@ def compress_video(job) -> None:
     workdir.mkdir(parents=True, exist_ok=True)
     spec = {"src": job.meta["src"], "level": job.meta.get("level") or "balanced"}
     spec_path = workdir / "compress.json"
-    spec_path.write_text(json.dumps(spec, indent=2))
+    spec_path.write_text(json.dumps(spec, indent=2), encoding="utf-8")
     job.progress = "Compressing…"
     _run([sys.executable, settings.ENGINE_DIR / "compress.py", "--spec", spec_path], job)
     res = _result_json(job)
@@ -244,7 +244,7 @@ def finish(job) -> None:
             "rtl": job.meta.get("rtl"),            # right-to-left layout (None = auto)
         }
         spec_path = workdir / "spec.json"
-        spec_path.write_text(json.dumps(spec, indent=2))
+        spec_path.write_text(json.dumps(spec, indent=2), encoding="utf-8")
         job.progress = "Adding titles & branding…"
         _run([sys.executable, settings.ENGINE_DIR / "finish.py", "--spec", spec_path], job)
 
@@ -282,7 +282,7 @@ def captions_for_video(job) -> None:
     job.progress = "Transcribing the video…"
     _statement_action(job, "transcribe", {"src": job.meta["video"], "model": settings.DEFAULT_MODEL,
                                           "out_json": str(seg_json)})
-    segments = json.loads(seg_json.read_text())
+    segments = json.loads(seg_json.read_text(encoding="utf-8"))
     job.result = {"cues": st.cues_real_timeline(segments), "segment_count": len(segments)}
 
 
@@ -308,7 +308,7 @@ def _finish_with_subtitles(job, workdir, out) -> None:
         job.progress = "Transcribing the video for subtitles…"
         _statement_action(job, "transcribe", {"src": video, "model": settings.DEFAULT_MODEL,
                                               "out_json": str(seg_json)})
-        segments = json.loads(seg_json.read_text())
+        segments = json.loads(seg_json.read_text(encoding="utf-8"))
         cues = st.cues_real_timeline(segments)
 
     pw, ph, _, dur = st._probe(video)
@@ -349,6 +349,6 @@ def _finish_with_subtitles(job, workdir, out) -> None:
             "rtl": job.meta.get("rtl"),                 # right-to-left layout (None = auto)
             "look": job.meta.get("look")}
     spec_path = workdir / "brand_spec.json"
-    spec_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False))
+    spec_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False), encoding="utf-8")
     job.progress = "Burning subtitles + branding…"
     _run([sys.executable, settings.ENGINE_DIR / "social_brand.py", "--spec", spec_path], job)

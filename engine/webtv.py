@@ -177,7 +177,7 @@ def _download_hls(vurl: str, aurl: Optional[str], out: str) -> None:
         io = ["-i", vurl]
     cmd = [FF, "-y", "-loglevel", "error", "-user_agent", UA] + io + [
            "-c", "copy", "-progress", "pipe:1"] + cap + [out]
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace")
     last = -1
     for line in proc.stdout:
         if line.startswith("out_time="):

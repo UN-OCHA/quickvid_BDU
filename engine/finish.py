@@ -157,7 +157,7 @@ def bug_pos(W, H, prof, bw, bh, rtl=False):
 
 
 def run(spec, bitrate=12.0):
-    brand = json.loads(open(BRAND).read())
+    brand = json.loads(open(BRAND, encoding="utf-8").read())
     video = spec["video"]
     out = spec["out"]
     info = probe(video)
@@ -281,7 +281,7 @@ def main():
     ap.add_argument("--bitrate", type=float, default=12.0)
     args = ap.parse_args()
     try:
-        run(json.loads(open(args.spec).read()), args.bitrate)
+        run(json.loads(open(args.spec, encoding="utf-8").read()), args.bitrate)
     except Exception as e:
         # Keep the full traceback in the job log, but ALSO print an "ERROR:"
         # line — engine_bridge surfaces the last such line in the UI instead

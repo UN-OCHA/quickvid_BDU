@@ -9,7 +9,11 @@
     "name_out": 0.44
   },
   "geometry": {
-    "name_ratio": { "portrait": 0.02292, "square": 0.0306, "landscape": 0.0382 },
+    "name_ratio": {
+      "portrait": 0.02292,
+      "square": 0.0306,
+      "landscape": 0.0382
+    },
     "org_scale": 0.66,
     "name_pad_x": 0.6,
     "name_pad_y": 0.32,
@@ -25,6 +29,17 @@
     "org_bg": "#009EDB",
     "org_text": "#FFFFFF"
   },
-  "fonts": { "family": "Raleway", "name_weight": 700, "org_weight": 500 },
+  "fonts": {
+    "family": "Raleway",
+    "name_weight": 700,
+    "org_weight": 500,
+    "alt": {
+      "label": "Bebas Neue (UN videos)",
+      "postscript": "BebasNeue-Regular",
+      "scale": 1.4,
+      "uppercase_all": true,
+      "_note": "Second face offered in the panel's Advanced settings > Font. Google Bebas Neue (OFL) so the web app can bundle it too; single weight, so name and organisation share it. scale=1.4 because Bebas is a CONDENSED face: measured, its cap height is 0.99x Raleway's at the same size but its width is only 0.59x, which is what reads as 'too small'. 1.4 was checked against every band in all four formats - the ink still clears the box with 20-32px to spare, so no band geometry changes. Default stays Raleway."
+    }
+  },
   "uppercase_name": true
 }

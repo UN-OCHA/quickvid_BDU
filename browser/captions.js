@@ -29,11 +29,38 @@ const OchaCaptions = (() => {
     return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
   };
 
+  // local, not app.js's — a shared module shouldn't depend on load order
+  const esc = (x) => String(x).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
   function mount({ list, status, onChange }) {
     let cues = null;          // [[start, text], …] or null = not generated
     let fp = null;            // fingerprint of the inputs the cues came from
+    // The shape the RENDER will use. Until this arrives we fall back to the
+    // narrowest preset's budget, so we never promise more room than exists.
+    let shape = { budget: 65, box: true };
 
     const setStatus = (t) => { if (status) status.textContent = t || ""; };
+
+    /* Wrap the way the renderer does: greedily fill line 1 to half the two-line
+       budget, the rest goes to line 2. Anything past that is what the engine
+       SPLITS into another caption — so the editor shows the same shape, and you
+       can see whether to regroup before rendering. */
+    function wrapTwo(text, budget) {
+      const words = String(text).trim().split(/\s+/).filter(Boolean);
+      const per = Math.ceil(budget / 2);
+      const lines = ["", ""];
+      let li = 0, over = [];
+      for (const w of words) {
+        if (li < 2) {
+          const next = lines[li] ? lines[li] + " " + w : w;
+          if (next.length <= per || !lines[li]) { lines[li] = next; continue; }
+          li += 1;
+          if (li < 2) { lines[li] = w; continue; }
+        }
+        over.push(w);
+      }
+      return { lines, over: over.join(" ") };
+    }
 
     function render() {
       list.innerHTML = "";
@@ -43,21 +70,56 @@ const OchaCaptions = (() => {
         const t = document.createElement("span");
         t.className = "cap-time";
         t.textContent = mmss(cue[0]);
-        const inp = document.createElement("input");
-        inp.type = "text";
-        inp.className = "cd-form__input";
+
+        const wrap = document.createElement("div");
+        wrap.className = "cap-edit";
+        const inp = document.createElement("textarea");
+        inp.className = "cd-form__input cap-input";
+        inp.rows = 2;
         inp.value = cue[1];
+
+        // A live preview in the caption's real shape, under the field.
+        const prev = document.createElement("div");
+        prev.className = "cap-preview" + (shape.box ? " cap-preview--box" : "");
+        const note = document.createElement("p");
+        note.className = "cap-note";
+
+        const paint = () => {
+          const { lines, over } = wrapTwo(inp.value, shape.budget);
+          prev.innerHTML = `<span>${esc(lines[0] || "")}</span><span>${esc(lines[1] || "")}</span>`;
+          prev.hidden = !inp.value.trim();
+          if (over) {
+            note.textContent = "Too long for two lines — the render will split this into another caption.";
+            note.className = "cap-note is-over";
+          } else if (inp.value.trim() && inp.value.trim().length < 12) {
+            note.textContent = "Very short — the render may merge this with the next one.";
+            note.className = "cap-note is-soft";
+          } else { note.textContent = ""; note.className = "cap-note"; }
+        };
+
         inp.addEventListener("input", () => {
           cues[i][1] = inp.value;
+          paint();
           onChange && onChange();
         });
-        row.append(t, inp);
+        paint();
+        wrap.append(inp, prev, note);
+        row.append(t, wrap);
         list.append(row);
       });
       list.hidden = !cues || !cues.length;
     }
 
+    /* Ask the engine for the real caption shape for this format. */
+    async function setShape(engine, preset) {
+      try {
+        const r = await fetch(`${engine}/api/statement/caption-shape?preset=${encodeURIComponent(preset || "reels")}`);
+        if (r.ok) { shape = await r.json(); render(); }
+      } catch (e) { /* keep the conservative fallback */ }
+    }
+
     return {
+      setShape,
       setCues(next, fingerprint) {
         cues = (next || []).map(([s, t]) => [s, String(t)]);
         fp = fingerprint || null;

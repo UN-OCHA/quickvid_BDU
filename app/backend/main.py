@@ -3,10 +3,13 @@
 Serves the SPA and a small REST API that drives the engine/. Files never leave
 the machine. Run: uvicorn app.backend.main:app --reload --port 8000
 """
+import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -186,11 +189,82 @@ class FinishReq(BaseModel):
     dir: Optional[str] = None                 # job folder → final lands in <dir>/export/
 
 
+def _cache_key(*parts):
+    """A STABLE cache key.
+
+    These caches were keyed with hash(), and Python randomises string hashing per
+    process (PYTHONHASHSEED is unset). So every engine restart invented new keys:
+    every still and sync preview re-rendered from scratch and the old ones were
+    orphaned on disk forever. That is why framing felt cold after each launch, and
+    why the workspace here had grown to 12 GB. blake2b is stable across runs and
+    machines, so a cache actually caches.
+    """
+    raw = "\x1f".join(str(p) for p in parts).encode("utf-8", "replace")
+    return hashlib.blake2b(raw, digest_size=8).hexdigest()
+
+
+def prune_workspace(max_age_days=14, max_bytes=2 * 1024**3):
+    """Drop old scratch renders. Nothing ever cleaned these up, so the folder grew
+    without limit (12 GB on the dev Mac). Runs at startup: cheap, and the files are
+    all reproducible — deleting one costs a re-render, never data."""
+    pats = ("_still_*.jpg", "_syncprev_*.mp4", "lookprev_*.jpg")
+    files = [f for pat in pats for f in settings.WORKSPACE.glob(pat) if f.is_file()]
+    if not files:
+        return 0, 0
+    cutoff = time.time() - max_age_days * 86400
+    freed = gone = 0
+    keep = []
+    for f in files:
+        try:
+            st = f.stat()
+        except OSError:
+            continue
+        if st.st_mtime < cutoff:
+            try:
+                f.unlink(); freed += st.st_size; gone += 1
+            except OSError:
+                pass
+        else:
+            keep.append((st.st_mtime, st.st_size, f))
+    total = sum(sz for _, sz, _ in keep)
+    for mtime, sz, f in sorted(keep):                    # still over the cap → oldest first
+        if total <= max_bytes:
+            break
+        try:
+            f.unlink(); total -= sz; freed += sz; gone += 1
+        except OSError:
+            pass
+    return gone, freed
+
+
+def _require_real_file(path, what="file"):
+    """Exists AND has bytes.
+
+    is_file() is true for a cloud PLACEHOLDER: Dropbox/OneDrive/iCloud leave
+    "online-only" files on disk at 0 bytes until they are downloaded. Everything
+    downstream then fails obscurely - ffmpeg on an empty input, json on an empty
+    project - and the user goes looking for a corrupt file that is actually fine,
+    just not on this machine yet. Say it plainly, once, here.
+    """
+    p = Path(path)
+    if not p.is_file():
+        raise HTTPException(400, f"Not a {what}: {path}")
+    try:
+        if p.stat().st_size == 0:
+            raise HTTPException(400,
+                f"'{p.name}' is empty on this computer (0 bytes) - it's most likely an "
+                "online-only cloud file. In Finder/Explorer right-click it (and its folder) "
+                "and choose 'Make available offline' / 'Always keep on this device', wait "
+                "for it to download, then try again.")
+    except OSError:
+        pass
+    return p
+
+
 @app.post("/api/finish")
 def finish(req: FinishReq):
     """Titles & branding: add lower thirds + an ending to an already-edited video."""
-    if not Path(req.video).is_file():
-        raise HTTPException(400, f"Not a video file: {req.video}")
+    _require_real_file(req.video, "video file")
     pins = _pins(req.pins, req.pin)
     if (not req.lower_thirds and req.ending.style == "none" and not req.subtitles.on
             and not req.bug.on and not any(p.get("on") for p in pins)):
@@ -221,8 +295,7 @@ def captions(req: CaptionsReq):
     """Caption editor (Titles tab): transcribe the finished clip and return the cues
     the render would burn, so mis-heard words can be fixed BEFORE rendering. The
     edited cues come back to /api/finish in `cues`."""
-    if not Path(req.video).is_file():
-        raise HTTPException(400, f"Not a video file: {req.video}")
+    _require_real_file(req.video, "video file")
     job = jobs.create("captions", {"video": req.video})
     jobs.run_async(job, engine_bridge.captions_for_video)
     return {"job_id": job.id}
@@ -237,8 +310,7 @@ class CompressReq(BaseModel):
 def compress(req: CompressReq):
     """Toolbox: compress a heavy video to a distribution H.264/AAC MP4. Output
     lands next to the original as <name>_compressed.mp4 (never overwrites)."""
-    if not Path(req.src).is_file():
-        raise HTTPException(400, f"Not a video file: {req.src}")
+    _require_real_file(req.src, "video file")
     if req.level not in ("best", "balanced", "smallest"):
         raise HTTPException(400, "level must be best, balanced or smallest.")
     job = jobs.create("compress", {"src": req.src, "level": req.level})
@@ -247,12 +319,16 @@ def compress(req: CompressReq):
 
 
 @app.get("/api/look-preview")
-def look_preview(video: str, t: float = 1.0, preset: str = "none", phone_fix: bool = False):
+def look_preview(video: str, t: float = 1.0, preset: str = "none", phone_fix: bool = False,
+                 brightness: int = 0, contrast: int = 0, saturation: int = 0, warmth: int = 0,
+                 width: int = 480):
     """One still frame with a Look applied — the picker's thumbnails. The frame gets
     the SAME colour conversion the render would (mediakit.to_709_vf), then the look
-    chain, so what you pick is what you get."""
-    if not Path(video).is_file():
-        raise HTTPException(400, "Not a video file.")
+    chain, so what you pick is what you get.
+
+    `width` was a hard-coded 480 until the magnifier ("see it bigger") needed the same
+    frame at full size. It is capped so a hand-typed URL can't ask for a 20000px JPEG."""
+    _require_real_file(video, "video file")
     import look as look_engine                          # engine dir is on sys.path (see below)
     import mediakit
     vf = []
@@ -261,11 +337,18 @@ def look_preview(video: str, t: float = 1.0, preset: str = "none", phone_fix: bo
         vf.append(mediakit.to_709_vf(why))
     elif phone_fix:
         vf.append(mediakit.to_709_vf("gamut", assume_p3=True))
-    ch = look_engine.chain({"preset": preset})
+    # the sliders must show in the preview too, or they'd be invisible until render
+    adjust = {"brightness": brightness, "contrast": contrast,
+              "saturation": saturation, "warmth": warmth}
+    ch = look_engine.chain({"preset": preset, "adjust": adjust})
     if ch:
         vf.append(ch)
-    vf.append("scale=320:-2")
-    key = f"{abs(hash((video, Path(video).stat().st_mtime, round(t, 2), preset, bool(phone_fix))))}"
+    prev_w = max(160, min(1920, int(width or 480)))   # cards are 200px CSS; 480 is retina-crisp
+    vf.append(f"scale={prev_w}:-2")
+    # width IS part of the key: without it, changing the preview size would keep
+    # serving the old, smaller cached image forever
+    key = _cache_key(video, Path(video).stat().st_mtime, round(t, 2), preset, bool(phone_fix),
+                     prev_w, brightness, contrast, saturation, warmth)
     out = settings.WORKSPACE / f"lookprev_{key}.jpg"
     if not out.is_file():
         subprocess.run([mediakit.ffmpeg_hdr(), "-y", "-v", "error",
@@ -374,7 +457,7 @@ def st_sync_preview(src: str, offset: float = 0.0, t: float = 60.0):
     inline (a couple of seconds) so the user can flip through offsets quickly."""
     if not Path(src).is_file():
         raise HTTPException(400, f"Not a file: {src}")
-    out = settings.WORKSPACE / f"_syncprev_{abs(hash((src, round(offset, 3), round(t, 1)))):x}.mp4"
+    out = settings.WORKSPACE / f"_syncprev_{_cache_key(src, round(offset, 3), round(t, 1))}.mp4"
     if not out.exists():
         cmd = [settings.FFMPEG, "-y", "-loglevel", "error",
                "-ss", str(max(0, t)), "-t", "5", "-i", src,
@@ -445,8 +528,8 @@ def st_still(src: str, t: float, shot: str = "general", preset: str = "reels",
     z = zoom if zoom is not None else (1.0 if shot == "general" else 1.5)
     w, h, x, y = statement_engine.crop_rect(pr["width"], pr["height"],
                                             p["canvas"][0], p["canvas"][1], sx, sy, z)
-    key = abs(hash((src, round(t, 2), shot, preset, round(sx, 3), round(sy, 3), round(z, 3), width)))
-    out = settings.WORKSPACE / f"_still_{key:x}.jpg"
+    key = _cache_key(src, round(t, 2), shot, preset, round(sx, 3), round(sy, 3), round(z, 3), width)
+    out = settings.WORKSPACE / f"_still_{key}.jpg"
     if not out.exists():
         scale = f",scale={p['canvas'][0]}:{p['canvas'][1]}" + (f",scale={width}:-2" if width else "")
         r = subprocess.run([settings.FFMPEG, "-y", "-loglevel", "error", "-ss", str(t), "-i", src,
@@ -552,11 +635,56 @@ def st_save_project(req: StSaveProjectReq):
     d = Path(req.dir)
     d.mkdir(parents=True, exist_ok=True)
     fname = (engine_bridge._slug(req.name) + ".ochaquickvid.json") if req.name else PROJECT_LEGACY
-    for old in _project_files(d):                      # renamed/upgraded project → don't leave stale twins
-        if old.name != fname:
-            old.unlink(missing_ok=True)
-    (d / fname).write_text(json.dumps(req.project, indent=2, ensure_ascii=False), encoding="utf-8")
-    return {"ok": True, "file": str(d / fname)}
+    target = d / fname
+    # RENAME the old file, never unlink it. The old code deleted every project file
+    # whose name differed from the new one — so renaming a project deleted the only
+    # copy of it before the new one was written. If that write then failed (a full
+    # disk, a cloud folder that isn't there), the project was simply gone.
+    stale = [f for f in _project_files(d) if f.name != fname]
+    if stale and not target.exists():
+        try:
+            stale[0].rename(target)                    # newest becomes the new name
+            stale = stale[1:]
+        except OSError:
+            pass
+    for old in stale:                                  # any remaining twins: park, don't destroy
+        try:
+            old.rename(old.with_suffix(old.suffix + ".bak"))
+        except OSError:
+            pass
+
+    # Write atomically: a truncated .json is what an interrupted save leaves behind,
+    # and that reads back as "not a readable project".
+    tmp = target.with_suffix(target.suffix + ".tmp")
+    tmp.write_text(json.dumps(req.project, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, target)
+    return {"ok": True, "file": str(target)}
+
+
+def _resolve_src(proj: dict, folder: Path):
+    """Where the source video actually is now.
+
+    A project stored `src` as an ABSOLUTE path, so renaming or moving the job
+    folder — or opening it on another machine — left the project pointing at a
+    file that isn't there, with nothing saying so until a render failed. Try, in
+    order: the folder-relative path, the folder's own source/, then the stored
+    absolute path. Returns (path or None, "ok" | "moved" | "missing").
+    """
+    stored = (proj or {}).get("src") or ""
+    rel = (proj or {}).get("src_rel") or ""
+    if rel:
+        cand = (folder / rel)
+        if cand.is_file() and cand.stat().st_size:
+            return str(cand), ("ok" if str(cand) == stored else "moved")
+    if stored:
+        sp = Path(stored)
+        if sp.is_file() and sp.stat().st_size:
+            return stored, "ok"
+        # same filename inside this folder's source/ — the usual "folder was renamed"
+        cand = folder / "source" / sp.name
+        if cand.is_file() and cand.stat().st_size:
+            return str(cand), "moved"
+    return None, "missing"
 
 
 @app.get("/api/statement/load-project")
@@ -567,9 +695,64 @@ def st_load_project(dir: str):
     if not candidates:
         raise HTTPException(404, "No saved project in that folder.")
     try:
-        return json.loads(candidates[0].read_text(encoding="utf-8"))
+        proj = json.loads(candidates[0].read_text(encoding="utf-8"))
     except Exception:
         raise HTTPException(400, "That folder's project file is unreadable.")
+    src, _state = _resolve_src(proj, Path(dir))          # same repair as open-project
+    if src:
+        proj["src"] = src
+    return proj
+
+
+@app.get("/api/statement/caption-shape")
+def st_caption_shape(preset: str = "reels"):
+    """The caption box as the RENDER will build it: characters that fit two lines,
+    and the box width in canvas px. The editor was a single-line input while the
+    video wraps to two, so grouping decisions were invisible until render. Same
+    function the renderer calls — they cannot drift."""
+    p = statement_engine.PRESETS.get(preset, statement_engine.PRESETS["reels"])
+    sub = p["sub"]
+    return {"preset": preset, "budget": statement_engine.two_line_chars(sub),
+            "max_w": sub["max_w"], "size": sub["size"], "box": bool(sub.get("box", True)),
+            "canvas_w": p["canvas"][0]}
+
+
+@app.get("/api/style/prompt")
+def style_prompt():
+    """The OCHA house-style block for the AI prompt, generated from the SAME
+    brand/ocha_style.json the transcript rules come from — so the guidance the AI
+    gets and the spelling the transcript already carries can never drift apart."""
+    import style as style_engine                          # engine dir is on sys.path
+    return {"block": style_engine.prompt_block()}
+
+
+@app.get("/api/statement/folder-kind")
+def st_folder_kind(dir: str):
+    """Is this folder ALREADY a QuickVid job folder? The picker always appended the
+    project name, so choosing a folder you had already made gave you
+    'Ebola/Ebola/'. The UI asks this and offers to use the folder as-is."""
+    d = Path(dir)
+    if not d.is_dir():
+        return {"kind": "missing"}
+    has_project = bool(_project_files(d))
+    has_layout = any((d / sub).is_dir() for sub in ("source", "export", "info"))
+    return {"kind": "job" if (has_project or has_layout) else "plain",
+            "project": bool(has_project), "name": d.name}
+
+
+@app.post("/api/statement/relocate-source")
+def st_relocate_source():
+    """Pick the source video again. Used when a project opens with its source
+    missing (folder moved, drive not mounted, file still online-only) — the whole
+    project stays, only the path is repaired."""
+    try:
+        path = _native_pick("file", "Locate the video for this project")
+    except Exception as exc:                              # noqa: BLE001
+        raise HTTPException(400, f"File picker unavailable: {exc}")
+    if not path:
+        raise HTTPException(400, "No file chosen.")
+    p = _require_real_file(path, "video file")
+    return {"src": str(p)}
 
 
 @app.post("/api/statement/open-project")
@@ -583,16 +766,32 @@ def st_open_project():
         raise HTTPException(400, f"File picker unavailable: {exc}")
     if not path:
         raise HTTPException(400, "No file chosen.")
-    p = Path(path)
+    p = _require_real_file(path, "project file")
     try:
         proj = json.loads(p.read_text(encoding="utf-8"))
     except Exception:
         raise HTTPException(400, "That file isn't a readable OCHA QuickVid project.")
     if not isinstance(proj, dict) or "v" not in proj:
         raise HTTPException(400, "That doesn't look like a OCHA QuickVid project file.")
-    return {"project": proj, "dir": str(p.parent)}
+    src, state = _resolve_src(proj, p.parent)
+    if src:
+        proj["src"] = src                              # hand back the path that WORKS
+    return {"project": proj, "dir": str(p.parent), "source": state,
+            "source_name": Path((proj or {}).get("src") or "").name}
 
 
 # The single unified UI (also the Safari / offline fallback). Mounted LAST so every
 # /api/* route above takes precedence; html=True serves browser/index.html at "/".
+@app.on_event("startup")
+def _startup_prune():
+    """Scratch renders are all reproducible, so clearing old ones is free. Without
+    this the workspace grew forever — and on Windows that lives in AppData."""
+    try:
+        gone, freed = prune_workspace()
+        if gone:
+            print(f"workspace: pruned {gone} old scratch file(s), {freed / 1024**2:.0f} MB")
+    except Exception as exc:                              # noqa: BLE001
+        print(f"workspace prune skipped: {exc}")
+
+
 app.mount("/", NoCacheStatic(directory=str(settings.UI_DIR), html=True), name="ui")

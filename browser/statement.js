@@ -35,12 +35,19 @@ const parseT = (s) => {
 };
 
 async function stJob(jobId, onTick) {
+  // Every long step on this tab (download, sync bake, transcribe, render) polls
+  // through here, so the waiting lines hook in ONCE rather than at four call sites.
+  const wait = window.OchaWaiting ? OchaWaiting.start($st("#st-waiting")) : { stop() {} };
   let j;
-  do {
-    await sleep(1200);
-    j = await (await fetch(`${ENGINE}/api/jobs/${jobId}`)).json();
-    if (onTick) onTick(j);
-  } while (j.status === "queued" || j.status === "running");
+  try {
+    do {
+      await sleep(1200);
+      j = await (await fetch(`${ENGINE}/api/jobs/${jobId}`)).json();
+      if (onTick) onTick(j);
+    } while (j.status === "queued" || j.status === "running");
+  } finally {
+    wait.stop();                       // also on throw — a stale "grab a coffee" under an error is grim
+  }
   if (j.status === "error") throw new Error(j.error || "Job failed");
   return j;
 }
@@ -153,7 +160,15 @@ $st("#st-folder-pick").onclick = async () => {
     const { path } = await r.json();
     if (!path) return;
     ST.projName = name;
-    ST.jobDir = path.replace(/[\/\\]+$/, "") + "/" + stSafeName(name);
+    const parent = path.replace(/[/\\]+$/, "");
+    // Don't nest a job folder inside a job folder. Picking a folder you had already
+    // created gave you "Ebola/Ebola/"; if the chosen folder IS one, use it as-is.
+    let jobDir = parent + "/" + stSafeName(name);
+    try {
+      const k = await (await fetch(`${ENGINE}/api/statement/folder-kind?dir=${encodeURIComponent(parent)}`)).json();
+      if (k.kind === "job") jobDir = parent;
+    } catch (e) { /* fall back to creating the subfolder */ }
+    ST.jobDir = jobDir;
     OchaFolder.mark($st("#st-folder"), false);               // requirement satisfied
     $st("#st-folder-path").innerHTML =
       `<i class="fa-regular fa-circle-check" aria-hidden="true"></i> Project folder: <strong>${esc(ST.jobDir)}</strong> — download, final clip, thumbnail and the project file all live here.` + stOpenBtn("st-open-dir1");
@@ -166,14 +181,43 @@ $st("#st-folder-pick").onclick = async () => {
   } catch (e) { stStatus("Couldn't open the folder picker.", "warn"); }
 };
 
+/* The source video isn't where the project says it is — folder moved, drive not
+   mounted, or the file is still online-only in Dropbox/OneDrive. Everything else
+   about the project is intact, so say so and offer to re-point it, rather than
+   letting it fail later at the first still or render. */
+function stSourceMissing(name) {
+  const el = $st("#st-status");
+  el.innerHTML =
+    `<div class="cd-alert cd-alert--warning"><div class="cd-alert__message">` +
+    `<p><strong>Can't find the source video${name ? ` (${esc(name)})` : ""}.</strong> ` +
+    `Everything else in the project is fine. It may have moved, or still be an ` +
+    `online-only cloud file — make it available offline, or point me at it.</p>` +
+    `<button type="button" class="cd-button cd-button--small" id="st-relocate">` +
+    `<span class="cd-button__text">Locate the video…</span></button>` +
+    `</div></div>`;
+  $st("#st-relocate").onclick = async () => {
+    try {
+      const r = await fetch(`${ENGINE}/api/statement/relocate-source`, { method: "POST" });
+      if (!r.ok) { stStatus((await r.json()).detail || "Couldn't open the picker.", "warn"); return; }
+      const { src } = await r.json();
+      ST.src = src;
+      stSave();
+      stStatus("Source reconnected — carry on where you left off.", "ok");
+      stFrameRefresh();
+    } catch (e) { stStatus("Couldn't reconnect the source: " + e.message, "error"); }
+  };
+}
+
 // Reopen an earlier project from its .ochaquickvid.json file (native picker on the engine).
 $st("#st-open-proj").onclick = async () => {
   try {
     stStatus("Opening the project file…", "busy");
     const r = await fetch(`${ENGINE}/api/statement/open-project`, { method: "POST" });
     if (!r.ok) { stStatus((await r.json()).detail || "Couldn't open that file.", "warn"); return; }
-    const { project, dir } = await r.json();
+    const { project, dir, source, source_name } = await r.json();
     stRestore(project);
+    if (source === "missing") stSourceMissing(source_name);
+    else if (source === "moved") stStatus("Source video found in this folder — path updated.", "ok");
     if (dir) {                                               // the file's real location wins over any stored (possibly moved) path
       ST.jobDir = dir;
       OchaFolder.mark($st("#st-folder"), false);             // reopening a project satisfies it too
@@ -459,15 +503,26 @@ function stCropSize(shot) {
   return { w: gw / z, h: gh / z, sw, sh };
 }
 
-function stFrameHint(shot) {
-  const { w, h, sw, sh } = stCropSize(shot);
-  const bits = [];
-  const lockX = sw - w < 2, lockY = sh - h < 2;
-  if (lockX && lockY) bits.push("Whole frame in use — zoom in to reposition.");
-  else if (lockY) bits.push("Full height in use — drag sideways; zoom in to move up/down.");
-  else if (lockX) bits.push("Full width in use — drag up/down; zoom in to move sideways.");
-  if ((ST.framing[shot].zoom || 1) >= 1.5) bits.push(`⚠ Only ~${w}px of source stretched to full width — softens the picture.`);
-  $st(shot === "general" ? "#st-hint-general" : "#st-hint-close").textContent = bits.join(" ");
+// The old stFrameHint() lived here: a line under each slider that appeared and
+// vanished with the crop-lock state ("Full height in use — drag sideways…"). It
+// changed the row height as you dragged, which is what made the panel jump, and
+// nobody could tell what it meant. Deleted on Javi's call (2026-07-30). The zoom
+// readout below and the drag tip on the picture do the same job plainly.
+function stZoomLabel(shot) {
+  const el = $st(shot === "general" ? "#st-zoomv-general" : "#st-zoomv-close");
+  if (el) el.textContent = `${(ST.framing[shot].zoom || 1).toFixed(2).replace(/0$/, "")}×`;
+}
+
+// Show the "drag to reposition" badge briefly. Fires on first load and whenever the
+// pictures are replaced (new frame / new format), never while the user is dragging —
+// they have clearly got the idea by then.
+const stTipTimers = {};
+function stDragTip(shot) {
+  const el = $st(shot === "general" ? "#st-tip-general" : "#st-tip-close");
+  if (!el) return;
+  clearTimeout(stTipTimers[shot]);
+  el.classList.add("is-on");
+  stTipTimers[shot] = setTimeout(() => el.classList.remove("is-on"), 3000);
 }
 
 function stFrameT() {
@@ -503,7 +558,7 @@ function stFrameLoad(onlyShot) {
   for (const shot of ["general", "close"]) {
     if (onlyShot && shot !== onlyShot) continue;
     $st(shot === "general" ? "#st-frame-general" : "#st-frame-close").src = stFrameURL(shot, 420);
-    stFrameHint(shot);
+    stZoomLabel(shot);
   }
 }
 // `shot` omitted = refresh both (preset or time changed). Passing a shot matters:
@@ -550,9 +605,20 @@ function stWireDrag(sel, shot) {
 stWireDrag("#st-frame-general", "general");
 stWireDrag("#st-frame-close", "close");
 
-$st("#st-zoom-general").oninput = (e) => { ST.framing.general.zoom = e.target.value / 100; stFrameHint("general"); stFrameRefresh("general"); stSave(); };
-$st("#st-zoom-close").oninput = (e) => { ST.framing.close.zoom = e.target.value / 100; stFrameHint("close"); stFrameRefresh("close"); stSave(); };
-document.querySelectorAll('input[name="st-preset"]').forEach((r) => (r.onchange = stFrameRefresh));
+$st("#st-zoom-general").oninput = (e) => { ST.framing.general.zoom = e.target.value / 100; stZoomLabel("general"); stFrameRefresh("general"); stSave(); };
+$st("#st-zoom-close").oninput = (e) => { ST.framing.close.zoom = e.target.value / 100; stZoomLabel("close"); stFrameRefresh("close"); stSave(); };
+// The arrow matters: this used to be `r.onchange = stFrameRefresh`, so the handler
+// received the EVENT as its `shot` argument. stFrameLoad then skipped both shots
+// (`shot !== onlyShot` for an Event is always true) and changing format silently
+// refreshed NOTHING — you kept looking at the previous format's framing.
+document.querySelectorAll('input[name="st-preset"]').forEach((r) => (r.onchange = () => { stFrameRefresh(); stDragTip("general"); stDragTip("close"); }));
+// Tip again when the picture itself changes — a new frame or a new format is a new
+// thing to aim at. `once` per image load would re-fire on every drag refetch.
+["#st-frame-general", "#st-frame-close"].forEach((sel, i) => {
+  const img = $st(sel);
+  if (img) img.addEventListener("load", () => stDragTip(i === 0 ? "general" : "close"), { once: true });
+});
+$st("#st-frame-another").addEventListener("click", () => { stDragTip("general"); stDragTip("close"); });
 
 // ---------- E8: render + thumbnail ----------
 // ---------- E7: subtitles (ON/OFF + Social/Event style with preview) ----------
@@ -603,6 +669,7 @@ const stCapsFp = () => JSON.stringify({
    the exact conversion + chain the render applies. */
 const stLook = OchaLook.mount({
   grid: $st("#st-look-grid"), fix: $st("#st-look-fix"), previewBtn: $st("#st-look-prev"),
+  adjust: $st("#st-look-adjust"),
   getVideo: () => ST.src,
   getTime: () => { const sSel = ST.segments.find((x) => x.sel); return sSel ? sSel.in + 0.3 : 1; },
   engine: ENGINE, onChange: () => stSave(),
@@ -658,6 +725,7 @@ $st("#st-caps-gen").onclick = async () => {
         style: ST.subsStyle || "box" }),
     });
     if (!r.ok) throw new Error((await r.json()).detail || "Couldn't build the captions.");
+    stCaps.setShape(ENGINE, (document.querySelector('input[name="st-preset"]:checked') || {}).value || "reels");
     stCaps.setCues((await r.json()).cues || [], stCapsFp());
   } catch (e) { stStatus("Captions: " + (e && e.message || e), "error"); }
 };
@@ -719,9 +787,7 @@ $st("#st-render").onclick = async () => {
     const j = await stJob(job_id, (jj) => stStatus(jj.progress || "Rendering…", "busy", jj.percent));
     ST.renderJob = job_id;
     $st("#st-player").src = `${ENGINE}/api/preview/${job_id}?cb=${Date.now()}`;
-    $st("#st-download").href = `${ENGINE}/api/export/${job_id}?name=` +
-      encodeURIComponent(ST.projName ? stSafeName(ST.projName).replace(/\s+/g, "_") : "statement_clip");
-    $st("#st-download").download = (ST.projName ? stSafeName(ST.projName).replace(/\s+/g, "_") : "statement_clip") + ".mp4";
+    $st("#st-download").onclick = () => stOpenFolder(ST.jobDir);
     const saved = $st("#st-saved");
     if (j.result && j.result.export) {
       saved.hidden = false;
@@ -862,28 +928,115 @@ document.addEventListener("change", (e) => {
 });
 
 // ---------- E5: Use AI (copy prompt → any LLM → paste selection back) ----------
+const stIds = (sel) => ((($st(sel) || {}).value) || "").match(/\d+/g)?.map(Number) || [];
+
+// OCHA house style for the prompt. Generated engine-side from brand/ocha_style.json —
+// the SAME file that already fixed the transcript's spelling — so the AI is told the
+// rules the text it is reading has been through. Fetched once; if the engine is old
+// or the file is missing the prompt simply goes out without the block.
+let ST_STYLE = "";
+fetch("/api/style/prompt")
+  .then((r) => (r.ok ? r.json() : null))
+  .then((j) => { ST_STYLE = (j && j.block) || ""; })
+  .catch(() => {});
+
+const stAIMode = () => (document.querySelector('input[name="st-ai-mode"]:checked') || {}).value || "choose";
+const stTranscriptLines = () =>
+  ST.segments.map((s) => `${s.id} (${(s.out - s.in).toFixed(1)}s): ${s.text.trim()}`).join("\n");
+
 function stAIPrompt() {
-  const lines = ST.segments.map((s) => `${s.id} (${(s.out - s.in).toFixed(1)}s): ${s.text.trim()}`);
-  return `You are helping the UN Office for the Coordination of Humanitarian Affairs (OCHA) cut a spoken statement into a short social-media video (a "statement clip").
+  return stAIMode() === "match" ? stAIPromptMatch() : stAIPromptChoose();
+}
 
-Below is the full transcript, split into NUMBERED sentences (with each sentence's duration in seconds). The video will KEEP a subset of these sentences, in their original order, spoken on camera. Sentences cannot be reworded, split or merged — only kept or dropped.
+// MODE A — the choice is already made; this is a LOOKUP, not an edit.
+// No duration, no editorial criteria, no must/avoid: every one of those is a licence
+// to drop something the editor picked, which is exactly what used to happen.
+function stAIPromptMatch() {
+  const script = (($st("#st-ai-script") || {}).value || "").trim();
+  return `You are helping the UN Office for the Coordination of Humanitarian Affairs (OCHA) prepare a statement clip.
 
-BEFORE choosing, ask me (the editor) these questions and WAIT for my answers:
-1. Any key ideas or messages the clip must focus on? (If a statement document or key-messages file exists, ask me to attach it.)
-2. What is the target maximum duration? (Suggest 60-90 seconds if I have no preference.)
+Below is a transcript of a spoken statement, split into NUMBERED sentences, and after it the SCRIPT that has already been chosen by the editor.
 
-Then choose the sentences that make the strongest clip for OCHA's audience:
-- open strong: the news or the human impact, not procedure or greetings;
-- keep complete thoughts — never leave a sentence that depends on a dropped one;
-- prefer concrete facts and human consequences;
-- if there is a call to action or appeal, keep it near the end;
-- add up the sentence durations and stay within the target; never exceed 90 seconds unless I asked for longer.
+Your ONLY job is to find which transcript sentence each line of the script corresponds to, and return their numbers. You are NOT selecting, shortening, improving or judging anything - the choice is already made and it is final.
 
-FINAL ANSWER FORMAT (critical): after our Q&A, reply with ONE short paragraph explaining your choice, then on its own line output exactly this JSON and nothing after it:
-{"keep": [the sentence numbers you selected, in ascending order]}
+- Match on MEANING, not exact wording: the script has been lightly cleaned up for reading, while the transcript is what was actually said out loud. Small differences in wording, filler words and false starts are expected.
+- If one script line spans two transcript sentences, return both numbers.
+- Return every number in ascending order.
+- There is NO duration limit and nothing to trim. Do not leave a sentence out because the result seems long.
+- If a script line matches NO transcript sentence, or matches two equally well, put it in "unmatched" rather than guessing. Reporting it is far more useful to me than a wrong number.
+${ST_STYLE ? "\n" + ST_STYLE + "\n" : ""}
+FINAL ANSWER FORMAT (critical): reply with ONE short paragraph noting anything you could not place, then on its own line output exactly this JSON and nothing after it:
+{"keep": [the matching sentence numbers, ascending], "unmatched": ["any script lines you could not place"]}
 
 TRANSCRIPT:
-${lines.join("\n")}`;
+${stTranscriptLines()}
+
+CHOSEN SCRIPT:
+${script || "(paste your script into QuickVid first - this prompt is incomplete without it)"}`;
+}
+
+// MODE B — still choosing. Editorial criteria apply.
+function stAIPromptChoose() {
+  const noLimit = ($st("#st-ai-nolimit") || {}).checked;
+  const dur = parseInt(($st("#st-ai-dur") || {}).value, 10) || 90;
+  const must = stIds("#st-ai-must");
+  const avoid = stIds("#st-ai-avoid");
+  const ask = ($st("#st-ai-ask") || {}).checked;
+  const focus = (($st("#st-ai-focus") || {}).value || "").trim();
+
+  // These used to be baked in: a forced Q&A and a hard 90s cap, with no way to say
+  // "keep these exact sentences" or "no limit". They're the editor's call, so they
+  // come from the panel now.
+  const rules = [
+    "open strong: the news or the human impact, not procedure or greetings",
+    "keep complete thoughts - never leave a sentence that depends on a dropped one",
+    "prefer concrete facts and human consequences",
+    "if there is a call to action or appeal, keep it near the end",
+  ];
+  rules.push(noLimit
+    ? "there is NO duration limit - keep every sentence that earns its place, and stop when the message is complete"
+    : `add up the sentence durations and stay within about ${dur} seconds, counting the locked sentences`);
+  if (avoid.length) rules.push(`do NOT keep these sentences: ${avoid.join(", ")}`);
+
+  // Locked sentences sit ABOVE the criteria and outrank the duration explicitly.
+  // As one more bullet in the list they read as a preference among six, and the AI
+  // resolved the clash with the duration cap by trimming them (Javi, 2026-07-30).
+  const lockBlock = must.length
+    ? `\nLOCKED SENTENCES - my editorial decision, not a suggestion: ${must.join(", ")}.\n` +
+      `Keep every one of them, in full. If keeping them goes over the duration target, the TARGET gives way - never the locked sentences. Choose the rest around them.\n`
+    : "";
+  const focusBlock = focus ? `\nWHAT THIS CLIP IS ABOUT (use this to steer your choice):\n${focus}\n` : "";
+
+  const askBlock = ask
+    ? `\nBEFORE choosing, ask me these and WAIT for my answers:\n` +
+      `1. Any key ideas or messages the clip must focus on? (If a statement document or key-messages file exists, ask me to attach it.)\n` +
+      `2. Anything to avoid?\n`
+    : `\nDo not ask me anything first - I have already set the constraints below. Choose now.\n`;
+
+  return `You are helping the UN Office for the Coordination of Humanitarian Affairs (OCHA) cut a spoken statement into a short social-media video (a "statement clip").
+
+Below is the full transcript, split into NUMBERED sentences (with each sentence's duration in seconds). The video will KEEP a subset of these sentences, in their original order, spoken on camera. Sentences cannot be reworded, split or merged - only kept or dropped.
+${askBlock}${lockBlock}${focusBlock}
+Choose the sentences that make the strongest clip for OCHA's audience:
+${rules.map((r) => "- " + r + ";").join("\n")}
+${ST_STYLE ? "\n" + ST_STYLE + "\n" : ""}
+FINAL ANSWER FORMAT (critical): reply with ONE short paragraph explaining your choice, then on its own line output exactly this JSON and nothing after it:
+{"keep": [the sentence numbers you selected, in ascending order]}${must.length ? `\n\nBefore you answer, check that your "keep" list contains ${must.join(", ")}.` : ""}
+
+TRANSCRIPT:
+${stTranscriptLines()}`;
+}
+
+// Script lines the AI could not place (match mode). Same tolerant approach as
+// stAIParse: find the JSON object that carries the key, whatever surrounds it.
+function stAIUnmatched(text) {
+  for (const c of text.match(/\{[\s\S]*?"unmatched"[\s\S]*?\}/g) || []) {
+    try {
+      const o = JSON.parse(c);
+      if (Array.isArray(o.unmatched)) return o.unmatched.map(String).filter((s) => s.trim());
+    } catch (e) { /* try the next candidate */ }
+  }
+  return [];
 }
 
 function stAIParse(text) {
@@ -907,9 +1060,43 @@ $st("#st-ai").onclick = () => {
   $st("#st-ai-paste").value = "";
   $st("#st-ai-result").textContent = "";
   $st("#st-ai-copied").textContent = "";
+  stAISync();
   $st("#st-ai-long").hidden = stAIPrompt().length < 7500;    // Copilot truncates very long pastes
   $st("#st-ai-modal").hidden = false;
 };
+function stAISync() {
+  const match = stAIMode() === "match";
+  // Gates sit on plain wrappers — .opt-grid/.end-options set `display`, which beats
+  // the UA's [hidden] rule and would leave the panel visible.
+  if ($st("#st-ai-match")) $st("#st-ai-match").hidden = !match;
+  if ($st("#st-ai-choose")) $st("#st-ai-choose").hidden = match;
+  if ($st("#st-ai-title")) $st("#st-ai-title").textContent =
+    match ? "Find my sentences in the transcript" : "Let AI pick the sentences";
+  // "No limit" and a target duration are mutually exclusive — grey the number
+  // field rather than leave two answers on screen.
+  const nl = ($st("#st-ai-nolimit") || {}).checked;
+  if ($st("#st-ai-dur")) $st("#st-ai-dur").disabled = nl;
+  // Step 2 used to promise "it will ask you a couple of questions" — untrue whenever
+  // the Q&A is off, and nonsense in match mode.
+  const step2 = $st("#st-ai-step2");
+  if (step2) {
+    step2.textContent = match
+      ? " It answers with the sentence numbers, and flags anything it couldn't place."
+      : (($st("#st-ai-ask") || {}).checked
+        ? " It will ask you a couple of questions first — answer them, and attach the statement or key-messages document if you have one."
+        : " It answers straight away with its choice — you've already set the constraints above.");
+  }
+  if ($st("#st-ai-copied")) $st("#st-ai-copied").textContent = "";
+}
+["#st-ai-dur", "#st-ai-nolimit", "#st-ai-must", "#st-ai-avoid", "#st-ai-ask",
+ "#st-ai-focus", "#st-ai-script"].forEach((sel) => {
+  const el = $st(sel);
+  if (!el) return;
+  el.addEventListener("change", stAISync);
+  el.addEventListener("input", stAISync);
+});
+document.querySelectorAll('input[name="st-ai-mode"]').forEach((r) => r.addEventListener("change", stAISync));
+
 $st("#st-ai-close").onclick = () => { $st("#st-ai-modal").hidden = true; };
 $st("#st-ai-modal").addEventListener("click", (e) => { if (e.target === $st("#st-ai-modal")) $st("#st-ai-modal").hidden = true; });
 
@@ -935,7 +1122,16 @@ $st("#st-ai-apply").onclick = () => {
   stAutoShots(); stRenderSegList(); stSave();
   const total = ST.segments.filter((s) => s.sel).reduce((a, s) => a + (s.out - s.in), 0);
   $st("#st-ai-modal").hidden = true;
-  stStatus(`AI selected ${valid.size} sentences · ${mmss(total)} — review the list below and adjust freely.`, "ok");
+  // In match mode the AI reports script lines it could not place. Those are the ONLY
+  // thing you'd otherwise have to spot by hand, so they are a warning, not a footnote.
+  const missed = stAIUnmatched($st("#st-ai-paste").value || "");
+  if (missed.length) {
+    stStatus(`${valid.size} sentences matched · ${mmss(total)}. ${missed.length} script line${missed.length > 1 ? "s" : ""} could NOT be placed — check ${missed.length > 1 ? "them" : "it"} by hand: “${missed.join("” · “")}”`, "warn");
+  } else {
+    stStatus(stAIMode() === "match"
+      ? `All ${valid.size} script lines matched · ${mmss(total)} — nothing left unplaced.`
+      : `AI selected ${valid.size} sentences · ${mmss(total)} — review the list below and adjust freely.`, "ok");
+  }
 };
 
 // ---------- Autosave & resume (browser localStorage + <folder>/<name>.ochaquickvid.json) ----------
@@ -947,13 +1143,23 @@ function stRangeRows() {
     from: r.querySelector(".st-range-from").value, to: r.querySelector(".st-range-to").value,
   }));
 }
+// The source path relative to the job folder, when it lives inside it. Saving BOTH
+// means the project survives the folder being renamed, moved, or opened on another
+// machine — the absolute path alone did not.
+function stRelSrc() {
+  if (!ST.src || !ST.jobDir) return null;
+  const dir = ST.jobDir.replace(/[/\\]+$/, "");
+  const norm = (x) => x.replace(/\\/g, "/");
+  return norm(ST.src).startsWith(norm(dir) + "/") ? norm(ST.src).slice(norm(dir).length + 1) : null;
+}
+
 function stSnapshot() {
   const val = (sel) => (document.querySelector(sel) || {}).value;
   return {
     v: 1, savedAt: Date.now(),
     name: (($st("#st-proj-name") || {}).value || ST.projName || "").trim(),
     type: val('input[name="st-type"]:checked') || "statement",
-    jobDir: ST.jobDir, src: ST.src, probe: ST.probe, offset: ST.offset,
+    jobDir: ST.jobDir, src: ST.src, src_rel: stRelSrc(), probe: ST.probe, offset: ST.offset,
     ranges: stRangeRows(), segments: ST.segments, framing: ST.framing, frameT: ST.frameT,
     preset: val('input[name="st-preset"]:checked') || "reels",
     ending: val('input[name="st-ending"]:checked') || "over_footage",

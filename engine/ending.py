@@ -59,7 +59,7 @@ def ff_progress(cmd, total_dur, p_lo=0, p_hi=100):
     scaled into [p_lo, p_hi] so multi-pass renders share one 0-100 bar.
     Raises on a non-zero exit with the tail of stderr."""
     full = [str(c) for c in cmd] + ["-progress", "pipe:1", "-nostats"]
-    proc = subprocess.Popen(full, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc = subprocess.Popen(full, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace")
     err = []
     et = threading.Thread(target=lambda: err.append(proc.stderr.read()), daemon=True)
     et.start()
@@ -114,7 +114,7 @@ def add_ending(FF_, video, style, darken, bitrate, tmp, out, p_lo=0, p_hi=100):
     silent = not _has_audio(video, fp)               # e.g. a screen recording
     logo, lw, lh = render_logo(W, H, tmp)
     lx, ly = (W - lw) // 2, (H - lh) // 2
-    asset = json.loads(open(BRAND_JSON).read()).get("ending", {}).get("asset", "")
+    asset = json.loads(open(BRAND_JSON, encoding="utf-8").read()).get("ending", {}).get("asset", "")
     mov = os.path.join(ROOT, asset) if asset else ""
     click = bool(mov) and os.path.exists(mov)
 

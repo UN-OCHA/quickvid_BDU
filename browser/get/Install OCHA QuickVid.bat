@@ -119,11 +119,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "    $s.WorkingDirectory = $app;" ^
   "    $s.WindowStyle = 7;" ^
   "    $s.Description = 'OCHA QuickVid - OCHA-branded videos in a few clicks';" ^
-  "    if (Test-Path $ico) { $s.IconLocation = $ico }" ^
+  "    if (Test-Path $ico) { $s.IconLocation = ($ico + ',0') }" ^
   "    $s.Save();" ^
   "    Write-Host ('  ' + $dir + '\OCHA QuickVid.lnk')" ^
   "  } catch { Write-Host ('  (could not create the shortcut in ' + $dir + ')') }" ^
   "}" 2>nul
+REM  IconLocation MUST carry the ",0" index. Without it Windows silently falls back
+REM  to the TARGET's icon - and the target is a .bat, so you get the console icon
+REM  (Javi's Parallels screenshot, 2026-07-30). The .ico itself was never the
+REM  problem: it is a valid 7-size resource and assets\ ships with the repo zip.
+REM  An EXISTING install keeps its old icon until this installer is re-run - the
+REM  .lnk is only written here. Explorer also caches icons per .lnk, so nudge it.
+ie4uinit.exe -show >nul 2>&1
 
 echo.
 echo Setting up and starting OCHA QuickVid...

@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "2026.0.46";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "2026.0.47";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -114,21 +114,38 @@ async function refresh() {
    "" = automatic: the host puts graphics on the top track and the readability
    gradient on the lowest FREE one, so the scrim sits under the text it exists to
    make readable. A chosen value is a 0-based track index. */
-const trackPref = () => ($("track-pick") || {}).value || "";
+// A tool modal has its OWN track picker (the Brand-tab one is a tab away while a
+// modal is open). Whichever is on screen owns the choice: modal first when a tool
+// is open, otherwise the Brand tab's.
+const trackPref = () => {
+  const modal = $("tool-modal");                   // NOT "modal" - that id does not exist
+  // Read the modal's picker ONLY while a clip-placing tool is on screen. Gating on
+  // "a modal is open" alone would hand back a stale value from a tool whose Track
+  // row is hidden (Package, Tidy...), i.e. a number the user never chose.
+  const cfg = curTool ? TOOLS[curTool] : null;
+  const inTool = cfg && cfg.places && modal && !modal.hidden;
+  const sel = inTool ? $("modal-track") : $("track-pick");
+  return (sel || {}).value || "";
+};
 let trackListSig = "";
 async function refreshTracks() {
-  const sel = $("track-pick");
-  if (!sel) return;
+  const sels = [$("track-pick"), $("modal-track")].filter(Boolean);
+  if (!sels.length) return;
   const res = await jsx("ochaTrackList()") || "none";
   const p = res.split("|");
   if (p[0] !== "OK") return;
   if (res === trackListSig) return;                 // unchanged - don't clobber the choice
   trackListSig = res;
   const names = (p[2] || "").split(",").filter(Boolean);
-  const keep = sel.value;
-  sel.innerHTML = '<option value="">Automatic</option>'
+  // ONE list, filled into every picker - two selects that could drift would be
+  // worse than the tab-away problem this solves.
+  const html = '<option value="">Automatic</option>'
     + names.map((n, i) => `<option value="${i}">${esc(n)}</option>`).reverse().join("");
-  sel.value = names[+keep] !== undefined ? keep : "";   // keep the choice if it still exists
+  sels.forEach((sel) => {
+    const keep = sel.value;
+    sel.innerHTML = html;
+    sel.value = names[+keep] !== undefined ? keep : "";  // keep the choice if it still exists
+  });
 }
 
 /* ---------- sequence colour watch ----------
@@ -179,6 +196,9 @@ function collectValues() {
     push("Title", $("lt-title").value.trim());
     push("3rd line (optional)", $("lt-title2").value.trim());   // host aliases to the old EGP name on pre-0.42 clips
     push("Centre align", $("lt-centre").checked);
+    // Chosen BEFORE placing, so a UN-style lower third goes down in one step.
+    // "@" prefix keeps it out of the clip's auto name (see ochaAdd).
+    push("@font", placementFont);
   } else if (curEl === "loc") {
     push("Place", $("loc-place").value.trim());
     push("Date", $("loc-date").value.trim());
@@ -428,13 +448,16 @@ function adjLiveWrite() {
   }, 100);
 }
 function setAdjustEditing(name) {
-  const warn = document.querySelector(".adj-warn"), tag = document.querySelector(".adj-tag");
+  // The inside warning is gone: it repeated the pill's message. The pill alone
+  // carries it now, and swaps to "editing" while bound to a clip.
+  const tag = document.querySelector(".adj-tag");
+  if (!tag) return;
   if (name) {
-    if (warn) warn.innerHTML = "<strong>Use with caution</strong> \u2014 changes apply live to the selected clip.";
-    if (tag) { tag.textContent = "editing"; tag.style.color = "var(--accent)"; tag.style.borderColor = "var(--accent)"; tag.style.background = "var(--accent-bg)"; }
+    tag.textContent = "editing";
+    tag.style.color = "var(--accent)"; tag.style.borderColor = "var(--accent)"; tag.style.background = "var(--accent-bg)";
   } else {
-    if (warn) warn.innerHTML = "<strong>Use with caution</strong> — each element already sits at its designed spot.";
-    if (tag) { tag.textContent = "advanced"; tag.style.color = ""; tag.style.borderColor = ""; tag.style.background = ""; }
+    tag.textContent = "use with care";
+    tag.style.color = ""; tag.style.borderColor = ""; tag.style.background = "";
   }
 }
 async function syncAdjust() {
@@ -448,6 +471,7 @@ async function syncAdjust() {
     // unbound → back to placement mode at the frame centre, so the LAST clip's
     // position can't silently ride into the NEXT Add
     if (adjEditClip !== null) { adjEditClip = null; setAdjustEditing(null); resetAdjust(); collapseAdjust(); }
+    syncFont(null);
     return;
   }
   // <name>|<x>|<y>|<W>|<H> — absolute px + the clip's own sequence frame size
@@ -462,7 +486,70 @@ async function syncAdjust() {
     setAdjRanges();
     $("adj-x").value = $("adj-x-n").value = clampPos(+p[1], "w");
     $("adj-y").value = $("adj-y-n").value = clampPos(+p[2], "h");
+    syncFont(p[0], p[6]);                          // p[6] = font index, same call
   }
+}
+
+/* ---------- Advanced settings > Font ----------
+   Two modes, same control:
+     PLACEMENT (nothing selected) - the dropdown is the choice for the NEXT Add,
+       sent as @font in collectValues(). Javi: "font selection doesn't appear
+       before placing. It should, in case I want to place straight away the UN
+       style with Bebas."
+     EDIT (an OCHA clip selected) - it mirrors that clip and writes to it live.
+
+   Only the lower third has a Font control, so the group shows for `lt` and stays
+   hidden elsewhere. A template built before the feature reports "none" and the
+   group hides in edit mode too, rather than offering a control that does nothing. */
+let fontClip = null;
+// The choice for the NEXT Add, kept SEPARATE from whatever a selected clip happens
+// to use. Without this the dropdown carried the last-edited clip's font into the
+// next placement, so a new lower third came out Bebas — the OCHA default must
+// survive editing a UN-style clip.
+// 0-BASED (Raleway=0, Bebas=1) — same convention as "Pin colour". See index.html.
+let placementFont = 0;
+// NOT `|| 0`-style coercion: 0 is a VALID choice here (it is the OCHA default), so
+// a falsy fallback would silently turn Raleway into Bebas.
+const fontChoice = () => {
+  const v = parseInt(($("adj-font") || {}).value, 10);
+  return isNaN(v) ? 0 : v;
+};
+
+// Visibility ONLY — must never touch fontClip. selectEl() calls this, and selectEl
+// runs when a clip BINDS (setBound -> selectEl). It used to call syncFont(null),
+// which cleared the binding a moment after syncAdjust had set it: the dropdown then
+// silently did nothing from the panel while Premiere's own Properties still worked.
+function fontVisibility() {
+  const wrap = $("adj-font-wrap");
+  if (wrap && !fontClip) wrap.hidden = curEl !== "lt";   // edit mode: syncFont owns it
+}
+
+// `idx` comes from ochaReadMotion's last field — no extra round trip. "" means the
+// template has no Font control (an older installed template).
+function syncFont(clipName, idx) {
+  const wrap = $("adj-font-wrap"), sel = $("adj-font");
+  if (!wrap || !sel) return;
+  if (!clipName) {                                // back to placement mode
+    fontClip = null;
+    sel.value = String(placementFont);            // restore the next-Add choice
+    wrap.hidden = curEl !== "lt";
+    return;
+  }
+  // "" (not a number) = the template has no Font control -> hide. 0 is VALID
+  // (Raleway), so this must test for NaN, never for falsiness.
+  const n = parseInt(idx, 10);
+  if (isNaN(n)) { wrap.hidden = true; fontClip = null; return; }
+  sel.value = String(n);
+  wrap.hidden = false;
+  fontClip = clipName;
+}
+if ($("adj-font")) {
+  $("adj-font").addEventListener("change", async () => {
+    // Placement mode: remember it for the next Add; there is nothing to write yet.
+    if (!fontClip) { placementFont = fontChoice(); return; }
+    const r = await jsx(`ochaSetFont(${fontChoice()})`) || "";
+    if (r.indexOf("ERR|") === 0) show(esc(r.slice(4)), "warn");
+  });
 }
 
 
@@ -633,6 +720,7 @@ function selectEl(el, fromClip) {
   document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("is-open", p.dataset.pane === el));
   resetAdjust();       // each element starts at default size/pos …
   collapseAdjust();    // … with the advanced panel closed
+  fontVisibility();    // … and Font shows only for the lower third
   hideStatus();
 }
 document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => selectEl(c.dataset.el)));
@@ -818,6 +906,7 @@ const TOOLS = {
       + "<li><strong>Middle</strong> = a soft band across the centre (feather – dark – feather) for captions or text that sit mid-frame.</li>"
       + "<li>Middle can also cover just the <strong>left or right half</strong> — a soft cloud on that side, for text that doesn't run across the frame.</li></ul>",
     settings: "all",                                  // position + fade
+    places: true,                                     // puts a CLIP on a track -> offer Track
     needsFmt: true,
     ready: "Ready — goes in at the playhead, on its own track.",
     done: (r) => `Gradient added on <strong>${trackOf(r)}</strong>. Move it below your text and trim to length.`,
@@ -903,6 +992,7 @@ const TOOLS = {
       + "<li>Goes in as a <strong>separate clip on the top track</strong> — trim it to the length you want.</li></ul>"
       + "<p class=\"modal-hint\">Select the clip afterwards to fine-tune Amount and Size in the panel.</p>",
     settings: "fade",                                 // strength only - no position
+    places: true,                                     // puts a CLIP on a track -> offer Track
     fadeLabel: "Strength",
     fadeDefault: 55,
     needsFmt: true,
@@ -974,6 +1064,11 @@ function openTool(key) {
   $("modal-list").hidden = !cfg.list;              // tick-list tools fill this in loadInfo
   $("modal-settings").hidden = !cfg.settings;
   $("grad-pos").hidden = cfg.settings !== "all";
+  // Track: only for tools that place a clip, and reset to Automatic on every
+  // open so a choice made for one gradient cannot silently ride into the next.
+  if ($("modal-track-row")) $("modal-track-row").hidden = !cfg.places;
+  if ($("modal-track-hint")) $("modal-track-hint").hidden = !cfg.places;
+  if (cfg.places && $("modal-track")) $("modal-track").value = "";
   // The fade slider is shared, so each tool names it and sets its own default -
   // "Fade" for the gradient, "Strength" for the vignette.
   if (cfg.settings) {
@@ -1222,6 +1317,7 @@ function updateMenuStatus() {
 }
 { const s = $("menu-update-status");
   if (s) s.addEventListener("click", () => { const d = $("menu-diag"); if (d) d.hidden = !d.hidden; }); }
+
 
 /* ---------- Update check (GitHub-hosted version.json; notify + manual download) ----------
    Mirrors the DataViz plugin's version check but channelled via GitHub (same repo

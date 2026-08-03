@@ -2091,3 +2091,459 @@ Two real causes:
 RULE: a cache-buster on a URL that already encodes its inputs is not a safety
 net, it is a permanent cache miss. Only add `cb=` when the same URL can genuinely
 return different bytes (a job preview being overwritten, say).
+
+## 2026-07-30 — OCHA style guide in the transcript; the real Windows crash (2026.0.31)
+
+### The Editorial Style Guide is now data, not prose
+
+`brand/ocha_style.json` holds the rules from the *OCHA Editorial Style Guide,
+3rd edition* — 81 canonical casings, 93 respellings, 13 protected names and the
+prompt block — each entry carrying the guide's page number so it can be checked
+against the PDF. `engine/style.py` applies it; both are read by ONE loader, so
+the AI's instructions and the transcript's spelling cannot drift.
+
+**It runs on WORD TOKENS, not on the sentence string.** Whisper gives us `text`
+AND a parallel `words` list with per-word timings, and the renderer uses both —
+`cues_from_runs` splits long sentences at word boundaries and times each chunk
+from `words[i]["s"]`. Fixing only `text` would silently desync them and the
+caption you reviewed would not be the caption that burns. So a rule matches N
+tokens and emits M ("percent" → "per cent" is 1→2, "cease fire" → "ceasefire"
+is 2→1), the matched span's time range is redistributed across the replacements,
+and `text` is rebuilt from those same tokens. One operation, no drift.
+
+Three things speech does that a printed style guide does not, all found by
+testing and all handled:
+
+* **Hyphens are inaudible.** Whisper writes "secretary general"; the guide says
+  *Secretary-General*. Matching therefore happens on hyphen-split parts, so one
+  rule covers all three spellings. A match must still begin and end on whole-token
+  boundaries — otherwise "member state" would eat half of "member-state-level".
+* **Possessives.** "the Secretary-General's report" must match; the `'s` is lifted
+  off before matching and re-attached to the replacement.
+* **Sentence starts.** A rule forcing LOWER case (*tsunami*, *cholera*) must not
+  lower-case the first word of a sentence. Only `.` `!` `?` end one — a semicolon
+  does not, or "Cholera is spreading; cholera kills" comes back wrong.
+
+**English only.** The rules are English words and several are ordinary words in
+other languages — a Spanish transcript would have *labor* and *color* quietly
+turned into *labour* and *colour*. Gated on the detected language, with
+`task="translate"` always qualifying since it outputs English.
+
+**The AI half is smaller than it sounds, and worth saying plainly:** the AI in
+step 5 only ever returns a list of sentence numbers — it writes no copy. So the
+style guide lands on the transcript (which the AI reads and quotes), plus a short
+generated house-style block for anything the user asks it to write in the same
+chat. `GET /api/style/prompt` serves that block from the same JSON.
+
+### The Windows crash: a default encoding, not a subprocess flag
+
+Javi's colleague reported crashes when bringing in a source (download and local
+folder) and when editing subtitles after an export. **Windows text-mode I/O
+defaults to the ANSI codepage (cp1252), macOS to UTF-8**, and the codebase had 22
+reads/writes that never said which. Measured: cp1252 has no Arabic, no Polish `ł`,
+no Cyrillic, so `json.dump(out, open(path, "w"), ensure_ascii=False)` — the
+transcript writer — is a hard `UnicodeEncodeError` there and flawless here.
+Western European accents survive by luck (é, ô, ç are all IN cp1252), which is
+exactly why this hid for so long.
+
+Every text read and write now states `encoding="utf-8"`, including the render
+spec (written with `ensure_ascii=False` in `engine_bridge`, read back in
+`statement.py` — the two ends of one file), `brand.json`, and the ffmpeg/yt-dlp
+pipes (`text=True` decodes with the locale codec too, so a path with an
+out-of-codepage character could kill a render mid-progress; they now use
+`errors="replace"` so a log line can never take down a job).
+
+RULE: **never open a text file without `encoding=`.** The default is
+platform-dependent, so the bug is invisible on the machine you develop on and
+certain on someone else's.
+
+**What was NOT the problem:** the plan's item 7c said the 25 subprocess calls
+needed `CREATE_NO_WINDOW`. Checking how the engine is actually launched
+(`tools/qv-engine.bat`: `start "OCHA QuickVid engine" /min cmd /c ...python -m
+uvicorn`), it always owns a console — minimized, but real — so ffmpeg children
+attach to it and never flash a window. No edits made; a speculative fix to 25
+call sites would have been churn.
+
+### The AI step is TWO jobs, not one with options
+
+Javi: *"I picked manually some sentences and it decided to trim them."* The cause
+was visible in the prompt — "you MUST keep these sentences" was the **last bullet
+in a list of soft editorial preferences**, punctuated like the rest, sitting
+directly under *"stay within about 90 seconds"*. Two orders, no ranking, so the
+model resolved the clash by trimming. Making the wording sterner would not have
+fixed it; the instruction was in the wrong place.
+
+The real shape, from Javi's two cases:
+
+* **"I already have the sentences"** — he or a colleague chose them, usually in a
+  script document. This is a **lookup**, not an edit. The prompt now carries no
+  duration, no editorial criteria and no must/avoid — every one of those is a
+  licence to drop something the editor picked. It matches on MEANING (a written
+  script never matches spoken words) and returns
+  `{"keep": [...], "unmatched": [...]}`. Anything it cannot place is **reported,
+  never guessed**, and QuickVid raises it as a warning with the lines quoted —
+  that is the only thing you would otherwise have to catch by eye.
+* **"Help me choose"** — the old path, with locked sentences lifted OUT of the
+  criteria list into their own block above it, stating explicitly that the
+  duration target gives way and never the locked sentences, plus a closing
+  "check your keep list contains N, N". A free-text *"What should it focus on?"*
+  box replaces having to go through the question-and-answer round trip.
+
+RULE: when one control has to serve two different intents, the fix is two modes,
+not a stronger adjective. A constraint that outranks another must be *positioned*
+above it and say what happens when they conflict — a peer bullet reads as a peer.
+
+UI note: the mode cards reuse `.end-opt`, whose `__icon` slot is `aspect-ratio:
+16/9` because it stands in for a 360x203 still. With no artwork that is a big
+empty box, so `.end-options--compact` shrinks it.
+
+## 2026-07-30 — Feedback round 2: two real bugs, plus the layout pass (2026.0.32)
+
+**Ending logo was NOT centred — two implementations, two answers.**
+`ending.py:116` places it at `(H - lh) // 2`; `social_brand.py` had its own
+`logo_y_frac` defaulting to **0.58** ("below the face, above the caption zone").
+Nothing ever set that key, so every Edit-tab `over_footage` ending shipped low:
+measured **+154px** on a 1080x1920 reel, +108 on 4:5, +86 on square and 16:9.
+Defaulted to 0.5; verified both paths now agree in all four formats. The key stays
+so the ending preview's vertical slider can drive it.
+
+RULE (again): when the same visual decision exists in two files, they WILL drift.
+This is the third time (`brand-lt.json`, the shared `browser/*.js` modules, now
+this). If it can't be shared outright, it must at least share a default.
+
+**Framing sliders: one cause behind three complaints.** `stFrameHint()` wrote a
+line under each slider that appeared and vanished with the crop-lock state — that
+is the "message that disappears", and it changed the row height as you dragged.
+The "slider gets bigger" was the same section: `.st-frames` was a flex row sized
+by the picture, so a 16:9 Event still made the column (and its slider) ~3x the
+width of a 9:16 reel still. Fixed: hint deleted, `.st-frame-box` is a fixed
+240x240 slot in a fixed-column grid, zoom steps in 25% notches with tick marks and
+a readout, and a `fa-hand-pointer` badge fades in for 3s when the pictures change.
+
+**Found while there:** `r.onchange = stFrameRefresh` passed the EVENT as the
+`shot` argument, so `stFrameLoad` skipped both shots and **changing format never
+refreshed the framing stills at all**. Wrapped in an arrow.
+
+**Other changes**
+* Format picker is a grid with explicit counts (4-up, else 2x2). `auto-fit` was
+  measured producing **3 columns at 1280px** — the stranded-fourth-card bug wearing
+  a different hat. Each card carries its shape as an FA Classic Regular glyph; no
+  4:5 glyph exists, so the 9:16 one is scaled rather than a new icon drawn.
+* Download → **Open the export folder**, both tabs. The file is already in the job
+  folder; Download only made a second copy in Downloads, which is how people ended
+  up branding the wrong file.
+* Magnifier on every Look card. `look-preview`'s width was hard-coded at 480; it is
+  a parameter now (clamped 160-1920, verified 5 -> 160 and 99999 -> 1920) so the
+  big view is a genuinely re-rendered frame, not a stretched thumbnail. The button
+  is a SIBLING of the card, not a child — the card is a `<button>`.
+* `browser/waiting.js`: shared calm waiting lines, silent for the first 12s then
+  one every 9s, stopped in a `finally` so an error never sits under "grab a coffee".
+  Hooked into `stJob()` once, which every long Edit-tab step already polls through.
+* Windows shortcut: `IconLocation` needs the **`,0` index** — without it Windows
+  falls back to the target's icon, and the target is a `.bat`, hence the console
+  icon in Javi's screenshot. The `.ico` itself was always fine (valid 7-size
+  resource, ships in the repo zip). An existing install keeps the old icon until
+  the installer is re-run.
+* Layout: `.st-folder` is a grid with gap instead of four rows of stacked margins;
+  "Translate to English" moved into an option card ABOVE the Transcribe button it
+  configures, instead of hanging below it.
+
+**Not a bug:** a `<input type="range">` at `width:100%` reports `scrollWidth`
+2-4px over its container in Chrome — measured on a bare div with none of our CSS.
+It is the UA thumb overhang. Don't "fix" it; check `document.body.scrollWidth`
+instead, which is the thing users actually feel.
+
+**Decisions taken (Javi):** force-two-line subtitles is DROPPED — merging joins
+cues across sentence boundaries and shifts timing, trading a cosmetic
+inconsistency for a comprehension risk; the caption editor already shows the real
+two-line shape so it can be done by hand. Analytics goes on the EXISTING QuickVid
+sheet as a separate tab, with separate dashboards later — not Google Analytics,
+which would compromise "your video never leaves the machine".
+
+## 2026-07-30 — Curated font choice on the lower third (staged, unversioned)
+
+Javi: advanced users need **Bebas** for UN-level videos (it is the UN video
+typeface; Raleway is OCHA's). Requirement: an escape hatch that changes **no
+default and no panel default behaviour**.
+
+**Where it lives — the PANEL, not Premiere's Properties.** The "Position"
+accordion became **Advanced settings** with two groups, Position and Font; the
+pill reads **off-standard**; the duplicate "Use with caution" paragraph inside is
+deleted (it said what the pill says). *(Adobe renamed Essential Graphics to
+**Properties** — our dev READMEs still say the old name.)*
+
+**The control still has to be exposed on the template.**
+`getMGTComponent().properties` only sees exposed controls, so "Font" also appears
+as a plain row in Properties. That is exactly how Position X/Y and Size already
+work, so it is consistent rather than a compromise.
+
+**Self-gating:** `ochaFontStatus()` returns "none" when the selected clip's
+template has no Font param, and the panel hides the whole group. A template built
+before this feature therefore shows nothing at all, instead of a control that
+silently does nothing.
+
+**Why it was low-risk:** the thing that would normally need a spike — can an
+exposed Source Text property carry an expression AND still be written by the
+panel? — has been true in production since 0.4x: the LT name has a
+`toUpperCase()` expression, is exposed as "Name", and the panel writes it with
+`setValue(str, true)`. The font work is the same pattern with a bigger expression.
+
+**Implementation.** `fontExpr()` now returns a **TextDocument** where the old
+expression returned a String — a String can only change the words, not the face.
+`value` carries whatever the panel typed, so panel-writes-text and
+expression-restyles-it compose. Guarded with try/catch and a blank-postscript
+fallback so one bad spec can't break every lower third.
+
+**Font: Google's Bebas Neue, not Bebas Neue Pro.** Pro is Adobe Fonts only and
+**cannot be bundled**, so the web app could never match it — and we have spent a
+lot of effort keeping the two products' typography identical. Google's is OFL,
+single weight; name and organisation share the face and separate by size, colour
+and box, which the design already does. Numbers live in `brand-lt.json`
+`fonts.alt` (label / postscript / scale / uppercase_all) so the face and its
+optical size are tunable without touching code.
+
+Uppercase: today only the name is uppercased (`uppercase_name`). In the alt face
+**both** lines are, matching the UN reference.
+
+**Verified against Javi's UN SG reference:** the colours are ALREADY identical
+(`#FFFFFF`/`#000000` name, `#009EDB`/`#FFFFFF` title). Genuinely font +
+capitalization only; geometry, timing, animation and the auto-sizing box untouched.
+
+**Not in scope: Arabic.** Not a font entry — the plugin has no RTL handling at all
+(verified: nothing in the CEP panel or the AE builder), and AE on the Latin build
+mis-renders Arabic outright. Its own project.
+
+**State: staged, deliberately unversioned.** The templates must be rebuilt in
+After Effects and the whole set re-tested before any version bump or `.zxp`.
+
+### Font dropdown round 2: the expression wrote to a read-only object
+
+Javi's test: dropdown visible in panel and Properties, but the render never left
+Raleway. All three wiring points checked out (controller layer named `Controls`,
+`fonts.alt` in brand-lt.json, both text layers carrying the expression) — the
+fault was the write itself. **In the expression engine a TextDocument's
+attributes are read-only: `t.font = '...'` is a silent no-op.** No error, no
+banner; the render just keeps the baked style. What made the pattern look
+plausible is that the BUILD-time `td.font = psFont` in setText() genuinely works —
+same property name, different API (scripting TextDocument, which is writable).
+
+Fix: `fontExpr` now uses the Text Style API (the actual AE 17.0 feature) —
+`text.sourceText.getStyleAt(0, 0).setFont('BebasNeue-Regular')[.setFontSize(n)]
+.setText(txt)` — returning the STYLE, which AE applies. Empty text is gated
+(getStyleAt throws on an empty document), a missing dropdown falls back to
+Raleway, and the Raleway paths return plain strings exactly as before.
+
+RULE: an AE expression can only restyle text through the Style API. Assigning to
+`value`/TextDocument attributes compiles, runs and does nothing.
+
+**White-on-white dropdown (dark mode):** the select's first cut invented tokens
+that do not exist in the panel (`--bg-input`, `--border`), so the background
+declaration was invalid and the control painted its native light face under
+white text. Now reuses `.track-sel` — the Track dropdown's proven style. Same
+lesson as the web app's kit-first rule: reuse the existing component; a made-up
+token fails silently and only in one theme.
+
+**Testing note that will recur:** a MOGRT clip already IN a sequence embeds the
+template as it was when placed — rebuilt .mogrt files change nothing about it.
+Every template retest needs the old clip deleted and a fresh one placed.
+
+### Font dropdown: working, and what the measurements said
+
+It renders. Three follow-ups from Javi, all resolved by measuring rather than
+guessing - the two rounds lost above were both guesses.
+
+**"Seems a bit small" is a WIDTH effect, not a height one.** Measured at 100px:
+Bebas Neue caps ink is **0.99x** Raleway's - vertically identical - but only
+**0.59x the width**. A condensed face reads smaller at the same nominal size.
+So `fonts.alt.scale` = **1.4**.
+
+Before setting it, the obvious worry was the bands overflowing, since `NH` and
+`oh` are baked from the Raleway sizes at build time and do NOT follow the
+expression. Checked against every band in all four formats: Bebas at 1.4x still
+clears the box with **20-32px to spare** (name band, reels: ink 45px in a 72px
+band). **No band geometry change needed** - which is the invasive expression
+surgery this measurement avoided.
+
+**Font before placing.** The picker was edit-only, so a UN-style lower third meant
+place-then-switch. `collectValues()` now sends **`@font`** and `ochaAdd` applies it
+right after insert. The `@` prefix matters: bare keys go into `kvMap`, which drives
+the clip's auto-name, so a plain "Font" key would have produced
+"OCHA Lower Third - 2". Ignored silently on a template without the control.
+
+**Lag.** Selecting a clip cost TWO CEP round trips (`ochaReadMotion` +
+`ochaFontStatus`), and round trips are the slow part - that is why the panel felt
+worse than Premiere's own Properties. `ochaReadMotion` now returns the font index
+as a seventh field and `syncFont` is synchronous. The remaining write latency is
+one round trip and is inherent to CEP; Properties will always feel more immediate
+because Premiere sets its own control directly.
+
+RULE: measure the fonts before changing geometry. Cap height, ink height and
+advance width are three different things, and "looks small" usually means width.
+
+### The panel died because of a COMMENT: never start one with "@"
+
+Symptom: the format chip read `host: not sourced (typeof=EvalScript error.)`, the
+Add button was permanently greyed, and it survived a full Premiere restart. Every
+`ocha*()` call failed — the panel could not reach Premiere at all.
+
+Cause: one line I added inside `ochaAdd`,
+
+    // @font: the typeface chosen BEFORE placing, ...
+
+**ExtendScript's preprocessor reads a comment beginning with `@` as a DIRECTIVE**
+— the same mechanism that provides the at-include and at-target forms. `@font` is
+not a known directive, so it is a SyntaxError, and a SyntaxError anywhere means
+the **entire file fails to load**. No function is ever defined; every call returns
+`"EvalScript error."`.
+
+What made this expensive (four wrong rounds) is that *nothing* points at it:
+
+* `node --check` passes. **acorn with `ecmaVersion: 3` passes.** The construct is
+  legal JavaScript — the preprocessor is Adobe's, above the language.
+* The panel's own error names no file and no line, and reads exactly like a wedged
+  Premiere. I chased a stale script engine, then a Dropbox placeholder, then a
+  third-party panel (Motion/Boombox) — Javi correctly rejected that last one:
+  *"45 previous versions worked with those extensions."*
+* The CEP log only says `AsyncEvalScriptFileCallback ... error code 27`.
+
+What actually found it, in ten seconds: **loading the file in After Effects.** AE
+runs the same language, `host.jsx` only defines functions at load time, and AE's
+`$.evalFile` reports `SyntaxError` **with the line number**. That is now
+`premiere/ae/check_host_loads.jsx` — reach for it FIRST whenever the panel says
+"not sourced", instead of reasoning about Premiere's state.
+
+Guard: `tools/check-jsx.py` fails on an `@`-comment (anywhere in the line, since
+the directive scanner does not require column 0), on non-ASCII in `host.jsx`, and
+on let/const/arrows/template literals. Verified both ways — it flags the exact
+line when the bug is reintroduced and passes when it is not. ASCII is enforced for
+`host.jsx` ONLY: it is the file that crosses CEP's evalScript bridge, whereas the
+AE builder is read from disk and has carried em-dashes for years.
+
+RULE: when an ExtendScript file "doesn't load", do not reason about the host
+application. Load it in After Effects and read the line number.
+
+### Font dropdown: two follow-ups, one shared root
+
+**"Changing the font works in Properties but not in the plugin."** `setBound()`
+calls `selectEl()` whenever a clip binds, and `selectEl()` was calling
+`syncFont(null)` — which clears `fontClip`. So `syncAdjust` bound the dropdown to
+the clip and, a beat later, `selectEl` unbound it. The change handler's first line
+is `if (!fontClip) return`, so the dropdown went inert from the panel while
+Premiere's own Properties (which talks to the template directly) kept working.
+Split in two: `fontVisibility()` for show/hide, `syncFont()` as the SOLE owner of
+the binding, called only from `syncAdjust`.
+
+RULE: when two functions can write one piece of state, the one that runs on a
+timer wins the race you didn't think about. Give the state a single owner.
+
+**"Default on lower thirds is not OCHA Raleway."** The dropdown was doing double
+duty — showing the selected clip's font AND supplying the next Add's font. Edit a
+UN-style clip, deselect, place a new lower third: it came out Bebas. Now a
+separate `placementFont` holds the next-Add choice; editing a bound clip never
+touches it, and returning to placement mode restores the dropdown to it.
+
+Verified as a state machine in the panel preview with the host stubbed (six
+transitions): the binding survives `selectEl`; editing a clip leaves
+`placementFont` alone; choosing Bebas with nothing selected does carry into the
+next Add; deselecting restores the placement choice. Default ships as Raleway.
+
+### The real cause: a MOGRT dropdown is counted TWO ways
+
+Javi's observation is what cracked it: *"Bebas on the plugin reflects an empty
+dropdown in Properties, and Raleway reflects Bebas."* That is an off-by-one, in
+one direction, with the last item falling off the end.
+
+**The same stored value is 0-based from Premiere and 1-based in an AE expression.**
+
+| | first item | second item |
+|---|---|---|
+| Panel -> Premiere MOGRT API (`setValue`) | **0** | 1 |
+| AE expression (`effect('Font')('Menu')`) | **1** | 2 |
+
+The panel was sending 1-based, so Raleway(1) landed on Bebas and Bebas(2) landed
+out of range - Properties showed an empty field and AE clamped to the last item,
+which is why BOTH options rendered Bebas.
+
+The precedent was already in the repo and I missed it twice: `main.js` sends
+`push("Pin colour", blue ? 1 : 0)` with the comment **"0-based: Red=0, Blue=1"**,
+while the builder's fill expression reads `m == 1 ? red : blue`. Same control,
+both conventions, already documented in a one-line comment.
+
+Fixed panel-side only (options 0/1, `placementFont = 0`, host clamps at >= 0).
+**The AE expression was always right** - `f == 2` for the second item is correct
+1-based - so no template rebuild was needed.
+
+Second-order trap this created: **0 is a valid value that falsy checks eat.**
+`parseInt(v, 10) || 1` turns Raleway into Bebas, and `if (!n)` hides the group for
+a Raleway clip. Both now test `isNaN()`; `""` from `ochaReadMotion` remains the
+only "no Font control" sentinel. Verified across six transitions in the panel
+preview with the host stubbed, including the two 0-valued cases.
+
+RULE: before wiring a new MOGRT control, find an existing one of the same TYPE and
+copy its index convention. Do not infer it from the AE side - they disagree.
+
+### Track choice now sits where the element is added
+
+Javi: *"Gradients, vignette and any element offer the track to be added as an
+option."* The picker existed — but only on the **Branding** tab, under the Add
+button. Gradient and vignette are placed from the **Toolbox**, in a modal, so the
+control was a tab away and behind the dialog at the exact moment it was needed.
+`addGradient`/`addVignette` were already passing `trackPref()`; it just read a
+value nobody could see.
+
+The tool modal now carries its own Track row, shown only for tools that actually
+place a clip (an explicit `places: true` on the gradient and vignette configs, not
+inferred from `settings` — a future tool could have settings and place nothing).
+It resets to Automatic on every open, so a track chosen for one gradient cannot
+ride into the next.
+
+**One list, two pickers.** `refreshTracks()` fills both selects from the same
+`ochaTrackList()` call. Two independently-populated dropdowns that could disagree
+about what V3 is would be worse than the problem being solved.
+
+`trackPref()` reads the modal's picker only while a clip-placing tool is open,
+falling back to the Branding one. Gating merely on "a modal is open" returned a
+stale index from tools whose Track row is hidden (Package, Tidy) — a number the
+user never chose.
+
+Two traps avoided on the way: `$("modal")` does not exist (the element is
+`tool-modal`) — that would have thrown on the first call; and the row is an
+`.adj-row`, i.e. `display: flex`, which normally beats the `hidden` attribute —
+safe here only because styles.css already carries a global
+`[hidden] { display: none !important; }` (line 296). Verified both.
+
+### "Convert all audio to stereo" — NOT buildable, and the probe says why
+
+Javi asked for a Toolbox button mapping source ch1 to L and ch2 to R on 12-channel
+files, in the project panel and the sequence. Answer: **Premiere's scripting API
+does not expose audio channel interpretation at all.** Measured, not assumed —
+`premiere/cep/jsx/probe_audio_api.jsx` (since removed) reflected the live objects
+in Premiere 26.3.0:
+
+| object | methods | audio/channel-related |
+|---|---|---|
+| `ProjectItem` | 53 | **0** |
+| `TrackItem` | 10 | **0** |
+| QE Sequence | 61 | 9, all track-level (add/remove/mute tracks, display format, frame rate, render) |
+| QE audio track | 14 | 1 — `addAudioEffect` |
+
+The telling detail is what `ProjectItem` DOES expose: `setOverrideFrameRate`,
+`setOverridePixelAspectRatio`, `setScaleToFrameSize`, `setOverrideColorSpace`.
+Several other Modify-dialog interpretations are scriptable — **audio channels is
+the one that is not.** So this is a deliberate gap in Adobe's API, not something a
+cleverer approach reaches. `addAudioEffect` could bolt on Fill Left/Fill Right,
+but that duplicates a channel rather than mapping 1 to L and 2 to R, so it is the
+wrong answer, not a workaround.
+
+Caveat noted for honesty: the probed item happened to be a sequence
+(`isSequence: true`). ExtendScript reflection is per CLASS, so a media clip
+returns the same method table — the conclusion stands.
+
+The real fix is upstream, not a button: Premiere's Preferences > Audio > Default
+Audio Tracks lets multichannel media default to Stereo **on import**, which
+prevents the problem instead of repairing it clip by clip. (Not verified from
+here — the prefs file is not plain key=value — so it needs confirming in the UI.)
+
+RULE: when an API question decides whether a feature exists, ask the running
+application with a reflection probe. It cost one round trip and replaced a guess
+with a table. Same move as check_host_loads.jsx.

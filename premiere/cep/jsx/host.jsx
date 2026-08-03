@@ -594,6 +594,32 @@ function ochaAdd(el, fmtKey, extRoot, kvBlob, trackPref) {
       if (key === "@scale") { motion.scale = parseFloat(raw); continue; }
       if (key === "@posX")  { motion.posX  = parseFloat(raw); continue; }
       if (key === "@posY")  { motion.posY  = parseFloat(raw); continue; }
+      // The at-font key: the typeface chosen BEFORE placing, so a UN-style lower
+      // third can go down in one step instead of place-then-switch. The "at"
+      // prefix keeps it out of kvMap, which drives the clip's auto name - a bare
+      // "Font" key would make the clip "OCHA Lower Third - 2". Silently ignored
+      // on a template with no Font control, so an older installed template still
+      // places normally.
+      //
+      // NEVER start a comment with the at-sign in this file. ExtendScript's
+      // preprocessor reads it as a DIRECTIVE - the same mechanism that gives us
+      // the slash-slash-at-include and slash-slash-at-target forms - so an
+      // unknown one is a SyntaxError and the WHOLE file fails to load. Every
+      // ocha*() call then returns "EvalScript error." and the panel greys out
+      // with no clue why. Cost most of an afternoon on 2026-07-31; a normal JS
+      // parser accepts it happily, because this is Adobe's preprocessor and not
+      // JavaScript. tools/check-jsx.py now fails the build on it.
+      if (key === "@font") {
+        if (mgt) {
+          var fpAdd = ochaFindParam(mgt.properties, "Font");
+          if (fpAdd) {
+            var fi = parseInt(raw, 10);          // 0-based: Raleway=0, Bebas=1
+            if (isNaN(fi) || fi < 0) fi = 0;
+            try { fpAdd.setValue(fi, true); setNames.push("Font"); } catch (eF) {}
+          }
+        }
+        continue;
+      }
       if (!mgt) { failNames.push(key + " (controls not reachable)"); continue; }
       var p = ochaFindParam(mgt.properties, key);
       if (!p && OCHA_FIELD_ALIAS[key]) p = ochaFindParam(mgt.properties, OCHA_FIELD_ALIAS[key]);
@@ -1506,8 +1532,54 @@ function ochaReadMotion() {
       }
     }
     var nm = ""; try { nm = clip.name; } catch (e) {}
-    return nm + "|" + x + "|" + y + "|" + w + "|" + h + "|" + mode;
+    // Font index rides along on the SAME call. Selecting a clip used to cost two
+    // round trips (ochaReadMotion + ochaFontStatus) and CEP round trips are the
+    // slow part - this is why the panel felt laggier than Premiere's own
+    // Properties panel. Empty when the template has no Font control.
+    var fi = "";
+    var fpR = ochaFontParam(clip);
+    if (fpR) { try { fi = String(Math.round(fpR.getValue())); } catch (eF) { fi = ""; } }
+    return nm + "|" + x + "|" + y + "|" + w + "|" + h + "|" + mode + "|" + fi;
   } catch (e) { return "none"; }
+}
+
+/* ---------------------------------------------------------------------------
+   FONT (Advanced settings > Font). The template carries a "Font" dropdown control
+   and the panel drives it, exactly the way it already drives Position X/Y and
+   Size. A control has to be exposed on the template for getMGTComponent() to see
+   it at all, so it also shows as a plain row in Premiere's Properties panel; the
+   panel is simply the nicer front end.
+
+   SELF-GATING: a template built before this feature has no "Font" param, so
+   ochaReadMotion reports an empty font field and the panel hides the whole
+   group. An old installed template degrades quietly instead of offering a
+   control that does nothing.
+   ------------------------------------------------------------------------ */
+function ochaFontParam(clip) {
+  // The WHOLE lookup is guarded, not just getMGTComponent. ochaFindParam walks
+  // props.numItems, and a throw there would propagate up into ochaReadMotion and
+  // make it return "none" - i.e. one odd clip would silently unbind the Position
+  // sliders for every clip. A missing font control must degrade, never cascade.
+  try {
+    var mgt = clip.getMGTComponent();
+    if (!mgt) return null;
+    return ochaFindParam(mgt.properties, "Font");
+  } catch (e) { return null; }
+}
+
+function ochaSetFont(idx) {
+  try {
+    var clip = ochaSelectedOchaClip();
+    if (!clip) return "ERR|no OCHA clip selected";
+    var fp = ochaFontParam(clip);
+    if (!fp) return "ERR|this template has no Font control (rebuild the templates)";
+    // 0-BASED from Premiere (Raleway=0, Bebas=1), like "Pin colour". Clamping to a
+    // minimum of 1 is what made Raleway select Bebas and Bebas fall off the end.
+    var n = parseInt(idx, 10);
+    if (isNaN(n) || n < 0) n = 0;
+    fp.setValue(n, true);
+    return "OK|" + n;
+  } catch (e) { return "ERR|" + e.toString(); }
 }
 
 function ochaWriteMotion(x, y) {

@@ -62,6 +62,15 @@ logbook). This file is just the map + standing rules.
   ASCII-only, and never `--` inside a comment** (it breaks the manifest XML too).
   Its `File` writes Mac line endings: set `f.lineFeed = "Unix"` or every `\n`
   silently becomes `\r` (cost us a whole afternoon on the packager's relink).
+- **NEVER start a comment with `@` in any `.jsx`.** ExtendScript's *preprocessor*
+  reads it as a directive (the mechanism behind the at-include/at-target forms),
+  so an unknown one is a SyntaxError that kills the **whole file** — every
+  `ocha*()` call returns `"EvalScript error."` and the panel greys out naming no
+  line. A JS parser accepts it happily; this is Adobe's preprocessor, not
+  JavaScript. `python3 tools/check-jsx.py` enforces this plus ASCII/ES3 — run it
+  before any panel test. To see whether a `.jsx` loads at all, run
+  `premiere/ae/check_host_loads.jsx` in After Effects: it reports the real error
+  **with the line number**, which the CEP panel never does. (2026-07-31.)
 - **Panel icons are Font Awesome Classic REGULAR, inlined** from
   `…/OCHA_design_system/assets/FA_classic_regular/` — never the FA kit script (a
   CDN breaks offline), never Solid, never hand-drawn. `python3 tools/check-icons.py`
@@ -70,6 +79,18 @@ logbook). This file is just the map + standing rules.
   everything; he authorises the release.
 - **Restart the engine for backend (Python) changes** — the launch config has no
   `--reload` and static files are served no-cache.
+- **Never open a text file without `encoding="utf-8"`** — `open()`, `read_text()`,
+  `write_text()`, and `Popen(text=True)`. Python's default is the PLATFORM's, so
+  Windows uses cp1252 while macOS uses UTF-8: cp1252 has no Arabic, no Polish `ł`,
+  no Cyrillic, and Western accents (é, ô, ç) survive it by luck. That combination
+  means the bug is invisible on the Mac you develop on and certain on a colleague's
+  laptop. It crashed transcription and rendering for months (2026-07-30). Pipes
+  reading ffmpeg/yt-dlp also take `errors="replace"` so one log line can't kill a job.
+- **OCHA house style is DATA** in `brand/ocha_style.json`, applied by
+  `engine/style.py` to transcript WORD TOKENS (never the sentence string — `text`
+  and `words` must stay in sync or the reviewed caption isn't the burned one), and
+  summarised into the AI prompt via `GET /api/style/prompt` from the same file.
+  English only — the rules are English words that also exist in other languages.
 - **Share, don't duplicate.** Both-tab logic lives in ONE module (the shared
   `browser/*.js`; `engine/` is shared by both modes). Copy-paste has drifted before.
 - **Logos are always SVG**, rasterised at render time — never ship a PNG.

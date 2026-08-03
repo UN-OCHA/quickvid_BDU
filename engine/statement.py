@@ -33,6 +33,7 @@ import social_brand
 import ending as ending_mod  # noqa: E402  (same engine dir; shares fonts/logo/click plumbing)
 import lower_third   # noqa: E402  (shared LT animation timing constants — same brand-lt.json spec)
 import mediakit      # noqa: E402  (shared colour gate: HDR/wide-gamut → bt709)
+import style         # noqa: E402  (OCHA Editorial Style Guide — brand/ocha_style.json)
 
 FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 
@@ -367,11 +368,32 @@ def do_transcribe(spec):
                         "text": text, "words": words})
         os.remove(wav)
     out.sort(key=lambda x: x["in"])                          # windows may be entered out of order
+    # OCHA house style ONCE, here — before the ids are assigned and before anything
+    # downstream sees the text. The sentence list, the AI prompt, the caption editor,
+    # the burned captions and the SRT all read from this one file, so styling it at
+    # the source is the only way they can't disagree. Spelling/capitalization only;
+    # `words` and `text` are rewritten together (see engine/style.py).
+    #
+    # ENGLISH ONLY. The rules are English words, and several are ordinary words in
+    # other languages — a Spanish transcript would have "labor" and "color" quietly
+    # turned into "labour" and "colour". `translate` always outputs English, so it
+    # qualifies whatever was spoken.
+    english = (spec.get("task") == "translate") or str(lang or "").lower().startswith("en")
+    if spec.get("style", True) and english:
+        out, styled = style.apply_segments(out)
+        if styled:
+            print(f"OCHA style applied to {styled} of {len(out)} sentences", flush=True)
     for sid, seg in enumerate(out, 1):
         seg["id"] = sid
     print("PROGRESS 100", flush=True)
     print(f"…{len(out)} segments", flush=True)
-    json.dump(out, open(spec["out_json"], "w"), ensure_ascii=False)
+    # encoding="utf-8" is LOAD-BEARING, not tidiness. Windows text mode defaults to
+    # the ANSI codepage (cp1252), which has no Arabic, no Polish ł, no Cyrillic — so
+    # `ensure_ascii=False` + the default encoding is a hard UnicodeEncodeError there
+    # and works fine on macOS. Same for the `with`: Windows keeps the handle locked
+    # until it closes, and the caller reads this file immediately.
+    with open(spec["out_json"], "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False)
     print("RESULT " + json.dumps({"segments": len(out), "language": lang}), flush=True)
 
 
@@ -509,7 +531,7 @@ def main():
     ap.add_argument("--do", required=True, choices=["applysync", "transcribe", "still", "render"])
     ap.add_argument("--spec", required=True)
     args = ap.parse_args()
-    spec = json.loads(open(args.spec).read())
+    spec = json.loads(open(args.spec, encoding="utf-8").read())
     {"applysync": do_applysync, "transcribe": do_transcribe,
      "still": do_still, "render": do_render}[args.do](spec)
 
