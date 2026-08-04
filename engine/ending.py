@@ -105,15 +105,24 @@ def render_logo(W, H, tmp):
     return png, im.size[0], im.size[1]
 
 
-def add_ending(FF_, video, style, darken, bitrate, tmp, out, p_lo=0, p_hi=100):
+def add_ending(FF_, video, style, darken, bitrate, tmp, out, p_lo=0, p_hi=100,
+               logo_y_frac=None):
     """style 'over_black' | 'over_footage'. The logo is the crisp SVG; it SNAPS on
     (no fade — a rough cut) and HOLDS to the end. The darken (over_footage) and the
-    cut to black (over_black) are hard too. Click SOUND from brand.json's asset."""
+    cut to black (over_black) are hard too. Click SOUND from brand.json's asset.
+
+    `logo_y_frac` moves the logo vertically (0.5 = centred, the standard). It only
+    applies OVER FOOTAGE, where the logo can land on a face; over black there is
+    nothing to avoid, so that stays centred whatever is passed. Same name and
+    meaning as social_brand.py's — the Edit tab reaches the logo through that
+    graph and the Titles tab through this one, and the two must agree."""
     fp = ffprobe_of(FF_)
     dur, W, H = _probe(video, fp)
     silent = not _has_audio(video, fp)               # e.g. a screen recording
     logo, lw, lh = render_logo(W, H, tmp)
     lx, ly = (W - lw) // 2, (H - lh) // 2
+    if style == "over_footage" and logo_y_frac is not None:
+        ly = max(0, min(H - lh, round(H * float(logo_y_frac) - lh / 2)))
     asset = json.loads(open(BRAND_JSON, encoding="utf-8").read()).get("ending", {}).get("asset", "")
     mov = os.path.join(ROOT, asset) if asset else ""
     click = bool(mov) and os.path.exists(mov)

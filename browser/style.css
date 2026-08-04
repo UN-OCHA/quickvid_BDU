@@ -104,6 +104,9 @@
   border: 1px solid var(--line); border-radius: var(--radius-sm);
 }
 .ex-thumb figcaption { font-size: 0.78rem; color: var(--muted); margin-top: var(--sp-8); }
+/* live-preview strip under an example thumbnail (browser/brandpreview.js) */
+.bp-bar { display: flex; align-items: center; gap: var(--sp-8); flex-wrap: wrap; margin-top: var(--sp-8); }
+.bp-note:empty { display: none; }
 
 /* subsection divider — Subtitles / Ending stacked in the one Edit branding card
    (the Titles tab splits these into separate cards, so it doesn't need this) */

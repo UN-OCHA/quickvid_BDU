@@ -3,6 +3,81 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-08-04 — Element previews on real footage, and the web app reports usage (2026.0.33)
+
+Closes the last four items of the 2026-07-30 feedback round (`docs/webapp-plan-2026-07-30b.md`).
+
+**Previews (items 7 + 9 + 12) — rendered, never mocked up.**
+Every branding element (lower third, subtitles, OCHA logo watermark, location
+strip, text on screen, ending logo) now previews over a REAL frame of the user's
+own video, on BOTH tabs — twelve preview points, one shared module.
+
+The choice that matters: the preview is produced by `social_brand.render()` —
+the actual production overlay graph — not by redrawing the brand in HTML/CSS. A
+CSS mock-up would have been a second implementation of the OCHA brand and would
+have drifted; `browser/brand-lt.json` exists precisely because two
+implementations of one thing drifted once already. A preview that can lie is
+worse than no preview.
+
+`engine/brand_preview.py` gets there **without touching social_brand.py at all**:
+pull one frame at time t (same colour normalization + Look the render applies) →
+make a ~2s silent clip out of that single frame → run the ordinary render over it
+with every element re-timed to 0 → read the frame once the entrance animations
+have settled. `social_brand.render()` wants a video, and a looped still IS a
+video, so nothing in the graph needs to know it is a preview. ~1.0s cold, 2ms
+cached (`_brandprev_*.jpg`, keyed on the full spec, pruned with the others).
+
+Two real bugs fell out of building it:
+- `at = float(end.get("at") or footage_end)` — `or` on a numeric meant **at=0
+  could never be expressed**, so the ending logo silently moved to the end of the
+  clip. Live effect: `engine_bridge` clamps `at` to 0 for a clip shorter than the
+  logo lead, and those put the logo at the END. Now `is None`.
+- `stSetSubStyle` read `stBp` **before its `const` initialised**. A const read in
+  its temporal dead zone THROWS rather than reading undefined, which killed the
+  rest of statement.js and every listener it had left to register — the exact
+  dead-panel class CLAUDE.md warns about, and the console showed nothing useful.
+  The symptom that gave it away was a `ReferenceError` on an unrelated later
+  const. Both registries are now declared above their first caller.
+  **Diagnostic worth keeping:** to find a mid-file throw when top-level consts
+  aren't reachable from the console, re-fetch the file and run it in a fresh
+  scope — `fetch(f).then(r=>r.text()).then(src=>{try{(0,eval)(src)}catch(e){...}})`.
+
+Item 12's vertical slider (`logo_y_frac`) is plumbed through BOTH ending paths —
+`social_brand.py`'s over_footage branch (Edit tab) and `ending.py`'s
+`add_ending()` (Titles tab) — because those are two implementations of one thing
+and item 11 already caught them disagreeing. It applies over footage only; over
+black there is nothing to avoid, so that stays centred whatever is passed.
+
+**Layout sweep (item 4).** Five checkbox rows still had their explanation crammed
+inline after the label (`Subtitles <span class=app-hint>— their words…</span>`) —
+what makes a panel look crumbled. All five moved into the standard
+`.opt-grid`/`.opt-card` with the hint on its own line. `st-4k-wrap`'s id moved to
+the CARD so the "4K unavailable" dimming covers the hint too, and `st4kSync`'s
+hint strings lost their leading em dash (they are no longer a continuation of the
+label).
+
+**Analytics (item 13).** The web app now pings the SAME Apps Script deployment as
+the Premiere plugin, tagged `p=webapp`, landing on its own `Events Web App` tab —
+Javi's call: one sheet, a tab per product, separate dashboards later. Sharing a
+tab would have made every plugin figure jump the day the web app started
+reporting, with the rows indistinguishable afterwards. **`p` absent means
+`plugin`**, so every panel already in the field keeps logging exactly where it
+did; do not make `p` required.
+
+Because the app's headline promise is "your videos never leave your computer",
+the one thing that does leave is spelled out in full in a **Privacy** modal in the
+footer — the exact four fields, what is never sent — with the opt-out beside it
+(`localStorage: quickvid.analytics.off`). Location is the browser's TIME ZONE, not
+a geo-IP lookup: no third-party call. Beacon is an `<img>`, not fetch — no CORS
+preflight to fail, and it cannot block the page.
+
+Javi still has to **redeploy the Apps Script** (edit the existing deployment — a
+NEW deployment gets a new /exec URL and every panel in the field is hardcoded to
+the old one). Until then web-app pings land in `Events` with the plugin's.
+
+**Also:** `APP_VERSION` in app.js now seeds `ENGINE_LATEST` instead of the two
+being maintained separately.
+
 ## 2026-07-16 — Engine crashed on Python 3.9 / PEP 604 unions (v0.6.2)
 Surfaced BY the v0.6.1 fix: a colleague's launcher now printed the real
 traceback instead of a false success — `TypeError: unsupported operand

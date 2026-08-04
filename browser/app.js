@@ -35,7 +35,11 @@ const ENGINE_MIN = "0.5.0";
 // corrected from the repo's VERSION file at load — see trackLatestVersion below.
 // It used to be hardcoded only, which meant the banner quietly went stale every
 // release: it was still advertising 0.6.3 while main had moved on to 0.7.0.
-let ENGINE_LATEST = "2026.0.32";
+// This page's OWN version — the repo's VERSION at the time it was published. It is
+// also the newest published version by definition (the page always ships from main),
+// so ENGINE_LATEST seeds from it: one constant to bump, not two that can drift.
+const APP_VERSION = "2026.0.33";
+let ENGINE_LATEST = APP_VERSION;
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
 // numeric semver-ish compare: cmpVer("0.2.0","0.3.0") < 0
@@ -171,15 +175,44 @@ function fallbackCopy(text, done) {
   document.body.removeChild(ta);
 }
 
+  // Bring a picked file into the job folder, with progress. Mirrors the Edit tab's
+  // stAdoptSource: both tabs must behave the same, or a project made on one is not
+  // portable in the way a project made on the other is.
+  async function tAdoptSource(path) {
+    if (!path || !state.jobDir) return path;
+    try {
+      const r = await fetch(ENGINE + "/api/statement/adopt-source", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ src: path, dir: state.jobDir }),
+      });
+      if (!r.ok) return path;
+      const j = await r.json();
+      if (!j.job_id) return j.path || path;          // already inside the folder
+      let done = null;
+      for (;;) {
+        await sleep(700);
+        done = await (await fetch(ENGINE + "/api/jobs/" + j.job_id)).json();
+        setStatus(done.progress || "Copying into the project folder\u2026", "busy", done.percent);
+        if (done.status !== "queued" && done.status !== "running") break;
+      }
+      setStatus("");
+      return (done.result && done.result.path) || path;
+    } catch (e) { return path; }
+  }
+
 // native picker on the engine → a path it reads straight off disk (no upload, no size limit)
 async function enginePick() {
   try {
     const r = await fetch(ENGINE + "/api/pick-file", { method: "POST" });
     if (!r.ok) return;
-    const { path } = await r.json();
+    const { path: picked } = await r.json();
+    // Copy it into the job folder first, so the folder is self-contained
+    // (same contract as the Edit tab). Falls back to the original on any problem.
+    const path = await tAdoptSource(picked);
     if (path) {
       const changed = state.enginePath && state.enginePath !== path;
       state.enginePath = path; $("#drop-text").textContent = path.split(/[\\/]/).pop(); $("#drop").classList.add("has-file"); setStatus("");
+      OchaBrandPreview.refreshAll();              // element previews can now use real footage
       if (changed) tCaps.clear("Video changed — captions reset.");   // stale cue text must never burn onto another clip
       if (changed) tLook.resetPreview();                             // stills belong to the old clip
     }
@@ -235,11 +268,24 @@ if (ftPick) ftPick.onclick = async () => {
 
 // full mode: hand the job to the engine (real ffmpeg) and stream the result back over localhost
 async function renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look, texts, rtl) {
-  const body = { video: state.enginePath, lower_thirds: lowerThirds, ending: { style: ending.style },
+  const body = { video: state.enginePath, lower_thirds: lowerThirds,
+                 ending: { style: ending.style, logo_y_frac: ending.logo_y_frac },
                  subtitles: subtitles || { on: false, style: "box" }, bug: bug || { on: false },
                  pins: pins || [], cues: cues || undefined, look: look || undefined,
                  texts: (texts && texts.length) ? texts : undefined,
                  rtl: rtl, dir: state.jobDir };
+  // Which features actually get used — the whole point of the pings. Renders are
+  // counted every time (the volume figure); each feature counts once per session.
+  try {
+    OchaAnalytics.ping("render:titles", false);
+    if (subtitles && subtitles.on) OchaAnalytics.ping("use:captions");
+    if (lowerThirds && lowerThirds.length) OchaAnalytics.ping("use:lowerthird");
+    if (ending && ending.style && ending.style !== "none") OchaAnalytics.ping("use:ending");
+    if (pins && pins.length) OchaAnalytics.ping("use:pin");
+    if (texts && texts.length) OchaAnalytics.ping("use:texton");
+    if (look) OchaAnalytics.ping("use:look");
+    if (rtl) OchaAnalytics.ping("use:rtl");
+  } catch (e) {}
   const r = await fetch(ENGINE + "/api/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) { let m = "Engine error"; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
   const { job_id } = await r.json();
@@ -314,6 +360,9 @@ function ftRestore(p) {
     ftLt.restore(p.lower_thirds);
     const end = document.querySelector(`input[name="ending"][value="${(p.ending || {}).style || "none"}"]`);
     if (end) end.checked = true;
+    const ly = (p.ending || {}).logo_y_frac;
+    if (Number.isFinite(ly)) $("#t-logoy").value = Math.round(ly * 100);
+    tLogoYLabel(); tLogoYVis();
     if (p.subtitles) { $("#t-subs-on").checked = !!p.subtitles.on; tSetSubStyle(p.subtitles.style || "box"); }
     if (p.bug) $("#t-bug-on").checked = !!p.bug.on;
     tLook.restore(p.look);
@@ -334,7 +383,8 @@ function ftRestore(p) {
 function ftCollect() {
   return {
     lowerThirds: ftLt.collect(),
-    ending: { style: document.querySelector('input[name="ending"]:checked').value },
+    ending: { style: document.querySelector('input[name="ending"]:checked').value,
+              logo_y_frac: tLogoY() },
     subtitles: { on: $("#t-subs-on").checked, style: tSubsStyle },
     bug: { on: $("#t-bug-on").checked },
     pins: tLoc.collect(),
@@ -398,12 +448,23 @@ function tSetSubStyle(style) {
   tSubsStyle = style;
   $("#t-substyle-box").classList.toggle("cd-button--outline", style !== "box");
   $("#t-substyle-event").classList.toggle("cd-button--outline", style === "box");
-  const img = $("#t-subs-preview");                    // box = 9:16 reel, event = 16:9 — set intrinsic size to avoid stretch/shift
-  img.width = 360; img.height = style === "box" ? 640 : 203;
-  img.src = style === "box" ? "img/ex-sub-box.jpg" : "img/ex-sub-event.jpg";
-  $("#t-subs-cap").textContent = style === "box"
-    ? "Social — white text on a grey box (feeds & reels)."
-    : "Event — clean white text over a soft gradient (16:9 screens).";
+  if (tBp.subs) tBp.subs.refresh();                    // repaints example OR live frame
+}
+/* Declared above tSetSubStyle for the same reason as the Edit tab's stBp:
+   tSetSubStyle reads it and runs during load, and a const read in its temporal
+   dead zone throws instead of reading undefined. */
+const tBp = {};
+// The EXAMPLE for the current style. The live preview owns the <img> (see
+// browser/brandpreview.js) and calls this when there's no video yet — so the
+// picker and the preview never write the same element from two places.
+function tSubExample() {
+  const box = tSubsStyle !== "gradient";
+  return {                                             // box = 9:16 reel, event = 16:9 — intrinsic size avoids stretch/shift
+    src: box ? "img/ex-sub-box.jpg" : "img/ex-sub-event.jpg",
+    width: 360, height: box ? 640 : 203,
+    caption: box ? "Social — white text on a grey box (feeds & reels)."
+                 : "Event — clean white text over a soft gradient (16:9 screens).",
+  };
 }
 $("#t-substyle-box").onclick = () => tSetSubStyle("box");
 $("#t-substyle-event").onclick = () => tSetSubStyle("gradient");
@@ -475,6 +536,75 @@ const tLoc = OchaLocation.mount({
 
 $("#t-subs-on").addEventListener("change", () => { $("#t-subs-opts").hidden = !$("#t-subs-on").checked; });
 
+/* ---- "show it on MY video": the five element previews (browser/brandpreview.js).
+   The SAME five the Edit tab mounts, against the same engine endpoint, which
+   composites with the REAL overlay graph — a preview can't disagree with the
+   export. This tab brands a finished clip, so the canvas stays the source's own
+   size (canvas: null) rather than a chosen social format. */
+const tBpCommon = {
+  getVideo: () => state.enginePath, getTime: () => 1, engine: ENGINE,
+  canvas: () => null,
+  base: () => ({ look: tLook.collect(), rtl: $("#t-rtl").checked || undefined }),
+};
+
+tBp.lt = OchaBrandPreview.mount({
+  ...tBpCommon, figure: $("#t-bp-lt"),
+  collect: () => { const l = ftLt.collect(); return l && l.length ? { lower_thirds: l } : null; },
+  watch: () => [...document.querySelectorAll("#lt-rows input, #lt-rows select")],
+});
+
+tBp.subs = OchaBrandPreview.mount({
+  ...tBpCommon, figure: $("#t-bp-subs"), example: tSubExample,
+  base: () => ({ ...tBpCommon.base(), subtitle: { box: tSubsStyle !== "gradient" } }),
+  // a realistic line: the box, the wrap and the position are the point
+  collect: () => ($("#t-subs-on").checked
+    ? { cues: [[0, (tCaps.collect(state.enginePath) || [])[0]?.[1]
+                   || "This is how a subtitle will look on your video."]] }
+    : null),
+  watch: () => [$("#t-subs-on")],
+});
+
+tBp.bug = OchaBrandPreview.mount({
+  ...tBpCommon, figure: $("#t-bp-bug"),
+  collect: () => ($("#t-bug-on").checked ? { bug: { on: true } } : null),
+  watch: () => [$("#t-bug-on")],
+});
+
+tBp.pin = OchaBrandPreview.mount({
+  ...tBpCommon, figure: $("#t-bp-pin"),
+  collect: () => { const p = tLoc.collect(); return p && p.length ? { pins: p } : null; },
+  watch: () => [...document.querySelectorAll("#t-loc-rows input, #t-loc-rows select")],
+});
+
+tBp.texton = OchaBrandPreview.mount({
+  ...tBpCommon, figure: $("#t-bp-texton"),
+  collect: () => { const t = tTexts.collect(); return t && t.length ? { texts: t } : null; },
+  watch: () => [...document.querySelectorAll("#t-tx-rows input, #t-tx-rows textarea, #t-tx-rows select")],
+});
+
+/* Ending logo — the one preview with a control attached. The slider writes
+   `logo_y_frac`; 0.5 (centred) is the standard, and moving it is for the case
+   where the logo lands on a face. Same control the Edit tab has. */
+const tEndStyle = () => (document.querySelector('input[name="ending"]:checked') || {}).value;
+const tLogoY = () => (parseInt(($("#t-logoy") || {}).value, 10) || 50) / 100;
+function tLogoYLabel() {
+  const v = Math.round(tLogoY() * 100);
+  $("#t-logoy-val").textContent = v === 50 ? "Centred (standard)" : `${v}% down the frame`;
+}
+function tLogoYVis() { $("#t-logoy-row").hidden = tEndStyle() !== "over_footage"; }
+tBp.ending = OchaBrandPreview.mount({
+  ...tBpCommon, figure: $("#t-bp-ending"),
+  // Only meaningful where the logo sits over the picture; over black is a card
+  // the body graph never draws — see engine/brand_preview.py.
+  collect: () => (tEndStyle() === "over_footage"
+    ? { ending: { style: "over_footage", logo_y_frac: tLogoY() } } : null),
+  watch: () => [...document.querySelectorAll('input[name="ending"]'), $("#t-logoy")],
+});
+$("#t-logoy").addEventListener("input", () => { tLogoYLabel(); ftSave(); });
+document.querySelectorAll('input[name="ending"]').forEach((r) =>
+  r.addEventListener("change", tLogoYVis));
+tLogoYLabel(); tLogoYVis();
+
 // ---- step help (?) toggles — kit component .cd-help__btn / .cd-help__panel ----
 document.addEventListener("click", (e) => {
   const b = e.target.closest(".cd-help__btn");
@@ -488,15 +618,27 @@ document.addEventListener("click", (e) => {
 
 /* ---- footer: Help & reinstall + What's new (reachable in every state) ---- */
 function footModal(id, open) { const m = $("#" + id); if (m) m.hidden = !open; }
+const FOOT_MODALS = ["help-modal", "news-modal", "privacy-modal"];
 $("#foot-help").onclick = () => footModal("help-modal", true);
 $("#foot-whatsnew").onclick = () => footModal("news-modal", true);
+$("#foot-privacy").onclick = () => footModal("privacy-modal", true);
 $("#help-close").onclick = () => footModal("help-modal", false);
 $("#news-close").onclick = () => footModal("news-modal", false);
-["help-modal", "news-modal"].forEach((id) =>
+$("#privacy-close").onclick = () => footModal("privacy-modal", false);
+FOOT_MODALS.forEach((id) =>
   $("#" + id).addEventListener("click", (e) => { if (e.target === $("#" + id)) footModal(id, false); }));
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") { footModal("help-modal", false); footModal("news-modal", false); }
+  if (e.key === "Escape") FOOT_MODALS.forEach((id) => footModal(id, false));
 });
+
+/* ---- anonymous usage pings (see analytics.js for the full payload) ----
+   The checkbox is the switch; analytics.js owns where the preference is stored. */
+const optOut = $("#privacy-optout");
+if (optOut && window.OchaAnalytics) {
+  optOut.checked = OchaAnalytics.optedOut();
+  optOut.onchange = () => OchaAnalytics.setOptOut(optOut.checked);
+}
+try { OchaAnalytics.init(APP_VERSION); } catch (e) { /* analytics must never break the app */ }
 // Help modal is OS-aware, same pattern as the gate card's setup steps
 // (statement.js stSetOS): auto-detect, with a manual toggle — people help
 // colleagues on the other platform, and the detection can be wrong.

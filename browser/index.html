@@ -13,8 +13,8 @@
        REGULAR, which is the OCHA standard for UI chrome — this does. Web app only:
        the Premiere panel inlines SVGs instead, since a CDN breaks offline. -->
   <script src="https://kit.fontawesome.com/f4c1c5435d.js" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="vendor/ocha-app-kit.css?v=2026.0.32" />
-  <link rel="stylesheet" href="style.css?v=2026.0.32" />
+  <link rel="stylesheet" href="vendor/ocha-app-kit.css?v=2026.0.33" />
+  <link rel="stylesheet" href="style.css?v=2026.0.33" />
 
   <script src="field.js?v=1" defer></script>      <!-- shared required project-folder field: BOTH tabs -->
   <script src="location.js?v=2" defer></script>   <!-- shared location strip: BOTH tabs -->
@@ -23,9 +23,11 @@
   <script src="waiting.js?v=1" defer></script>   <!-- shared waiting lines: BOTH tabs -->
   <script src="look.js?v=2" defer></script>        <!-- shared footage-look picker: BOTH tabs -->
   <script src="texton.js?v=3" defer></script>      <!-- shared text-on-screen cards: BOTH tabs -->
-  <script src="app.js?v=27" defer></script>
-  <script src="statement.js?v=22" defer></script>
-  <script src="toolbox.js?v=1" defer></script>
+  <script src="brandpreview.js?v=1" defer></script>  <!-- shared element previews on real footage: BOTH tabs -->
+  <script src="analytics.js?v=1" defer></script>  <!-- anonymous usage pings; opt-out in the footer -->
+  <script src="app.js?v=28" defer></script>
+  <script src="statement.js?v=23" defer></script>
+  <script src="toolbox.js?v=2" defer></script>
 </head>
 <body>
   <a class="cd-skip-link" href="#main">Skip to main content</a>
@@ -185,7 +187,7 @@
             <li>One row per person — <strong>Add lower third</strong> for more. Don't need any? Leave it empty.</li>
           </ul>
         </div>
-        <figure class="ex-thumb">
+        <figure class="ex-thumb" id="t-bp-lt">
           <img src="img/ex-lowerthird.jpg" alt="Example: a name and job-title lower third" />
           <figcaption>A <strong>lower third</strong> — name + job title, auto-placed for your format and social safe areas.</figcaption>
         </figure>
@@ -207,13 +209,18 @@
           </ul>
         </div>
         <div id="t-subs-full">
-          <label class="st-check"><input type="checkbox" id="t-subs-on" checked /> Subtitles <span class="app-hint">— the spoken words, transcribed on your computer and burned in. On by default: most social video is watched muted.</span></label>
+          <div class="opt-grid">
+            <div class="opt-card">
+              <label class="st-check"><input type="checkbox" id="t-subs-on" checked /> Subtitles</label>
+              <p class="opt-card__hint">The spoken words, transcribed on your computer and burned in. On by default: most social video is watched muted.</p>
+            </div>
+          </div>
           <div id="t-subs-opts">
             <div class="st-btn-row" role="group" aria-label="Subtitle style">
               <button type="button" id="t-substyle-box" class="cd-button cd-button--small"><span class="cd-button__text">Social — boxed</span></button>
               <button type="button" id="t-substyle-event" class="cd-button cd-button--small cd-button--outline"><span class="cd-button__text">Event — clean</span></button>
             </div>
-            <figure class="ex-thumb">
+            <figure class="ex-thumb" id="t-bp-subs">
               <img id="t-subs-preview" src="img/ex-sub-box.jpg" width="360" height="640" alt="Subtitle style preview" />
               <figcaption id="t-subs-cap">Social — white text on a grey box (feeds &amp; reels).</figcaption>
             </figure>
@@ -239,8 +246,13 @@
             <li><strong>Off by default.</strong> Turn it on for clips likely to be re-shared or re-cut, so the OCHA source stays visible however it travels.</li>
           </ul>
         </div>
-        <label class="st-check"><input type="checkbox" id="t-bug-on" /> Add the OCHA logo <span class="app-hint">— watermark, top-right, for the whole video. Typically for event videos; off by default.</span></label>
-        <figure class="ex-thumb">
+        <div class="opt-grid">
+          <div class="opt-card">
+            <label class="st-check"><input type="checkbox" id="t-bug-on" /> Add the OCHA logo</label>
+            <p class="opt-card__hint">Watermark, top-right, for the whole video. Typically for event videos; off by default.</p>
+          </div>
+        </div>
+        <figure class="ex-thumb" id="t-bp-bug">
           <img src="img/ex-bug.jpg" width="360" height="203" alt="Example: the OCHA logo watermark in the top-right corner of an event video" />
           <figcaption>The logo watermark on an event video (16:9) — its usual home. Off by default; available for any format.</figcaption>
         </figure>
@@ -266,7 +278,7 @@
         <button class="cd-button cd-button--outline cd-button--small" id="t-loc-add" type="button">
           <i class="fa-regular fa-plus" aria-hidden="true"></i><span class="cd-button__text">Add a location strip</span>
         </button>
-        <figure class="ex-thumb">
+        <figure class="ex-thumb" id="t-bp-pin">
           <img src="img/ex-pin.jpg" width="360" height="640" alt="Example: the OCHA location strip top-left, place over date with a map pin" />
           <figcaption>The location strip — top-left, animated in and out.</figcaption>
         </figure>
@@ -287,7 +299,7 @@
             <li>Want a fourth line? Use a second block — three lines is the template's design.</li>
           </ul>
         </div>
-        <figure class="ex-thumb">
+        <figure class="ex-thumb" id="t-bp-texton">
           <img src="img/ex-texton.jpg" width="360" height="640" alt="Example: three lines of large white text across the middle of a portrait video, over a soft dark band" />
           <figcaption>Text on screen — the lines rise in one after another, over the automatic readability gradient. Shown at 60%; each block sets its own.</figcaption>
         </figure>
@@ -331,6 +343,19 @@
             <span class="end-opt__hint">Leave the video as it is.</span>
           </label>
         </div>
+        <!-- Over-footage only: the logo lands ON the picture, so it can collide
+             with a face. Over black there is nothing to avoid and it stays centred. -->
+        <div id="t-logoy-row" hidden>
+          <label class="cd-form__label" for="t-logoy">Logo height</label>
+          <div class="field-row">
+            <input id="t-logoy" type="range" min="25" max="75" step="1" value="50" />
+            <span class="app-hint" id="t-logoy-val">Centred</span>
+          </div>
+        </div>
+        <figure class="ex-thumb" id="t-bp-ending">
+          <img src="img/ex-ending-footage.jpg" width="360" height="203" alt="Example: the OCHA logo over the closing shot" />
+          <figcaption>The OCHA logo over the closing footage — no scrim, modest and centred.</figcaption>
+        </figure>
       </div>
     </section>
 
@@ -544,7 +569,14 @@
               <span class="fmt-shape"><i class="fa-regular fa-rectangle-wide" aria-hidden="true"></i></span>
               <span class="end-opt__label">Event screen</span><span class="end-opt__hint">16:9 · clean captions over a soft gradient</span></label>
           </div>
-          <label class="st-check" id="st-4k-wrap"><input type="checkbox" id="st-4k" disabled /> Export in 4K <span class="app-hint" id="st-4k-hint">— Event screen only, and only when your source is 4K. Everything keeps the same proportions, just larger. Not for social media: Instagram, TikTok and X re-encode to 1080 anyway.</span></label>
+          <div class="opt-grid">
+            <!-- id on the CARD so statement.js dims the whole card, hint included,
+                 when 4K isn't available for this source/format -->
+            <div class="opt-card" id="st-4k-wrap">
+              <label class="st-check"><input type="checkbox" id="st-4k" disabled /> Export in 4K</label>
+              <p class="opt-card__hint" id="st-4k-hint">Event screen only, and only when your source is 4K. Everything keeps the same proportions, just larger. Not for social media: Instagram, TikTok and X re-encode to 1080 anyway.</p>
+            </div>
+          </div>
           <p class="app-hint"><strong>Drag each picture</strong> to reposition it, and use its <strong>zoom</strong> to go tighter or wider — the two frames are independent. The previews use a moment from your first kept sentence; <strong>Try another frame</strong> shows a different one.</p>
           <!-- Fixed-size boxes: the figure used to be as wide as the picture, so a
                16:9 Event still made the whole column (and its zoom slider) balloon,
@@ -589,7 +621,7 @@
               <li><strong>Footage after the last sentence</strong>: with <em>Over footage</em>, the picture keeps rolling for a moment under the logo while the <strong>sound fades to silence</strong> — whoever speaks next in the room is never heard. If your speaker closes with "I thank you", keep that sentence ticked so it's heard.</li>
             </ul>
           </div>
-          <figure class="ex-thumb">
+          <figure class="ex-thumb" id="st-bp-lt">
             <img src="img/ex-lowerthird.jpg" alt="Example: a name and job-title lower third" width="320" height="569" />
             <figcaption>A <strong>lower third</strong> — name + job title, animated on and off.</figcaption>
           </figure>
@@ -598,13 +630,18 @@
           <button class="cd-button cd-button--outline cd-button--small" id="st-lt-add" type="button"><i class="fa-regular fa-plus" aria-hidden="true"></i><span class="cd-button__text">Add lower third</span></button>
 
           <h3 class="cd-block-title st-subsection">Subtitles</h3>
-          <label class="st-check"><input type="checkbox" id="st-captions" checked /> Subtitles <span class="app-hint">— their words, burned in. Keep ON for social: most people watch muted.</span></label>
+          <div class="opt-grid">
+            <div class="opt-card">
+              <label class="st-check"><input type="checkbox" id="st-captions" checked /> Subtitles</label>
+              <p class="opt-card__hint">Their words, burned in. Keep ON for social: most people watch muted.</p>
+            </div>
+          </div>
           <div id="st-subs-opts">
             <div class="st-btn-row" role="group" aria-label="Subtitle style">
               <button type="button" id="st-substyle-box" class="cd-button cd-button--small"><span class="cd-button__text">Social — boxed</span></button>
               <button type="button" id="st-substyle-event" class="cd-button cd-button--small cd-button--outline"><span class="cd-button__text">Event — clean</span></button>
             </div>
-            <figure class="ex-thumb">
+            <figure class="ex-thumb" id="st-bp-subs">
               <img id="st-subs-preview" src="img/ex-sub-box.jpg" width="360" height="640" alt="Subtitle style preview" />
               <figcaption id="st-subs-cap">Social — white text on a grey box (feeds &amp; reels).</figcaption>
             </figure>
@@ -641,8 +678,13 @@
           </div>
         </div>
           <h3 class="cd-block-title st-subsection">OCHA logo</h3>
-          <label class="st-check"><input type="checkbox" id="st-bug-on" /> Add the OCHA logo <span class="app-hint">— watermark, top-right, for the whole video. Typically for event videos; off by default.</span></label>
-          <figure class="ex-thumb">
+          <div class="opt-grid">
+            <div class="opt-card">
+              <label class="st-check"><input type="checkbox" id="st-bug-on" /> Add the OCHA logo</label>
+              <p class="opt-card__hint">Watermark, top-right, for the whole video. Typically for event videos; off by default.</p>
+            </div>
+          </div>
+          <figure class="ex-thumb" id="st-bp-bug">
             <img src="img/ex-bug.jpg" width="360" height="203" alt="Example: the OCHA logo watermark in the top-right corner of an event video" />
             <figcaption>The logo watermark on an event video (16:9) — its usual home. Off by default; available for any format.</figcaption>
           </figure>
@@ -654,7 +696,7 @@
           <button class="cd-button cd-button--outline cd-button--small" id="st-loc-add" type="button">
             <i class="fa-regular fa-plus" aria-hidden="true"></i><span class="cd-button__text">Add a location strip</span>
           </button>
-          <figure class="ex-thumb">
+          <figure class="ex-thumb" id="st-bp-pin">
             <img src="img/ex-pin.jpg" width="360" height="640" alt="Example: the OCHA location strip top-left, place over date with a map pin" />
             <figcaption>The location strip — top-left, animated in and out.</figcaption>
           </figure>
@@ -664,7 +706,7 @@
              cards: unlimited blocks, three lines each. -->
         <div class="texton-review" hidden>
           <h3 class="cd-block-title st-subsection">Text on screen <span class="app-hint">— up to 3 lines per block that rise in and out; a soft mid gradient goes behind them automatically</span></h3>
-          <figure class="ex-thumb">
+          <figure class="ex-thumb" id="st-bp-texton">
             <img src="img/ex-texton.jpg" width="360" height="640" alt="Example: three lines of large white text across the middle of a portrait video, over a soft dark band" />
             <figcaption>Text on screen — the lines rise in one after another, over the automatic readability gradient. Shown at 60%; each block sets its own.</figcaption>
           </figure>
@@ -693,6 +735,19 @@
             <input class="cd-form__input st-tail-input" id="st-tail" type="number" min="0" max="4" step="0.2" value="2.6" />
             <span class="app-hint">seconds — the picture keeps rolling under the logo, the sound fades out.</span>
           </div>
+          <!-- Over-footage only: the logo lands ON the picture, so it can collide
+               with a face. Over black there is nothing to avoid and it stays centred. -->
+          <div id="st-logoy-row" hidden>
+            <label class="cd-form__label" for="st-logoy">Logo height</label>
+            <div class="field-row">
+              <input id="st-logoy" type="range" min="25" max="75" step="1" value="50" />
+              <span class="app-hint" id="st-logoy-val">Centred</span>
+            </div>
+          </div>
+          <figure class="ex-thumb" id="st-bp-ending">
+            <img src="img/ex-ending-footage.jpg" width="360" height="203" alt="Example: the OCHA logo over the closing shot" />
+            <figcaption>The OCHA logo over the closing footage — no scrim, modest and centred.</figcaption>
+          </figure>
         </div>
       </section>
 
@@ -883,6 +938,7 @@
       <nav class="cd-footer__links" aria-label="About and help">
         <button type="button" id="foot-whatsnew"><i class="fa-regular fa-bullhorn" aria-hidden="true"></i> What’s new</button>
         <button type="button" id="foot-help"><i class="fa-regular fa-life-ring" aria-hidden="true"></i> Help &amp; reinstall</button>
+        <button type="button" id="foot-privacy"><i class="fa-regular fa-shield-check" aria-hidden="true"></i> Privacy</button>
         <a href="https://crisisrelief.un.org/en/" target="_blank" rel="noopener"><i class="fa-regular fa-heart" aria-hidden="true"></i> Donate</a>
       </nav>
     </div>
@@ -966,12 +1022,37 @@
       <button class="cd-modal__close" id="news-close" type="button" aria-label="Close">&times;</button>
       <h2 class="cd-block-title" id="news-title">What’s new <span class="app-hint" id="news-ver"></span></h2>
       <ul>
-        <li><strong>Text on screen</strong> — up to three lines that rise in and out, with a soft readability gradient placed behind them automatically. Add as many blocks as the video needs. On both tabs.</li>
-        <li><strong>Captions &amp; lower thirds</strong> now match the Premiere plugin and the official OCHA template exactly — sizes, weights and positions.</li>
-        <li><strong>Footage looks</strong> (Brighter, Punchier, Auto-balance) and the phone-colour fix, on both tabs.</li>
-        <li><strong>Toolbox</strong> — compress a heavy video to a light MP4.</li>
+        <li><strong>See it on your own video.</strong> Every element — lower third, subtitles, OCHA logo, location strip, text on screen and the ending — now shows on a real frame of your footage instead of a stock example. It updates as you type, and <strong>Another frame</strong> tries a different moment. These are made by the same engine that exports the video, so what you see is what you get.</li>
+        <li><strong>Move the ending logo up or down</strong> with a slider — for when it lands on someone’s face.</li>
+        <li><strong>Your video is copied into the project folder</strong> when you pick it, so the whole job stays together even if the original moves. Your original is never touched.</li>
+        <li><strong>Privacy</strong> — a new link in the footer sets out exactly what OCHA QuickVid reports back (four short fields about the app; never your video, files or text), with a one-click way to switch it off.</li>
+        <li><strong>Tidier settings</strong> — options that had their explanation squeezed onto one line now sit in proper cards.</li>
       </ul>
       <p class="app-hint">OCHA QuickVid keeps itself up to date automatically — no reinstall needed for new versions.</p>
+    </div>
+  </div>
+
+  <!-- Privacy — the app promises "your videos never leave your device", so the one
+       thing that DOES leave has to be spelled out in full, with the off switch
+       right next to it. Deliberately lists the exact fields, not a vague summary. -->
+  <div class="cd-modal" id="privacy-modal" hidden>
+    <div class="cd-modal__panel cd-flow" role="dialog" aria-modal="true" aria-labelledby="privacy-title">
+      <button class="cd-modal__close" id="privacy-close" type="button" aria-label="Close">&times;</button>
+      <h2 class="cd-block-title" id="privacy-title">Privacy</h2>
+      <p><strong>Your videos never leave your computer.</strong> Transcription, cutting, branding and export all run on this machine. No video, audio or transcript is ever uploaded anywhere.</p>
+      <h3>What OCHA QuickVid does send</h3>
+      <p>So the Brand and Design Unit knows which features are worth maintaining, the app sends four short pieces of information — nothing else:</p>
+      <ul>
+        <li>the app <strong>version</strong> (for example 2026.0.33);</li>
+        <li>the <strong>action</strong> — “app opened on a Mac”, “made a reel”;</li>
+        <li>which <strong>product</strong> — the web app or the Premiere plugin;</li>
+        <li>your computer’s <strong>time zone</strong> (for example Europe/Zurich), so we know roughly which regions use it.</li>
+      </ul>
+      <p>Never sent: file names, folder paths, project names, transcript text, anything you type, your name, or your IP location.</p>
+      <div class="st-check">
+        <label><input type="checkbox" id="privacy-optout" /> <span>Don’t send anything at all</span></label>
+      </div>
+      <p class="app-hint">This setting is remembered in this browser. Questions: <a href="mailto:ochavisual@un.org">ochavisual@un.org</a>.</p>
     </div>
   </div>
 </body>

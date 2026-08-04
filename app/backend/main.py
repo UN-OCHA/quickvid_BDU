@@ -144,6 +144,7 @@ class LowerThirdReq(BaseModel):
 class EndingReq(BaseModel):
     style: str = "over_footage"               # over_footage | over_black | none — over_footage is the default
     darken: float = 0.0
+    logo_y_frac: Optional[float] = None       # 0.5 = centred (the standard); over_footage only
 
 
 class SubtitlesReq(BaseModel):
@@ -207,7 +208,7 @@ def prune_workspace(max_age_days=14, max_bytes=2 * 1024**3):
     """Drop old scratch renders. Nothing ever cleaned these up, so the folder grew
     without limit (12 GB on the dev Mac). Runs at startup: cheap, and the files are
     all reproducible — deleting one costs a re-render, never data."""
-    pats = ("_still_*.jpg", "_syncprev_*.mp4", "lookprev_*.jpg")
+    pats = ("_still_*.jpg", "_syncprev_*.mp4", "lookprev_*.jpg", "_brandprev_*.jpg")
     files = [f for pat in pats for f in settings.WORKSPACE.glob(pat) if f.is_file()]
     if not files:
         return 0, 0
@@ -354,6 +355,65 @@ def look_preview(video: str, t: float = 1.0, preset: str = "none", phone_fix: bo
         subprocess.run([mediakit.ffmpeg_hdr(), "-y", "-v", "error",
                         "-ss", str(max(0.0, t)), "-i", video,
                         "-vf", ",".join(vf), "-frames:v", "1", "-q:v", "4", str(out)], check=True)
+    return FileResponse(str(out), media_type="image/jpeg")
+
+
+class BrandPreviewReq(BaseModel):
+    """One branded still. Same element keys as a render spec, so the page sends the
+    section it is editing and nothing has to be translated."""
+    video: str
+    t: float = 1.0
+    canvas: Optional[list] = None             # [W, H] — the chosen format
+    lower_thirds: Optional[list] = None
+    cues: Optional[list] = None               # [[start, text]] — one is enough for a still
+    texts: Optional[list] = None
+    pins: Optional[list] = None
+    bug: Optional[dict] = None
+    ending: Optional[dict] = None
+    subtitle: Optional[dict] = None           # {"box": bool, …} — the caption look
+    look: Optional[dict] = None
+    rtl: Optional[bool] = None
+    width: int = 720
+
+
+@app.post("/api/brand-preview")
+def brand_preview(req: BrandPreviewReq):
+    """A real frame of the user's video with the REAL branding composited on top.
+
+    Deliberately NOT an HTML mock-up: it runs the production overlay graph (see
+    engine/brand_preview.py), so the preview cannot drift from the export. That is
+    the whole point — a preview that can lie is worse than no preview.
+
+    POST, not GET: the spec carries the caption and lower-third text, and putting
+    a speaker's name and title in a URL would write them into every access log.
+    """
+    _require_real_file(req.video, "video file")
+    import brand_preview as bp                          # engine dir is on sys.path (see below)
+
+    spec = {
+        "canvas": req.canvas,
+        "lower_thirds": req.lower_thirds or [],
+        "cues": req.cues or [],
+        "texts": req.texts or [],
+        "pins": req.pins or [],
+        "bug": req.bug or {"on": False},
+        "ending": req.ending or {"style": "none"},
+        "subtitle": req.subtitle or {},
+        "look": req.look,
+        "rtl": req.rtl,
+    }
+    phone_fix = bool((req.look or {}).get("phone_fix"))
+    w = max(160, min(1920, int(req.width or 720)))
+    # The spec IS part of the key — change a name, get a different still. json with
+    # sort_keys so an unordered dict can't produce two keys for one picture.
+    key = _cache_key(req.video, Path(req.video).stat().st_mtime, round(req.t, 2), w,
+                     json.dumps(spec, sort_keys=True, default=str))
+    out = settings.WORKSPACE / f"_brandprev_{key}.jpg"
+    if not out.is_file():
+        try:
+            bp.render(req.video, req.t, spec, str(out), phone_fix=phone_fix, width=w)
+        except subprocess.CalledProcessError as e:
+            raise HTTPException(500, f"Couldn't render the preview: {e}")
     return FileResponse(str(out), media_type="image/jpeg")
 
 
@@ -753,6 +813,79 @@ def st_relocate_source():
         raise HTTPException(400, "No file chosen.")
     p = _require_real_file(path, "video file")
     return {"src": str(p)}
+
+
+class StAdoptReq(BaseModel):
+    src: str
+    dir: str                                   # the job folder
+
+
+def _adopt_copy(job) -> None:
+    """Copy a picked video into <job folder>/source/, with progress.
+
+    Why copy at all: until now the project only remembered WHERE the file was, so
+    a job folder was not self-contained — move the folder to another machine, or
+    let the original be tidied away, and the project opened with its source
+    missing. Everything the job needs now lives in one folder.
+
+    Copied in chunks rather than shutil.copy2 so the UI gets a percentage: these
+    are routinely multi-GB, and a silent 40-second freeze reads as a crash (the
+    same lesson as the A/V sync bake)."""
+    src = Path(job.meta["src"])
+    dest_dir = Path(job.meta["dir"]) / "source"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / src.name
+    # Never overwrite a different file that happens to share the name.
+    if dest.exists() and dest.stat().st_size == src.stat().st_size:
+        job.result = {"path": str(dest), "copied": False}
+        job.progress = "Already in the project folder."
+        job.percent = 100
+        return
+    if dest.exists():
+        stem, suf, n = dest.stem, dest.suffix, 2
+        while dest.exists():
+            dest = dest_dir / f"{stem} ({n}){suf}"
+            n += 1
+
+    total = src.stat().st_size or 1
+    done = 0
+    tmp = dest.with_suffix(dest.suffix + ".part")     # never leave a half file
+    # 8 MB chunks: big enough that the loop overhead vanishes, small enough that
+    # the bar moves on a slow network volume.
+    with open(src, "rb") as fi, open(tmp, "wb") as fo:
+        while True:
+            chunk = fi.read(8 * 1024 * 1024)
+            if not chunk:
+                break
+            fo.write(chunk)
+            done += len(chunk)
+            job.percent = int(done / total * 100)
+            job.progress = f"Copying into the project folder… {done / 1e9:.1f} of {total / 1e9:.1f} GB"
+    os.replace(tmp, dest)
+    job.result = {"path": str(dest), "copied": True}
+    job.progress = "Copied into the project folder."
+    job.percent = 100
+
+
+@app.post("/api/statement/adopt-source")
+def st_adopt_source(req: StAdoptReq):
+    """Bring the chosen video into the job folder so the project is self-contained.
+    Returns immediately with a job id; the copy runs on a thread."""
+    src = _require_real_file(req.src, "video file")
+    d = Path(req.dir)
+    if not d.is_dir():
+        raise HTTPException(400, f"Not a folder: {req.dir}")
+    # Already inside this job folder? Nothing to do - re-copying a file into the
+    # folder it already lives in is how you end up with clip (2).mp4.
+    try:
+        if src.resolve().is_relative_to(d.resolve()):
+            return {"job_id": None, "path": str(src), "copied": False}
+    except AttributeError:                       # is_relative_to is 3.9+
+        if str(src.resolve()).startswith(str(d.resolve()) + os.sep):
+            return {"job_id": None, "path": str(src), "copied": False}
+    job = jobs.create("adopt", {"src": str(src), "dir": str(d)})
+    jobs.run_async(job, _adopt_copy)
+    return {"job_id": job.id}
 
 
 @app.post("/api/statement/open-project")

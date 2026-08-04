@@ -265,7 +265,8 @@ def run(spec, bitrate=12.0):
     if has_ending:
         print(f"  ending: {style}")
         ending_mod.add_ending(FF, body, style, float(ending.get("darken", 0.0)),
-                              bitrate, tmp, out, p_lo=(body_hi if filt else 0), p_hi=100)
+                              bitrate, tmp, out, p_lo=(body_hi if filt else 0), p_hi=100,
+                              logo_y_frac=ending.get("logo_y_frac"))
     else:
         subprocess.run([FF, "-y", "-v", "error", "-i", body, "-c", "copy",
                         "-movflags", "+faststart", out], check=True)

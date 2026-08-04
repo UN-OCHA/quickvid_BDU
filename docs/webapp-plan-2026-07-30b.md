@@ -1,7 +1,15 @@
 # QuickVid web app — feedback round 2 (2026-07-30)
 
 14 items. Standing instruction for all of them: **both tabs, Mac and Windows.**
-Nothing below is built yet. Where I've already found the cause, it says *Found*.
+Where I'd already found the cause, it says *Found*.
+
+> **STATUS — all closed as of 2026-08-04 (web app 2026.0.33).** 13 shipped; **8**
+> (force two-line subtitles) was considered and deliberately NOT done — Javi took
+> the recommendation, see that section for the reasoning. Item **7d** (render
+> speed) was dropped on Javi's call. The reasoning for the last four — 1, 4,
+> 7+9+12, 13 — is in `docs/decisions.md` under 2026-08-04. This file is kept as
+> the record of what was asked and why each call was made; it is not a live
+> to-do list.
 
 ---
 

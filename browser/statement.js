@@ -66,6 +66,9 @@ function stShowPanel(which) {
     if (pEl) pEl.hidden = which !== k;
     if (tEl) { tEl.classList.toggle("is-active", which === k); tEl.setAttribute("aria-selected", which === k); }
   });
+  // Element previews skip while off-screen (they run ffmpeg), so the tab that
+  // just appeared has to be told to catch up.
+  if (window.OchaBrandPreview) OchaBrandPreview.refreshAll();
 }
 $st("#tab-titles").onclick = () => stShowPanel("titles");
 $st("#tab-edit").onclick = () => stShowPanel("edit");
@@ -83,6 +86,34 @@ $st("#st-os-win").onclick = () => stSetOS(true);
 stSetOS(/Windows/i.test(navigator.userAgent));
 
 // ---------- E2: source ----------
+/* Bring a picked file INTO the job folder before using it.
+
+   Until now the project only remembered WHERE the file was, so a job folder was
+   not self-contained: move it to another machine, or let the original be tidied
+   away, and the project opened with its source missing. Everything the job needs
+   now lives in one folder.
+
+   Returns the path to use. A file already inside the folder is left alone -
+   re-copying is how you end up with "clip (2).mp4". Failure is never fatal: the
+   copy is a convenience, so we fall back to the original path. */
+async function stAdoptSource(path) {
+  if (!ST.jobDir) return path;                       // no folder yet, nothing to adopt into
+  try {
+    const r = await fetch(`${ENGINE}/api/statement/adopt-source`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ src: path, dir: ST.jobDir }),
+    });
+    if (!r.ok) return path;
+    const j = await r.json();
+    if (!j.job_id) return j.path || path;            // already inside the folder
+    const done = await stJob(j.job_id, (jj) =>
+      stStatus(jj.progress || "Copying into the project folder\u2026", "busy", jj.percent));
+    return (done.result && done.result.path) || path;
+  } catch (e) {
+    return path;
+  }
+}
+
 async function stUseSource(path, opts = {}) {
   const r = await fetch(`${ENGINE}/api/statement/probe?src=${encodeURIComponent(path)}`);
   if (!r.ok) { stStatus("Couldn't read that video.", "error"); return; }
@@ -95,6 +126,7 @@ async function stUseSource(path, opts = {}) {
   info.innerHTML = `<i class="fa-regular fa-circle-check" aria-hidden="true"></i> <strong>${esc(path.split("/").pop())}</strong> · ${p.width}×${p.height} · ${mmss(p.duration)}`;
   stStatus("");
   st4kSync();                                    // source dims known → enable/disable 4K
+  OchaBrandPreview.refreshAll();                  // element previews can now use real footage
   stInitSync();
   $st("#st-card-sync").hidden = false;
   $st("#st-card-sync").scrollIntoView({ behavior: "smooth" });
@@ -129,7 +161,7 @@ $st("#st-pick").onclick = async () => {
     const r = await fetch(`${ENGINE}/api/pick-file`, { method: "POST" });
     if (!r.ok) return;
     const { path } = await r.json();
-    if (path) await stUseSource(path);
+    if (path) await stUseSource(await stAdoptSource(path));
   } catch (e) { stStatus("Couldn't open the file picker.", "warn"); }
 };
 
@@ -398,6 +430,7 @@ $st("#st-transcribe").onclick = async () => {
     if (($st("#st-translate") || {}).checked) body.translate = true;
     const ranges = stCollectRanges();
     if (ranges.length) body.ranges = ranges;                 // else: whole video
+    try { OchaAnalytics.ping(body.translate ? "transcribe:translate" : "transcribe", false); } catch (e) {}
     const r = await fetch(`${ENGINE}/api/statement/transcribe`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
@@ -622,16 +655,28 @@ $st("#st-frame-another").addEventListener("click", () => { stDragTip("general");
 
 // ---------- E8: render + thumbnail ----------
 // ---------- E7: subtitles (ON/OFF + Social/Event style with preview) ----------
+/* Declared HERE, above stSetSubStyle: that function reads stBp, and it is called
+   during load (stSetSubStyle("box")) — well before the mounts further down. A
+   `const` read in its temporal dead zone THROWS rather than reading undefined,
+   which killed the rest of this file and every listener it had left to register. */
+const stBp = {};
+// The EXAMPLE for the current style. The live preview owns the <img> (see
+// browser/brandpreview.js) and calls this when there's no video yet — so the
+// picker and the preview never write the same element from two places.
+function stSubExample() {
+  const box = ST.subsStyle !== "gradient";
+  return {                                             // box = 9:16 reel, event = 16:9 — intrinsic size avoids stretch/shift
+    src: box ? "img/ex-sub-box.jpg" : "img/ex-sub-event.jpg",
+    width: 360, height: box ? 640 : 203,
+    caption: box ? "Social — white text on a grey box (feeds & reels)."
+                 : "Event — clean white text over a soft gradient (16:9 screens).",
+  };
+}
 function stSetSubStyle(style) {
   ST.subsStyle = style;
   $st("#st-substyle-box").classList.toggle("cd-button--outline", style !== "box");
   $st("#st-substyle-event").classList.toggle("cd-button--outline", style === "box");
-  const img = $st("#st-subs-preview");                 // box = 9:16 reel, event = 16:9 — set intrinsic size to avoid stretch/shift
-  img.width = 360; img.height = style === "box" ? 640 : 203;
-  img.src = style === "box" ? "img/ex-sub-box.jpg" : "img/ex-sub-event.jpg";
-  $st("#st-subs-cap").textContent = style === "box"
-    ? "Social — white text on a grey box (feeds & reels)."
-    : "Event — clean white text over a soft gradient (16:9 screens).";
+  if (stBp.subs) stBp.subs.refresh();                  // repaints example OR live frame
 }
 function stTailVis() {
   const st = (document.querySelector('input[name="st-ending"]:checked') || {}).value;
@@ -737,6 +782,79 @@ const stLoc = OchaLocation.mount({
   onChange: () => stSave(),
 });
 
+/* ---- "show it on MY video": the five element previews (browser/brandpreview.js).
+   Each posts to the engine, which composites with the REAL overlay graph — so a
+   preview can never disagree with the export. The Titles tab mounts the same five.
+   Each section sends ONLY its own element: one thing at a time is what you want
+   when you are positioning that thing. */
+const stBpTime = () => { const s = ST.segments.find((x) => x.sel); return s ? s.in + 0.3 : 1; };
+const stBpCanvas = () => PRESET_CANVAS[(document.querySelector('input[name="st-preset"]:checked')
+  || {}).value] || PRESET_CANVAS.reels;
+const stBpBase = () => ({ look: stLook.collect(), rtl: $st("#st-rtl").checked || undefined });
+const stBpCommon = { getVideo: () => ST.src, getTime: stBpTime, engine: ENGINE,
+                     canvas: stBpCanvas, base: stBpBase };
+
+stBp.lt = OchaBrandPreview.mount({
+  ...stBpCommon, figure: $st("#st-bp-lt"),
+  collect: () => { const l = stCollectLts(); return l.length ? { lower_thirds: l } : null; },
+  watch: () => [...document.querySelectorAll("#st-lt-rows input, #st-lt-rows select")],
+});
+
+stBp.subs = OchaBrandPreview.mount({
+  ...stBpCommon, figure: $st("#st-bp-subs"), example: stSubExample,
+  base: () => ({ ...stBpBase(), subtitle: { box: ST.subsStyle !== "gradient" } }),
+  // A caption the length of a real one — the point is the box, the wrap and the
+  // position, and only a realistic line shows those honestly.
+  collect: () => ($st("#st-captions").checked
+    ? { cues: [[0, (stCaps.collect(stCapsFp()) || [])[0]?.[1]
+                   || "This is how a subtitle will look on your video."]] }
+    : null),
+  watch: () => [$st("#st-captions")],
+});
+
+stBp.bug = OchaBrandPreview.mount({
+  ...stBpCommon, figure: $st("#st-bp-bug"),
+  collect: () => ($st("#st-bug-on").checked ? { bug: { on: true } } : null),
+  watch: () => [$st("#st-bug-on")],
+});
+
+stBp.pin = OchaBrandPreview.mount({
+  ...stBpCommon, figure: $st("#st-bp-pin"),
+  collect: () => { const p = stLoc.collect(); return p && p.length ? { pins: p } : null; },
+  watch: () => [...document.querySelectorAll("#st-loc-rows input, #st-loc-rows select")],
+});
+
+stBp.texton = OchaBrandPreview.mount({
+  ...stBpCommon, figure: $st("#st-bp-texton"),
+  collect: () => { const t = stTexts.collect(); return t && t.length ? { texts: t } : null; },
+  watch: () => [...document.querySelectorAll("#st-tx-rows input, #st-tx-rows textarea, #st-tx-rows select")],
+});
+
+/* Ending logo — the one preview with a control attached. The slider writes
+   `logo_y_frac`, which the render already honours; 0.5 (centred) is the standard,
+   and moving it is for the case where the logo lands on a face. */
+const stEndStyle = () => (document.querySelector('input[name="st-ending"]:checked') || {}).value;
+const stLogoY = () => (parseInt(($st("#st-logoy") || {}).value, 10) || 50) / 100;
+function stLogoYLabel() {
+  const v = Math.round(stLogoY() * 100);
+  $st("#st-logoy-val").textContent = v === 50 ? "Centred (standard)" : `${v}% down the frame`;
+}
+function stLogoYVis() {
+  $st("#st-logoy-row").hidden = stEndStyle() !== "over_footage";
+}
+stBp.ending = OchaBrandPreview.mount({
+  ...stBpCommon, figure: $st("#st-bp-ending"),
+  // A preview only means something where the logo sits over the picture. Over
+  // black it is a black card the body graph never draws — see brand_preview.py.
+  collect: () => (stEndStyle() === "over_footage"
+    ? { ending: { style: "over_footage", logo_y_frac: stLogoY() } } : null),
+  watch: () => [...document.querySelectorAll('input[name="st-ending"]'), $st("#st-logoy")],
+});
+$st("#st-logoy").addEventListener("input", () => { stLogoYLabel(); stSave(); });
+document.querySelectorAll('input[name="st-ending"]').forEach((r) =>
+  r.addEventListener("change", stLogoYVis));
+stLogoYLabel(); stLogoYVis();
+
 
 // ---------- E7: lower thirds — the SHARED component (browser/lowerthird.js) ----------
 // Edit-tab defaults: appears at 0:02, centred, 5s (was a hand-rolled copy of the
@@ -762,7 +880,8 @@ $st("#st-render").onclick = async () => {
     canvas: ($st("#st-4k") || {}).checked ? [3840, 2160] : undefined,   // 4K event export
     lower_thirds: stCollectLts(),
     ending: { style: document.querySelector('input[name="st-ending"]:checked').value,
-              tail: (() => { const v = parseFloat(($st("#st-tail") || {}).value); return Number.isFinite(v) ? v : undefined; })() },
+              tail: (() => { const v = parseFloat(($st("#st-tail") || {}).value); return Number.isFinite(v) ? v : undefined; })(),
+              logo_y_frac: stLogoY() },
     captions: $st("#st-captions").checked,
     subtitles: { on: $st("#st-captions").checked, style: ST.subsStyle || "box" },
     // reviewed caption text — only while it still matches the selection + format
@@ -776,6 +895,17 @@ $st("#st-render").onclick = async () => {
   };
   const capNote = $st("#st-captions").checked && stCaps.stale(stCapsFp())
     ? " (selection changed since the caption review — using fresh automatic captions)" : "";
+  // Which format people actually make, and which features they switch on.
+  try {
+    OchaAnalytics.ping("render:" + body.preset, false);
+    if (body.subtitles.on) OchaAnalytics.ping("use:captions");
+    if (body.lower_thirds && body.lower_thirds.length) OchaAnalytics.ping("use:lowerthird");
+    if (body.pins && body.pins.length) OchaAnalytics.ping("use:pin");
+    if (body.texts && body.texts.length) OchaAnalytics.ping("use:texton");
+    if (body.look) OchaAnalytics.ping("use:look");
+    if (body.rtl) OchaAnalytics.ping("use:rtl");
+    if (body.canvas) OchaAnalytics.ping("use:4k");
+  } catch (e) {}
   try {
     $st("#st-render").disabled = true;
     stStatus("Cutting and branding — a minute or two…" + capNote, "busy");
@@ -917,11 +1047,13 @@ function st4kSync() {
   box.disabled = !ok;
   if (!ok) box.checked = false;
   $st("#st-4k-wrap").style.opacity = ok ? "" : "0.55";
+  // No leading dash: the hint is its own line in the option card now, not a
+  // continuation of the label.
   hint.innerHTML = !isEvent
-    ? "— Event screen only. Social formats stay 1080: Instagram, TikTok and X re-encode to 1080 anyway."
+    ? "Event screen only. Social formats stay 1080: Instagram, TikTok and X re-encode to 1080 anyway."
     : !src4k
-      ? `— needs a 4K source; this one is ${p.width || "?"}×${p.height || "?"}. QuickVid never upscales.`
-      : "— your source is 4K, so this exports true 4K (3840×2160). Same proportions, larger canvas. Punch-in shots are enlarged from the crop.";
+      ? `Needs a 4K source; this one is ${p.width || "?"}×${p.height || "?"}. QuickVid never upscales.`
+      : "Your source is 4K, so this exports true 4K (3840×2160). Same proportions, larger canvas. Punch-in shots are enlarged from the crop.";
 }
 document.addEventListener("change", (e) => {
   if (e.target && e.target.name === "st-preset") st4kSync();
@@ -1168,6 +1300,7 @@ function stSnapshot() {
     bug: $st("#st-bug-on").checked,
     pins: stLoc.collect(),
     tail: parseFloat(($st("#st-tail") || {}).value),
+    logoY: stLogoY(),
     lts: stCollectLts(),
     look: stLook.collect(),
     texts: stTexts.collect(),
@@ -1230,6 +1363,8 @@ function stRestore(p) {
     check("st-preset", p.preset || "reels");
     check("st-ending", p.ending || "over_footage");
     if (Number.isFinite(p.tail)) $st("#st-tail").value = p.tail;
+    if (Number.isFinite(p.logoY)) $st("#st-logoy").value = Math.round(p.logoY * 100);
+    stLogoYLabel(); stLogoYVis();
     stTailVis();
     stLook.restore(p.look);
     stTexts.restore(p.texts);
@@ -1252,6 +1387,7 @@ function stRestore(p) {
       info.innerHTML = `<i class="fa-regular fa-circle-check" aria-hidden="true"></i> <strong>${esc(ST.src.split("/").pop())}</strong> · ${ST.probe.width}×${ST.probe.height} · ${mmss(ST.probe.duration)}`;
       $st("#st-card-sync").hidden = false;
       st4kSync();                                    // source dims known → enable/disable 4K
+  OchaBrandPreview.refreshAll();                  // element previews can now use real footage
   stInitSync();
       $st("#st-card-tr").hidden = false;
       $st("#st-ranges").innerHTML = "";

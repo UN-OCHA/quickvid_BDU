@@ -182,7 +182,12 @@ def render(spec: dict, log=print) -> str:
     end = spec.get("ending") or {"style": "none"}
     style = end.get("style", "none")
     footage_end = float(spec.get("footage_end") or dur)
-    at = float(end.get("at") or footage_end)          # when the logo snaps on
+    # `is None`, NOT `or`: at=0 is a legitimate time ("logo on from the first
+    # frame") and `or` silently turned it into footage_end — so a clip shorter than
+    # the logo lead (engine_bridge clamps `at` to 0) put the logo at the END, and
+    # brand_preview could never show it at all.
+    _at = end.get("at")
+    at = float(footage_end if _at is None else _at)    # when the logo snaps on
     hold = float(end.get("hold", 2.0))
     work = os.path.join(os.path.dirname(os.path.abspath(out)), "_brand_work")
     os.makedirs(work, exist_ok=True)

@@ -19,14 +19,23 @@
 // Change this before deploying, and keep it out of git.
 var TOKEN = 'CHANGE-ME-quickvid-analytics';
 
-var LOG_SHEET = 'Events';
+// ONE spreadsheet, a tab per product, separate dashboards later (Javi, 2026-08-04).
+// They must not share a tab: the day the web app started reporting, every plugin
+// figure would jump, and the rows would be indistinguishable afterwards.
+var LOG_SHEET = 'Events';               // the Premiere plugin — the original tab, name kept
+var WEBAPP_SHEET = 'Events Web App';    // the web app
 var HEADER = ['Timestamp', 'Version', 'Action', 'Location'];
 
-function _log() {
+function _sheetFor(product) {
+  return product === 'webapp' ? WEBAPP_SHEET : LOG_SHEET;
+}
+
+function _log(product) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName(LOG_SHEET);
+  var name = _sheetFor(product);
+  var sh = ss.getSheetByName(name);
   if (!sh) {
-    sh = ss.insertSheet(LOG_SHEET);
+    sh = ss.insertSheet(name);
     sh.appendRow(HEADER);
     sh.setFrozenRows(1);
   }
@@ -53,10 +62,14 @@ function doGet(e) {
       var v = String(p.v || '');
       var ev = String(p.e || '');
       var loc = String(p.loc || 'unknown');
-      var okV = /^[0-9]+\.[0-9]+(\.[0-9]+)?$/.test(v);            // 0.28.0
+      // `p` = which product. Absent means the Premiere plugin, so every panel
+      // already in the field keeps working untouched.
+      var prod = String(p.p || 'plugin');
+      var okV = /^[0-9]+\.[0-9]+(\.[0-9]+)?$/.test(v);            // 0.28.0 / 2026.0.33
       var okE = /^[a-z]{1,20}(:[A-Za-z0-9 ._-]{1,40}){0,3}$/.test(ev);  // open:mac, add:lt:reels
-      if (okV && okE) {
-        _log().appendRow([new Date().toISOString(), v, ev, loc.slice(0, 120)]);
+      var okP = /^(plugin|webapp)$/.test(prod);
+      if (okV && okE && okP) {
+        _log(prod).appendRow([new Date().toISOString(), v, ev, loc.slice(0, 120)]);
       }
     } catch (err) { /* never surface anything to the panel */ }
     return ContentService.createTextOutput('ok');   // always 'ok' — reveal nothing

@@ -22,10 +22,12 @@ logbook). This file is just the map + standing rules.
   (cut+brand orchestrator), `social_brand.py` (the ffmpeg overlay graph),
   `finish.py` (Titles path), `lower_third.py` · `pin_locator.py` · `text_on.py`
   (SVG→PNG element renderers), `mediakit.py` (the ONE colour gate: HDR/wide-gamut
-  → bt709), `look.py`, `compress.py`, `ending.py`, `webtv.py`, `svgpng.py`.
+  → bt709), `look.py`, `compress.py`, `ending.py`, `webtv.py`, `svgpng.py`,
+  `brand_preview.py` (one branded still, rendered by the REAL graph).
 - `browser/` — the SPA. `app.js` (Titles tab + engine gate), `statement.js`
   (Edit tab), and SHARED both-tab modules: `captions.js`, `look.js`,
-  `texton.js`, `lowerthird.js`, `location.js`, `toolbox.js`.
+  `texton.js`, `lowerthird.js`, `location.js`, `toolbox.js`,
+  `brandpreview.js` (element previews on real footage), `analytics.js`.
 - `browser/brand-lt.json` + `brand-pin.json` — the brand NUMBERS (single source
   of truth). The engine renders from them AND the AE builder bakes from them, so
   the plugin and the web app stay in step.
@@ -93,6 +95,21 @@ logbook). This file is just the map + standing rules.
   English only — the rules are English words that also exist in other languages.
 - **Share, don't duplicate.** Both-tab logic lives in ONE module (the shared
   `browser/*.js`; `engine/` is shared by both modes). Copy-paste has drifted before.
+- **NEVER mock up a branding element in HTML/CSS.** Any "show me what this looks
+  like" goes through `engine/brand_preview.py`, which runs the REAL overlay graph
+  (`social_brand.render()`) over a 2s clip made from one frame of the user's
+  video. A CSS redraw is a SECOND implementation of the brand and it will drift —
+  `brand-lt.json` exists because that already happened once. A preview that can
+  lie is worse than none.
+- **A top-level `const` read before its line THROWS** (temporal dead zone), it
+  does not read `undefined` — and that kills the rest of the file plus every
+  listener it had left to register, with nothing useful in the console. Declare
+  shared registries ABOVE their first caller. To find such a throw when the
+  consts aren't reachable from the console, re-fetch the file and run it in a
+  fresh scope: `fetch(f).then(r=>r.text()).then(s=>{try{(0,eval)(s)}catch(e){…}})`.
+- **Never `x = float(spec.get("k") or default)` on a NUMBER** — `0` is falsy, so
+  zero can never be expressed. This silently moved the ending logo to the end of
+  the clip. Use `is None`.
 - **Logos are always SVG**, rasterised at render time — never ship a PNG.
 - **Versioning is CalVer** `2026.MINOR.PATCH`: for the plugin, `2026.0.x` =
   internal testing / `2026.1+` = public; the web app's `VERSION` continues the

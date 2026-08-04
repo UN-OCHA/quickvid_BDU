@@ -515,7 +515,8 @@ def do_render(spec):
         "texts": spec.get("texts") or [],
         "rtl": spec.get("rtl"),                        # None = auto-detect from the copy
         "ending": {"style": style, "at": round(footage_end + (LOGO_LEAD if style == "over_footage" else 0), 2),
-                   "hold": float(ending.get("hold", 2.0)), "click": ending.get("click", True)},
+                   "hold": float(ending.get("hold", 2.0)), "click": ending.get("click", True),
+                   "logo_y_frac": ending.get("logo_y_frac")},
     }
     if style == "none":
         bspec["ending"] = {"style": "none"}

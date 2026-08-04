@@ -66,6 +66,7 @@ $("#tb-run").onclick = async () => {
   $("#tb-preview").hidden = true;
   try {
     tbStatus("Compressing — this can take a while on long videos…", "busy");
+    try { OchaAnalytics.ping("tool:compress:" + TB.level, false); } catch (e) {}
     const r = await fetch(ENGINE + "/api/compress", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ src: TB.src, level: TB.level }),
