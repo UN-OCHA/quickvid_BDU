@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "2026.0.47";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "2026.0.48";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -882,10 +882,8 @@ const TOOLS = {
   },
   package: {
     title: "Package project",
-    explain: "<ul><li>Copies <strong>every file this project uses</strong> — footage, images, graphics, audio — into one folder, sorted by type.</li>"
-      + "<li>Saves a <strong>relinked copy</strong> of the project, and bundles the OCHA branding templates.</li>"
-      + "<li>Your original project and files stay put.</li></ul>"
-      + "<p class=\"modal-hint\">Your open project is never touched — Premiere stays exactly where it is.</p>",
+    explain: "<ul><li>Copies every file this project uses into one folder, sorted by type, with a relinked copy of the project and the OCHA templates.</li>"
+      + "<li>Your open project and original files are untouched.</li></ul>",
     info: "ochaPackageInfo()",
     action: async () => {
       const res = await jsx("ochaPackageProject()") || "";
@@ -900,13 +898,12 @@ const TOOLS = {
   },
   gradient: {
     title: "Readability gradient",
-    explain: "<ul><li>A soft <strong>black gradient</strong> on its own track, so white text stays legible over busy footage.</li>"
-      + "<li>Goes in as a <strong>separate clip</strong> — put it on a track <strong>below</strong> your text or captions.</li>"
-      + "<li>For <strong>OCHA Clean</strong> captions, keep <strong>Bottom</strong>.</li>"
-      + "<li><strong>Middle</strong> = a soft band across the centre (feather – dark – feather) for captions or text that sit mid-frame.</li>"
-      + "<li>Middle can also cover just the <strong>left or right half</strong> — a soft cloud on that side, for text that doesn't run across the frame.</li></ul>",
+    explain: "<ul><li>A soft black gradient on its own track, so white text stays legible over busy footage.</li>"
+      + "<li>Put it on a track <strong>below</strong> your text or captions.</li></ul>"
+      + "<p class=\"modal-hint\">Middle covers the centre band, or just the left or right half.</p>",
     settings: "all",                                  // position + fade
     places: true,                                     // puts a CLIP on a track -> offer Track
+    editsSelection: true,                             // ...or edits the one already selected
     needsFmt: true,
     ready: "Ready — goes in at the playhead, on its own track.",
     done: (r) => `Gradient added on <strong>${trackOf(r)}</strong>. Move it below your text and trim to length.`,
@@ -931,10 +928,9 @@ const TOOLS = {
   },
   capguides: {
     title: "Caption position guides",
-    explain: "<ul><li>Four <strong>OCHA Captions</strong> guide templates — one per format — two lines marking the band where the caption box belongs. <strong>The panel installs them automatically</strong>; this tile is for reinstalling and the how-to.</li>"
-      + "<li>Use: <strong>View &gt; Guide Templates</strong> &gt; pick your format, then move the captions (<strong>Properties &gt; Align &amp; transform</strong>) until the box sits between the lines.</li>"
-      + "<li>Guides are visual only — they <strong>never export</strong>. Hide them with View &gt; Show Guides.</li></ul>"
-      + "<p class=\"modal-hint\">Templates load when Premiere starts — installed just now? Restart Premiere once to see them.</p>",
+    explain: "<ul><li>Guide lines showing where the caption box belongs. They install themselves; this is for reinstalling.</li>"
+      + "<li><strong>View &gt; Guide Templates</strong>, pick your format, then move the captions between the lines.</li></ul>"
+      + "<p class=\"modal-hint\">Guides never export. Just installed? Restart Premiere once.</p>",
     info: "ochaCaptionGuidesInstalled()",
     infoLine: (n) => n >= 4 ? "Installed. Run again to refresh."
       : (n > 0 ? "Partly installed — run to complete." : "Not installed yet — run to install."),
@@ -945,54 +941,63 @@ const TOOLS = {
   },
   webapp: {
     title: "Compress a video",
-    explain: "<ul><li>This one lives <strong>outside Premiere</strong> — it opens the free <strong>OCHA QuickVid web app</strong> in your browser.</li>"
-      + "<li>Drop a heavy file, pick a quality, get a light <strong>MP4 (H.264)</strong> that plays everywhere.</li>"
-      + "<li>The web app also <strong>cuts statement clips by transcript</strong>, burns captions and brands video — no Premiere needed. Files never leave your computer.</li></ul>"
-      + "<p class=\"modal-hint\">un-ocha.github.io/quickvid_BDU</p>",
+    explain: "<ul><li>Opens the free OCHA QuickVid web app in your browser.</li>"
+      + "<li>Drop a heavy file, pick a quality, get a light MP4 that plays everywhere. It also cuts, captions and brands video without Premiere.</li></ul>"
+      + "<p class=\"modal-hint\">Files never leave your computer.</p>",
     ready: "Opens in your browser — the Toolbox tab has the compressor.",
     cta: () => "Open OCHA QuickVid",
     working: "Opening your browser…",
     done: () => "Opened. Look for the <strong>Toolbox</strong> tab.",
     action: () => { openExternal(WEBAPP_URL); return Promise.resolve("OK|"); },
   },
-  fixcolor: {
-    title: "Fix washed-out colour",
-    // Deliberately visual: the two swatches ARE the explanation. Someone hitting
-    // this has just seen flat, milky footage and needs to recognise it, not read
-    // a definition of a transfer function.
-    explain: "<ul><li>Your sequence is using an <strong>HDR / wide-gamut</strong> colour space. Premiere shows those colours <strong>flat and milky</strong> on a normal screen — and exports them that way too.</li>"
-      + "<li>This sets the sequence back to <strong>standard SDR Rec. 709</strong>, what social platforms and UN Web TV expect.</li></ul>"
-      + "<div class=\"cs-swatches\">"
-      + "<span class=\"cs-swatch\"><i style=\"background:linear-gradient(90deg,#6f7d86,#9fb0ba,#cbd6dc)\"></i>Now — washed out</span>"
-      + "<span class=\"cs-swatch\"><i style=\"background:linear-gradient(90deg,#123a55,#0077b8,#c5dfef)\"></i>After — Rec. 709</span>"
-      + "</div>"
-      + "<p class=\"modal-hint\">Only this sequence's settings change. Your footage, clips and edit are untouched, and it's undoable with Cmd/Ctrl+Z.</p>",
+  colour: {
+    title: "Colour",
+    // Short on purpose: the controls are self-explanatory and the modal has to fit
+    // a narrow docked panel. The long version lived here and squeezed the sliders
+    // off screen (Javi, 2026-07-31).
+    explain: "<ul><li>Pick a look, or nudge the sliders \u2014 changes apply as you go.</li>"
+      + "<li>Same numbers as the QuickVid web app, applied as a <strong>Lumetri Color</strong> effect you can take further there.</li></ul>",
+    colour: true,
     info: "ochaColorStatus()",
-    action: "ochaFixColor()",
-    cta: (n) => (n > 0 ? "Set to Rec. 709" : "Nothing to fix"),
-    countGated: true,
-    once: true, doneCta: "Set to Rec. 709",
-    working: "Setting the sequence to Rec. 709…",
+    // Everything here applies itself: sliders live, sequence fix from its own
+    // button at the bottom. A footer CTA would be a third way to do things that
+    // are already done, so it is hidden and Cancel reads "Close".
+    noRun: true,
+    cta: () => "Close",
+    working: "",
+    action: () => Promise.resolve(""),
     done: (r) => {
       const p = String(r).split("|");
+      if (p[1] === "already") return "Already standard Rec. 709 \u2014 nothing was changed.";
       const drift = (String(r).match(/drift=(.*)$/) || [])[1];
-      let msg = p[1] === "already"
-        ? "Already standard Rec. 709 — nothing was changed."
-        : `Done — ${esc(p[2] || "set to Rec. 709")}. Scrub the timeline: the washed-out look should be gone.`;
-      // A blind whole-object setSettings write is what we suspect wrecked a
-      // project's colour once, so the host audits it. Never swallow that.
-      if (drift) msg += ` <em>Note — other settings also moved: ${esc(drift)}</em>`;
+      let msg = p[2] || "Done.";
+      if (drift) msg += ` <em>Note \u2014 other settings also moved: ${esc(drift)}</em>`;
       return msg;
     },
   },
+  tidytracks: {
+    title: "Tidy tracks",
+    explain: "<ul><li>Removes empty video and audio tracks. Everything is ticked \u2014 untick what you want to keep.</li>"
+      + "<li>A track holding a clip is never listed, even a silent one.</li></ul>",
+    info: "ochaEmptyTrackList()",
+    list: true,
+    listLine: (n) => n
+      ? `${n} empty track${n === 1 ? "" : "s"} \u2014 untick any you want to keep.`
+      : "No empty tracks \u2014 nothing to remove.",
+    cta: (n) => n > 0 ? `Remove ${n} track${n === 1 ? "" : "s"}` : "Nothing selected",
+    working: "Removing empty tracks\u2026",
+    once: true, doneCta: "Removed",
+    action: () => jsx(`ochaRemoveTracks(${lit(listTickedLabels().join(","))})`),
+    done: (r) => String(r).split("|")[2] || "Done.",
+  },
   vignette: {
     title: "Vignette",
-    explain: "<ul><li>Darkens the <strong>edges and corners</strong> of the frame so the eye goes to the centre — useful over bright or busy footage.</li>"
-      + "<li>Built at your sequence's size, so it looks the same on 9:16, 1:1 and 16:9.</li>"
-      + "<li>Goes in as a <strong>separate clip on the top track</strong> — trim it to the length you want.</li></ul>"
-      + "<p class=\"modal-hint\">Select the clip afterwards to fine-tune Amount and Size in the panel.</p>",
+    explain: "<ul><li>Darkens the edges so the eye goes to the centre.</li>"
+      + "<li>Its own clip on the top track \u2014 trim it to the length you want.</li></ul>"
+      + "<p class=\"modal-hint\">Select it afterwards to change the strength.</p>",
     settings: "fade",                                 // strength only - no position
     places: true,                                     // puts a CLIP on a track -> offer Track
+    editsSelection: true,                             // ...or edits the one already selected
     fadeLabel: "Strength",
     fadeDefault: 55,
     needsFmt: true,
@@ -1004,11 +1009,9 @@ const TOOLS = {
   },
   unused: {
     title: "Remove unused",
-    explain: "<ul><li>Lists everything in the project that is <strong>on no timeline</strong> — leftovers from versions and trials.</li>"
-      + "<li>Everything is ticked; <strong>untick anything you want to keep</strong>, then remove.</li>"
-      + "<li>Sequences and bins are never listed.</li>"
-      + "<li>Leftover <strong>OCHA template files</strong> are deleted from the project's templates folder too — nothing else on disk is ever touched.</li></ul>"
-      + "<p class=\"modal-hint\">This replaces the old <em>Clean MOGRTs</em> tool: same job, but for everything, and you choose what goes.</p>",
+    explain: "<ul><li>Everything in the project that is on no timeline. Everything is ticked \u2014 untick what you want to keep.</li>"
+      + "<li>Sequences and bins are never listed.</li></ul>"
+      + "<p class=\"modal-hint\">Leftover OCHA templates go from the templates folder too. Nothing else on disk is touched.</p>",
     info: "ochaUnusedList()",
     list: true,
     danger: true,
@@ -1020,11 +1023,9 @@ const TOOLS = {
   },
   tidy: {
     title: "Tidy the project panel",
-    explain: "<ul><li>Sorts <strong>everything</strong> into <strong>01 Footage / 02 Images / 03 Graphics / 04 Audio / 05 Other</strong>, plus <strong>06 Missing</strong> for offline items.</li>"
-      + "<li><strong>Existing folders are emptied into those</strong> and removed — one layout, however the project was organised before.</li>"
-      + "<li><strong>Sequences never move</strong>, and a folder still holding one is kept.</li>"
-      + "<li>No file on disk is touched — this only moves items inside the Project panel.</li></ul>"
-      + "<p class=\"modal-hint\">Same grouping as Package project, so a tidied project and a packaged one match. Undo with Cmd/Ctrl+Z.</p>",
+    explain: "<ul><li>Sorts the Project panel into 01 Footage / 02 Images / 03 Graphics / 04 Audio / 05 Other, plus 06 Missing.</li>"
+      + "<li>Existing folders are emptied into those and removed. Sequences never move.</li></ul>"
+      + "<p class=\"modal-hint\">Nothing on disk is touched. Undo with Cmd/Ctrl+Z.</p>",
     ready: "Ready — sorts whatever is loose at the top level.",
     cta: () => "Tidy the project",
     once: true, doneCta: "Tidied",
@@ -1049,6 +1050,87 @@ function modalInfo(msg, isErr) {
   el.className = "modal-info" + (isErr ? " is-err" : "");
   el.textContent = msg;
 }
+/* ---------- editing the SELECTED gradient / vignette from its own tool ----------
+   Javi: "when a gradient is selected and we open that tool it says: editing
+   selected, and changes on it will affect the selected gradient."
+
+   So the Fade slider in the modal does double duty: it describes the NEXT
+   gradient when nothing is selected, and drives THAT ONE when a gradient is. The
+   Run button turns into Done in edit mode - pressing Add while editing would
+   quietly stack a second gradient on top of the first, which is the bug this
+   whole feature exists to avoid. */
+let colourNeedsFix = false;   // sequence still HDR/wide-gamut -> the CTA fixes THAT first
+let editTarget = null, editFadeTimer = null;
+
+// Watch the selection WHILE an editsSelection modal is open: deselect the gradient
+// and the tool goes back to "Add gradient"; select one and it flips to editing.
+// Javi: "if I unselect the gradient it allows me to add a new one? It stays as
+// editing selected." Transitions only - re-running checkEditTarget every tick
+// would snap the slider back under the pointer mid-drag.
+setInterval(() => {
+  // Follow the selection while the Colour modal is open, so picking a different
+  // clip reloads ITS values rather than leaving the previous clip's on screen.
+  const m = $("tool-modal");
+  if (curTool === "colour" && m && !m.hidden && !colBusy) syncColourSelection(false);
+}, 900);
+
+setInterval(async () => {
+  if (!curTool) return;
+  const cfg = TOOLS[curTool];
+  const modal = $("tool-modal");
+  if (!cfg || !cfg.editsSelection || !modal || modal.hidden) return;
+  const res = await jsx("ochaSelectedFade()") || "none";
+  const el = res.indexOf("|") > 0 ? res.split("|")[0] : null;
+  const match = el === curTool;
+  if (match && !editTarget) checkEditTarget(cfg);              // selected one mid-modal
+  else if (!match && editTarget) {                             // deselected mid-modal
+    editTarget = null;
+    if ($("modal-editing")) $("modal-editing").hidden = true;
+    // Restore the CTA immediately - loadInfo() also does this, but it awaits the
+    // host first, and "Done" must not linger on screen while that happens.
+    const run = $("modal-run");
+    if (run) run.textContent = cfg.cta(1);
+    loadInfo();                                                // restores Ready + enable state
+  }
+}, 900);
+
+async function checkEditTarget(cfg) {
+  editTarget = null;
+  const res = await jsx("ochaSelectedFade()") || "none";
+  const note = $("modal-editing"), run = $("modal-run");
+  if (res === "none" || res.indexOf("|") < 0) { if (note) note.hidden = true; return; }
+  const [el, val] = res.split("|");
+  if (el !== curTool) { if (note) note.hidden = true; return; }   // a vignette while in the gradient tool
+  editTarget = el;
+  const label = el === "vignette" ? "vignette" : "readability gradient";
+  const knob = el === "vignette" ? "Strength" : "Fade";
+  if (note) {
+    note.innerHTML = `<strong>Editing the selected ${esc(label)}.</strong> ` +
+      `${esc(knob)} changes apply to it straight away — nothing new is added.`;
+    note.hidden = false;
+  }
+  const n = parseInt(val, 10);
+  if (!isNaN(n)) { $("grad-op").value = n; $("grad-op-n").value = n; }
+  if (run) { run.textContent = "Done"; run.disabled = false; }
+}
+
+// Live write while editing. Debounced, so dragging is one call at the end of the
+// gesture rather than one per pixel.
+["grad-op", "grad-op-n"].forEach((id) => {
+  const e = $(id);
+  if (!e) return;
+  e.addEventListener("input", () => {
+    if (!editTarget) return;                     // "add" mode: the value is just a setting
+    const v = Math.max(0, Math.min(100, parseInt(e.value, 10) || 0));
+    clearTimeout(editFadeTimer);
+    editFadeTimer = setTimeout(async () => {
+      const r = await jsx(`ochaSetFade(${v})`) || "";
+      if (r.indexOf("ERR|") === 0) modalInfo(r.slice(4), true);
+      else modalInfo(`${editTarget === "vignette" ? "Strength" : "Fade"} set to ${v}%.`, false);
+    }, 150);
+  });
+});
+
 function openTool(key) {
   const cfg = TOOLS[key];
   if (!cfg) return;
@@ -1056,8 +1138,12 @@ function openTool(key) {
   // function from editing a selected element. If we were bound to a clip, drop it and
   // clear Premiere's selection so opening the tool is a clean start, not a lingering
   // "Update selected" behind the modal that the poll would keep reasserting.
-  if (boundClip) { jsx("ochaClearSelection()"); setBound(null, null); }
+  // Gradient and vignette can EDIT the selected clip, so their selection is
+  // left alone. Every other tool starts clean.
+  const keepsSelection = !!TOOLS[key] && !!TOOLS[key].editsSelection;
+  if (boundClip && !keepsSelection) { jsx("ochaClearSelection()"); setBound(null, null); }
   curTool = key;
+  editTarget = null;                 // a leftover edit state would hijack Run
   $("modal-title").textContent = cfg.title;
   $("modal-desc").innerHTML = cfg.explain;          // static explanation — always shown
   // per-tool settings: "all" = position + fade, "fade" = fade only (position fixed)
@@ -1066,6 +1152,8 @@ function openTool(key) {
   $("grad-pos").hidden = cfg.settings !== "all";
   // Track: only for tools that place a clip, and reset to Automatic on every
   // open so a choice made for one gradient cannot silently ride into the next.
+  if ($("modal-editing")) $("modal-editing").hidden = true;   // resolved async below
+  if ($("modal-colour")) $("modal-colour").hidden = !cfg.colour;
   if ($("modal-track-row")) $("modal-track-row").hidden = !cfg.places;
   if ($("modal-track-hint")) $("modal-track-hint").hidden = !cfg.places;
   if (cfg.places && $("modal-track")) $("modal-track").value = "";
@@ -1087,12 +1175,15 @@ function openTool(key) {
   modalInfo("Checking the project…", false);        // live status line
   $("modal-result").hidden = true;
   const run = $("modal-run");
-  run.hidden = false;                               // a `once` tool hid it last time
+  run.hidden = !!cfg.noRun;                         // button-only tools (Align) have no Run
+  if (!cfg.noRun) run.hidden = false;               // a `once` tool hid it last time
   run.textContent = cfg.cta(0);
   run.disabled = true;
   run.classList.toggle("is-danger", !!cfg.danger);
   $("tool-modal").hidden = false;
   loadInfo();
+  if (cfg.editsSelection) checkEditTarget(cfg);
+  if (cfg.colour) { colClip = null; syncColourSelection(true); }
 }
 async function loadInfo() {
   const cfg = TOOLS[curTool];
@@ -1124,8 +1215,12 @@ async function loadInfo() {
   }
   if (cfg.list) {
     const names = (parts[2] || "").split(String.fromCharCode(31)).filter(Boolean);
-    modalInfo(ok ? (names.length ? `${names.length} item(s) are in the project but on no timeline.`
-                                 : "Nothing unused — every item is used in a sequence.")
+    // The wording is per-tool now: Remove unused and Tidy tracks share this list
+    // machinery but are describing completely different things.
+    const listLine = cfg.listLine || ((n) => n
+      ? `${n} item(s) are in the project but on no timeline.`
+      : "Nothing unused \u2014 every item is used in a sequence.");
+    modalInfo(ok ? listLine(names.length)
                  : (res.replace(/^ERR\|/, "") || "Couldn't scan the project."), !ok);
     $("modal-list").hidden = !names.length;
     fillList(names);
@@ -1136,11 +1231,30 @@ async function loadInfo() {
   const count = parts.length > 2 ? parseInt(parts[2], 10) : null;
   modalInfo(status, !ok);
   if (!ok) { run.disabled = true; run.textContent = cfg.cta(0); return; }
+  // The Colour tool's count means "the sequence still needs Rec. 709", which
+  // changes what its button DOES - not whether it is usable. It always has
+  // clips to adjust, so countGated must not grey it out.
+  if (cfg.colour) {
+    colourNeedsFix = (count > 0);
+    setColourFixUI(colourNeedsFix, status || "");
+    // The Sequence section already states this above its own button; repeating it
+    // in the status line printed the same sentence twice in one modal.
+    modalInfo("", false);
+    if ($("modal-info")) $("modal-info").hidden = true;
+    return;
+  }
   run.textContent = cfg.cta(isNaN(count) ? 0 : (count == null ? 1 : count));
-  run.disabled = cfg.countGated ? !(count > 0) : false;
+  run.disabled = (cfg.countGated && !cfg.colour) ? !(count > 0) : false;
 }
 async function runToolAction() {
   const cfg = TOOLS[curTool];
+  // EDIT MODE: the slider has already applied the change live, so Run just closes.
+  // Running the action here would add a SECOND gradient on top of the one being
+  // edited - exactly the mistake this mode exists to prevent.
+  if (editTarget) { $("tool-modal").hidden = true; curTool = null; editTarget = null; return; }
+  // Colour with a healthy sequence: the sliders already did the work live, so
+  // the button is only a way out.
+  if (cfg.colour && !colourNeedsFix) { $("tool-modal").hidden = true; curTool = null; return; }
   const run = $("modal-run"), cancel = $("modal-cancel");
   run.disabled = true; cancel.disabled = true;
   modalResult(cfg.working, "run");
@@ -1183,6 +1297,14 @@ function fillList(names) {
 function listTicked() {
   return [...$("modal-list-items").querySelectorAll("input:checked")].map((c) => c.dataset.i);
 }
+// The LABELS of the ticked rows ("V2", "A5"...). listTicked() returns row INDEXES
+// (what Remove unused's host call expects) - passing those to ochaRemoveTracks made
+// it parse "0" as track-kind "0", skip every entry, and report success over a
+// NO-OP. That was 2026-07-31's "shows the whole process but nothing gets removed".
+function listTickedLabels() {
+  return [...$("modal-list-items").querySelectorAll("input:checked")]
+    .map((c) => (c.parentElement.querySelector("span") || {}).textContent || "");
+}
 function listCount() {
   const n = listTicked().length, all = $("modal-list-items").querySelectorAll("input").length;
   $("modal-list-count").textContent = `${n} of ${all} selected`;
@@ -1210,11 +1332,177 @@ $("tool-gradient").addEventListener("click", () => openTool("gradient"));
 $("text-grad-btn").addEventListener("click", () => openTool("gradient"));
 $("tool-package").addEventListener("click", () => openTool("package"));
 $("tool-webapp").addEventListener("click", () => openTool("webapp"));
-$("tool-fixcolor").addEventListener("click", () => openTool("fixcolor"));
+$("tool-colour").addEventListener("click", () => openTool("colour"));
 $("tool-tidy").addEventListener("click", () => openTool("tidy"));
 $("tool-vignette").addEventListener("click", () => openTool("vignette"));
+// Look buttons preload the four sliders, so you can SEE what a look is and nudge
+// it before applying. Numbers mirror OCHA_LOOKS in the host, which mirrors the web
+// app's engine/look.py - one colour model across both products.
+const OCHA_LOOK_VALUES = {
+  none:    { b: 0, c: 0,  s: 0,    w: 0,   sh: 0,  hi: 0 },
+  natural: { b: 4, c: 8,  s: 4,    w: 4,   sh: 6,  hi: 6 },
+  warm:    { b: 4, c: 10, s: 10,   w: 26,  sh: 6,  hi: 8 },
+  cool:    { b: 2, c: 10, s: 2,    w: -24, sh: 6,  hi: 8 },
+  mono:    { b: 2, c: 14, s: -100, w: 0,   sh: 8,  hi: 10 },
+};
+const COL_IDS = ["col-b", "col-c", "col-w", "col-s", "col-sh", "col-hi"];
+const colVal = (id) => parseInt(($(id) || {}).value, 10) || 0;
+
+/* LIVE colour. Javi: "life updates when moving the sliders instead of clicking
+   apply". Two speeds, because the two scopes cost very different amounts:
+
+     Selected clips  -> `input`, debounced ~140ms. A handful of clips, so it can
+                        follow the drag.
+     Whole sequence  -> `change` only, i.e. ONE call when you let go. Rewriting
+                        every clip on the timeline per pixel of drag would hammer
+                        Premiere, and a slider that silently rewrites forty clips
+                        while you move it is alarming rather than helpful.
+
+   The first call on a clip is the slow one (Lumetri has to be attached and its
+   parameters take a beat to appear); every call after that just sets values. */
+let colTimer = null, colBusy = false, colPending = false;
+let colClip = null;                      // whose values the sliders are showing
+
+/* Load the SELECTED clip's existing grade into the sliders.
+   Javi: "can everything reset when a new clip is selected? and can the edited
+   clips maintain the info of what was modified, so we can adjust later?" - one
+   answer to both: read the clip's real Lumetri values back. A graded clip shows
+   its own numbers (so you continue from where it is), an ungraded one shows
+   zeros (so it reads as a reset).
+
+   Only on a CLIP CHANGE, never every tick - repopulating mid-drag would fight
+   the pointer, the same trap the fade slider hit. */
+function setColSliders(v) {
+  const map = { "col-b": v[0], "col-c": v[1], "col-s": v[2], "col-w": v[3], "col-sh": v[4], "col-hi": v[5] };
+  COL_IDS.forEach((id) => {
+    if ($(id)) $(id).value = map[id];
+    if ($(id + "-n")) $(id + "-n").value = map[id];
+  });
+  // the look row no longer describes what is on screen
+  document.querySelectorAll("#col-look .seg__opt").forEach((o) =>
+    o.classList.toggle("is-active", o.dataset.look === "none"));
+}
+
+async function syncColourSelection(force) {
+  const res = await jsx("ochaReadColour()") || "none";
+  const banner = $("col-clip");
+  if (res.indexOf("OK|") !== 0) {
+    if (colClip !== null || force) { colClip = null; setColSliders([0, 0, 0, 0, 0, 0]); }
+    if (banner) { banner.textContent = "No clip selected"; banner.classList.remove("is-on"); }
+    return;
+  }
+  const p = res.split("|");
+  const name = p[1];
+  if (banner) { banner.textContent = name; banner.classList.add("is-on"); }
+  if (name === colClip && !force) return;          // same clip: leave the sliders alone
+  colClip = name;
+  setColSliders([p[2], p[3], p[4], p[5], p[6], p[7]].map((n) => parseInt(n, 10) || 0));
+}
+
+// Reset: per slider and all at once. Both apply immediately - a reset you have to
+// confirm is not a reset. "All at zero" means the clip goes back to ungraded.
+function resetColour(ids) {
+  ids.forEach((id) => {
+    if ($(id)) $(id).value = 0;
+    if ($(id + "-n")) $(id + "-n").value = 0;
+  });
+  if (ids.length > 1) {
+    document.querySelectorAll("#col-look .seg__opt").forEach((o) =>
+      o.classList.toggle("is-active", o.dataset.look === "none"));
+  }
+  scheduleColour(true);
+}
+COL_IDS.forEach((id) => {
+  const r = $(id + "-r");
+  if (r) r.addEventListener("click", () => resetColour([id]));
+});
+if ($("col-reset-all")) $("col-reset-all").addEventListener("click", () => resetColour(COL_IDS));
+
+// The sequence fix: its own button, its own section, at the bottom.
+function setColourFixUI(needs, why) {
+  const b = $("col-fix-btn"), w = $("col-fix-why");
+  if (w) w.textContent = why || "";
+  if (!b) return;
+  b.disabled = !needs;
+  b.textContent = needs ? "Set sequence to Rec. 709" : "Sequence is Rec. 709";
+}
+if ($("col-fix-btn")) {
+  $("col-fix-btn").addEventListener("click", async () => {
+    const b = $("col-fix-btn");
+    b.disabled = true; b.textContent = "Setting\u2026";
+    const r = await jsx("ochaFixColor()") || "";
+    if (r.indexOf("OK|") === 0) {
+      colourNeedsFix = false;
+      setColourFixUI(false, "Set to Rec. 709. Scrub the timeline \u2014 the washed-out look should be gone.");
+      const drift = (String(r).match(/drift=(.*)$/) || [])[1];
+      if (drift) modalInfo("Note \u2014 other sequence settings also moved: " + drift, true);
+    } else {
+      setColourFixUI(true, r.replace(/^ERR\|/, "") || "Could not change the sequence.");
+    }
+  });
+}
+function colScope() {
+  const el = document.querySelector("#col-scope .seg__opt.is-active");
+  return (el && el.dataset.scope) || "sel";
+}
+async function applyColourLive() {
+  if (colBusy) { colPending = true; return; }      // never stack calls into Premiere
+  colBusy = true;
+  try {
+    const r = await jsx(`ochaApplyColour(${colVal("col-b")},${colVal("col-c")},` +
+      `${colVal("col-s")},${colVal("col-w")},${colVal("col-sh")},${colVal("col-hi")},` +
+      `${lit(colScope())})`) || "";
+    if (r.indexOf("ERR|") === 0) modalInfo(r.slice(4), true);
+    else {
+      const n = String(r).split("|")[1];
+      modalInfo(`Applied to ${n} clip${n === "1" ? "" : "s"}.`, false);
+    }
+  } finally {
+    colBusy = false;
+    if (colPending) { colPending = false; applyColourLive(); }   // run the last value
+  }
+}
+function scheduleColour(immediate) {
+  clearTimeout(colTimer);
+  if (immediate) return applyColourLive();
+  colTimer = setTimeout(applyColourLive, 140);
+}
+document.querySelectorAll("#col-look .seg__opt").forEach((b) => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("#col-look .seg__opt").forEach((o) => o.classList.toggle("is-active", o === b));
+    const v = OCHA_LOOK_VALUES[b.dataset.look] || OCHA_LOOK_VALUES.none;
+    const set = { "col-b": v.b, "col-c": v.c, "col-w": v.w, "col-s": v.s, "col-sh": v.sh, "col-hi": v.hi };
+    COL_IDS.forEach((id) => {
+      if ($(id)) $(id).value = set[id];
+      if ($(id + "-n")) $(id + "-n").value = set[id];
+    });
+    scheduleColour(true);                       // a look is one decision - apply at once
+  });
+});
+document.querySelectorAll("#col-scope .seg__opt").forEach((b) => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("#col-scope .seg__opt").forEach((o) => o.classList.toggle("is-active", o === b));
+    const all = colScope() === "all";
+    if ($("col-live")) $("col-live").textContent = all
+      ? "Applies to every clip when you let go of a slider."
+      : "Changes apply as you drag.";
+    if ($("col-clip")) $("col-clip").hidden = all;   // irrelevant when targeting all
+  });
+});
+COL_IDS.forEach((id) => {
+  linkPair(id, id + "-n");
+  const sl = $(id), nu = $(id + "-n");
+  // input = during the drag (selected clips only); change = on release (both).
+  if (sl) {
+    sl.addEventListener("input", () => { if (colScope() !== "all") scheduleColour(false); });
+    sl.addEventListener("change", () => scheduleColour(true));
+  }
+  if (nu) nu.addEventListener("change", () => scheduleColour(true));
+});
+
+$("tool-tidytracks").addEventListener("click", () => openTool("tidytracks"));
 $("tool-unused").addEventListener("click", () => openTool("unused"));
-$("color-banner-fix").addEventListener("click", () => openTool("fixcolor"));
+$("color-banner-fix").addEventListener("click", () => openTool("colour"));
 $("modal-run").addEventListener("click", runToolAction);
 $("modal-cancel").addEventListener("click", closeModal);
 $("modal-x").addEventListener("click", closeModal);

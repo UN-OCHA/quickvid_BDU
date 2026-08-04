@@ -586,6 +586,49 @@ body {
 }
 .track-sel:focus { border-color: var(--accent); outline: none; }
 
+/* "Editing the selected gradient" note inside a tool modal. Uses the accent, not
+   the notice colour: this is a statement of what will happen, not a warning. */
+.modal-editing {
+  margin: 0 0 var(--sp-150); padding: var(--sp-100);
+  font-size: var(--fs-xs); line-height: 1.5; color: var(--accent-text);
+  background: var(--accent-bg); border: 1px solid var(--accent);
+  border-radius: var(--r-md);
+}
+.modal-editing[hidden] { display: none; }
+
+/* Compact swatch pair: it is a reminder of what "washed out" looks like, not a
+   figure. The full-size version pushed the sliders off a docked panel. */
+.cs-swatches--sm { gap: var(--sp-100); margin: var(--sp-100) 0; }
+.cs-swatches--sm .cs-swatch { font-size: 10px; }
+.cs-swatches--sm .cs-swatch i { height: 14px; }
+/* Tighter rows inside the colour panel - four sliders plus two segmented rows
+   have to fit without the modal scrolling. */
+#modal-colour .adj-row { margin-bottom: var(--sp-75); }
+#modal-colour .adj-group { margin-bottom: var(--sp-50); }
+#modal-colour .seg { margin-bottom: var(--sp-100); }
+
+/* Sequence fix: visually separated from the per-clip controls above it, because
+   it changes the PROJECT rather than a clip. */
+.col-fix { margin-top: var(--sp-150); padding-top: var(--sp-100); border-top: 1px solid var(--border-default); }
+.col-fix .sec-hint { margin: 0 0 var(--sp-100); }
+#col-fix-btn { width: 100%; }
+#col-fix-btn:disabled { opacity: .55; cursor: default; }
+
+/* Which clip is about to change. Muted when nothing is selected, accent when it
+   is - the state should be readable without reading the words. */
+.col-clip {
+  margin: 0 0 var(--sp-100); padding: var(--sp-75) var(--sp-100);
+  font-size: var(--fs-xs); font-weight: var(--fw-medium);
+  color: var(--text-tertiary); background: var(--bg-layer-2);
+  border: 1px solid var(--border-default); border-radius: var(--r-md);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.col-clip.is-on { color: var(--accent-text); background: var(--accent-bg); border-color: var(--accent); }
+.col-clip[hidden] { display: none; }
+.col-foot { display: flex; align-items: center; gap: var(--sp-100); margin-top: var(--sp-100); }
+.col-foot .sec-hint { margin: 0; flex: 1 1 auto; }
+.col-reset { flex: 0 0 auto; }
+
 /* ---- modal tick-list (Remove unused) ---- */
 .modal-list { margin: var(--sp-200) 0; }
 .modal-list__bar { display: flex; align-items: center; gap: var(--sp-100); margin-bottom: var(--sp-100); }

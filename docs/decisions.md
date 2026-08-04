@@ -2547,3 +2547,262 @@ here — the prefs file is not plain key=value — so it needs confirming in the
 RULE: when an API question decides whether a feature exists, ask the running
 application with a reflection probe. It cost one round trip and replaced a guess
 with a table. Same move as check_host_loads.jsx.
+
+## 2026-07-31 — 2026.0.47 shipped; 2026.0.48 built (fade, align, audio tidy)
+
+**2026.0.47 is live** — Bebas Neue on lower thirds, Advanced settings, track
+choice for gradient and vignette. Pushed to main; the updater sees it and the
+signed package downloads. The same push published the web app at 2026.0.32,
+which carries the Windows encoding crash fix.
+
+### 48: three tools, and what each one can honestly do
+
+**Fade / Strength on a placed clip.** Select a gradient or vignette and a slider
+appears. The value rides along on `ochaReadMotion` (which already runs every
+tick) rather than a second call, exactly like the font index. It is NOT in
+Advanced settings: for a gradient the fade is the point of the element, not an
+off-standard tweak. Adopting the polled value is gated on the clip CHANGING, or
+the 900ms poll would snap the slider back from under the pointer mid-drag.
+This also makes the vignette's own help text true — it has always said "select
+the clip afterwards to fine-tune Amount", which was not implemented.
+
+**Align to frame** — six buttons, laid out as Premiere lays them out. Two very
+different jobs behind one row:
+
+* **OCHA templates are exact.** Their Position X/Y are element-edge percentages
+  the template clamps element-exact, so "align left" IS the slider at 0. Nothing
+  is measured and nothing is assumed.
+* **Any other clip** needs visual bounds, and **neither ProjectItem nor TrackItem
+  exposes width or height** (measured by reflection, Premiere 26.3.0). Bounds are
+  therefore reconstructed from the source frame size in project metadata times
+  Motion's Scale. When that read fails the button REFUSES and says why — it does
+  not move the clip to a guessed position.
+* **Centring never needs any of it.** Motion Position 0.5 centres a clip whatever
+  its size, so the two centre buttons work on absolutely anything.
+
+**Tidy audio tracks.** Removes audio tracks holding no clips, via the QE DOM
+(`removeEmptyAudioTracks` — the documented API has nothing). Scoped honestly: a
+track with a clip on it is never touched, even if the clip is silent. Deleting
+audio because it happens to be quiet is not a decision a tool should make.
+
+### Three traps caught while building, all by a control test
+
+* **`cfg.info` is a CALL STRING, not a function** — `loadInfo` passes it straight
+  to `jsx()`. Writing `info: async () => {...}` would have sent a function object
+  down the bridge. Read the contract before inventing a hook.
+* **The align grid was nested inside `#modal-settings`**, which is hidden for any
+  tool without `settings`. `getComputedStyle(el).display` still reports "block"
+  for a child of a hidden parent, so the first check passed and the buttons were
+  invisible. **`offsetParent !== null` is the honest test.** Moved out to a
+  sibling.
+* **A literal multiplication sign** reached the source in a regex.
+  `tools/check-jsx.py` caught it before it could cross the evalScript bridge; it
+  is written `×` now. The checker has paid for itself twice in one day.
+
+RULE: when a grep or a probe returns "nothing", run it against something you KNOW
+is there before believing it. That control test caught a wrong conclusion three
+times today — searching Premiere's binaries, counting align buttons, and checking
+CSS tokens that are declared several per line.
+
+### Tidy tracks removed nothing: it was fed row INDEXES and said "Removed"
+
+Javi: "shows the whole process but nothing gets removed." Cause found in one
+grep: `listTicked()` returns the tick-list's ROW INDEXES ("0,2") because that is
+what Remove unused's host call expects — but `ochaRemoveTracks` parses NAMES
+("V2,A15"). It read "0", took "0" as the track kind, matched neither V nor A,
+skipped every entry, and the old counting (increment on non-throw) reported
+success over a complete no-op. New `listTickedLabels()` feeds it the labels.
+
+Hardened while there: each QE removal is now VERIFIED against the sequence —
+the count must drop by one and the clip-count fingerprint of everything else
+must be unchanged. If Premiere ever removes a different track than asked (QE's
+index base is undocumented), it stops after ONE removal and says to press Undo.
+Zero-removed now returns ERR, never a cheerful success.
+
+RULE: a destructive call is not done when it returns — it is done when the
+world changed the way you asked. Count before, count after, compare.
+
+### Edit mode now follows the selection while the modal is open
+
+Deselecting the gradient mid-modal left "editing selected" stuck (Javi's #2).
+A 900ms watcher now runs while a gradient/vignette modal is open: deselect and
+the note clears, the CTA flips back to "Add gradient" IMMEDIATELY (not after
+loadInfo's host round-trip), and selecting one mid-modal flips into editing.
+Transitions only — re-running the full check every tick would snap the slider
+back under the pointer mid-drag. `openTool` also resets `editTarget` for every
+tool, or a leftover edit state would make the NEXT tool's Run merely close.
+
+### Align removed; Fix colour absorbed into one Colour tool
+
+**Align is gone** (Javi's call, and mine). Two things killed it: on Premiere text
+the thing you want aligned is the LAYER INSIDE the graphic, which no scripting
+interface reaches - so "nothing works" was exactly right; and on a lower third
+the template's own clamp will not allow it to the top, which is correct behaviour
+for a lower third. A tool that half-works on our elements and cannot touch text is
+a support burden forever. Removed from all five layers (tile, grid, config, host,
+CSS) rather than left disabled.
+
+RULE: when the honest version of a feature is "works sometimes, on some clips",
+delete it before it ships. The explaining costs more than the feature is worth.
+
+**Fix colour is now section one of a Colour tool.** Not renamed to "Fix iPhone
+colours": that tool changes the SEQUENCE's working colour space, touches no clip
+and knows nothing about phones - iPhone footage is the usual cause, but log
+footage and some mirrorless cameras do it too, and someone with a washed-out
+GoPro would skip a tool named after a phone. The symptom is the useful name.
+
+Three sections, in the order you should work:
+1. **Sequence setup** - the existing Rec. 709 fix, with its settings AUDIT intact
+   (a blind whole-object write is suspected of having wrecked a project's colour
+   once, so the host still reports any other setting that moved).
+2. **Look** - the web app's four presets.
+3. **Adjust** - Brightness, Contrast, Warmth, Colour.
+
+**The numbers are the web app's** (`engine/look.py`), so a clip corrected in the
+plugin and one corrected in the web app land in the same place. Slider `step` is 1,
+not 5: at 5 the Warm look's warmth snapped 26 -> 25 and the two products would have
+quietly disagreed.
+
+**One application path.** Choosing a look PRELOADS the four sliders, so by the time
+the button is pressed the sliders ARE the look - a separate ochaApplyLook call
+could only ever disagree with what is on screen. It was written, then deleted.
+
+**The button changes job, not availability:** while the sequence is still
+wide-gamut it reads "Set sequence to Rec. 709" and does that; once the sequence is
+right it becomes "Apply to clips". `countGated` had to be excluded for this tool,
+or a correct sequence would have greyed out the whole colour panel.
+
+Applied through **Lumetri Color**, attached the same way the reel's Gaussian Blur
+already is (`qe.addVideoEffect`, then the normal DOM component). Lumetri's
+parameter names are undocumented and version-dependent, so each setter tries a
+list of likely names and REPORTS which ones did not match - "adjusted 3 of 4
+parameters" is useful; a cheerful "done" over a no-op is what Tidy tracks just
+taught us to avoid.
+
+Testing note: `loadInfo()` returns early when `hostReady` is false, so a browser
+test of any tool's CTA must set `hostReady = true` first. My first run showed the
+button permanently disabled and I nearly "fixed" code that was fine.
+
+### Colour round 2: QE counts gaps as items
+
+Javi's diagnostic line did its job in one round trip: `targets=1
+lumetriMissing=1` - clip found, parameter names fine (a clip at the head of a
+track worked), Lumetri not attaching elsewhere. Cause: `ochaEnsureLumetri` looked
+the clip up with `qt.getItemAt(domClipIndex)`, and **QE's item list includes the
+EMPTY GAPS between clips**, so the DOM index only lines up for a clip at the head
+of a gapless track. Worse than failing: on a gap-then-clips layout the index can
+land on a DIFFERENT real clip and the effect would silently attach to it.
+
+Fix: match the QE item by the clip's `start.ticks` (tick strings compare exactly),
+skipping items whose type is Empty. No match = fail and say so - never fall back
+to an index.
+
+RULE: a DOM clip index is NEVER a QE item index. Any DOM->QE hop must match by
+start ticks, not position. (Same family as the dropdown 0/1-base and the
+sourceRectAtTime-at-time-0 traps: two Adobe APIs describing one thing, each with
+its own counting.)
+
+Also this round, per Javi: the Colour modal's prose cut to two lines, small
+swatches, tighter rows - the controls are the explanation. Modal measured 577px.
+
+### Colour goes live, and gains shadows / highlights
+
+Javi: "life updates when moving the sliders instead of clicking apply", plus the
+classic pair — lift the shadows, pull the highlights back.
+
+**Two speeds, because the two scopes cost very different amounts:**
+* **Selected clips** - `input`, debounced 140ms. Measured: a 12-tick drag becomes
+  ONE call, because the debounce coalesces and a busy-guard refuses to stack calls
+  into Premiere (the last value always wins, so the result matches the slider).
+* **Whole sequence** - `change` only, i.e. one call when you let go. Rewriting
+  every clip per pixel of drag would hammer Premiere, and a slider that silently
+  rewrites forty clips WHILE you move it is alarming rather than helpful. The hint
+  under the sliders says which mode you are in.
+
+The first call on any clip is the slow one (Lumetri has to attach and its
+parameters appear a beat later); every call after that just sets values.
+
+**Highlights is INVERTED on purpose.** Lumetri's own Highlights goes darker as it
+goes negative; a user dragging a slider labelled "Highlights" to the right expects
+blown areas to come BACK. The panel's sign is the user's mental model, and the
+host flips it.
+
+**The button lost its job.** With sliders and looks applying themselves it does
+one thing: the sequence Rec. 709 fix, which is a project setting rather than a
+clip effect and deserves an explicit press. When the sequence is already right it
+reads "Done" and just closes.
+
+Repair note: a line-range replacement in the TOOLS object swallowed the closing
+brace and left a duplicate, which `node --check` caught as "Missing initializer in
+const declaration" pointing at the NEXT tool - a reminder that a JS syntax error
+usually names the token AFTER the damage, not the damage.
+
+### Colour becomes an editor, not a one-shot
+
+Javi: "can everything reset when a new clip is selected? and can the edited clips
+maintain the info of what was modified, so we can adjust later?" - one mechanism
+answers both. `ochaReadColour()` reads the clip's REAL Lumetri values back into
+panel units (the exact inverse of the apply maths), so:
+
+* a graded clip shows its own numbers - you continue from where it is;
+* an ungraded clip shows zeros - which reads as the reset he asked for;
+* selecting a different clip mid-modal reloads ITS values.
+
+Without it the sliders would have lied: sitting at zero over a graded clip, so the
+first nudge would silently throw away everything applied before.
+
+Repopulation happens on a CLIP CHANGE only, never per tick - the same discipline
+the fade slider needed, or the poll fights the pointer mid-drag.
+
+**A banner names the target** ("Interview 01.mov" / "No clip selected"), accent
+when live, muted when not. Colour edits are invisible until you look at the
+picture, so naming what is about to change is the difference between confidence
+and guesswork.
+
+**Resets**: one per slider (reusing the position rows' reset icon) and Reset all.
+Both apply immediately - a reset you have to confirm is not a reset.
+
+**The sequence fix moved to the BOTTOM in its own bordered section**, with its own
+full-width button that greys to "Sequence is Rec. 709" when there is nothing to
+do. It is a project setting, not a clip effect, and the per-clip work is what
+people open this tool for. The footer CTA is gone entirely (`noRun`): with sliders
+live and the fix owning its own button, a third button could only repeat something
+already done. Cancel reads "Close".
+
+**Highlights is NOT inverted** - reversed on Javi's call. An earlier version
+flipped it so dragging right "recovered" blown areas; the plain reading (left
+darker, right brighter, same as Lumetri's own slider) wins. A control that
+disagrees with the panel it mirrors is a trap, however well-reasoned the flip.
+
+Also fixed: the sequence reason printed twice - once in its own section, once in
+the modal status line underneath. The section owns it now.
+
+### Copy pass: 43% less text, same information
+
+Javi: "simplify the text on readability gradient. Too many explanations... do a
+review of other text explanations and simplify so it's no longer text everywhere."
+
+Measured before rewriting, which is what made it tractable: 3,822 characters of
+tool explanations across 11 tools, eight of them over 260 chars, the gradient at
+431 with FIVE bullets. Now 2,184 across the same 11, none over 300, and no passage
+anywhere in the panel over 90 characters.
+
+The pattern in every over-long one was the same: explain, then re-explain, then
+reassure. The gradient described what a gradient is, then where to put it, then
+Middle, then Middle's halves. Package said "your originals stay put" twice in
+different words. Vignette explained sequence-size independence nobody had asked
+about.
+
+What survived the cut, in order of priority:
+1. what it does, in one line;
+2. the one thing that would surprise you (the gradient goes BELOW your text; a
+   track holding a silent clip is never removed);
+3. genuine safety facts - nothing on disk is touched, undo works.
+
+What went: history ("this replaces Clean MOGRTs"), restating visible UI, reassurance
+nobody needed, and the second sentence saying the first again. Also trimmed the
+Captions step list from five dense steps to four short ones, and the two long panel
+hints - including the Track hint that repeated the bullet directly above it.
+
+RULE: measure copy before editing it. "Too much text" is a feeling; 431 characters
+in five bullets is a number, and it tells you which ones to open first.

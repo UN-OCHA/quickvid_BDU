@@ -1,7 +1,7 @@
 {
-  "version": "2026.0.47",
-  "date": "2026-07-31",
-  "notes": "Lower thirds can now use Bebas Neue, the UN video typeface, as well as OCHA Raleway. Pick it in Advanced settings > Font - before you place, or on a lower third you have already placed. Raleway stays the default and nothing changes unless you choose it; in Bebas both lines are capitals, as UN video style has them. The old Position panel is now Advanced settings, holding Position and Font, and the readability gradient and vignette let you choose which track they land on instead of always deciding for you.",
+  "version": "2026.0.48",
+  "date": "2026-08-03",
+  "notes": "New Colour tool. Pick a look or nudge Brightness, Contrast, Warmth, Colour, Shadows and Highlights - changes apply as you drag, and selecting a clip loads what is already on it, so you can come back and adjust. Same numbers as the QuickVid web app. The washed-out sequence fix now lives at the bottom of the same tool. Readability gradient and vignette can be edited after placing: select one, open its tool, and the fade adjusts that clip. New Tidy tracks removes empty video and audio tracks, you choose which. Every tool's explanation is about half as long.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
-  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=2026.0.47"
+  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=2026.0.48"
 }

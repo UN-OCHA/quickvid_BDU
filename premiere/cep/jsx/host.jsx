@@ -1511,6 +1511,363 @@ function ochaPosParams(clip) {
   return (px && py) ? { x: px, y: py } : null;
 }
 
+/* ---------------------------------------------------------------------------
+   COLOUR - looks and basic adjustments, via Lumetri Color.
+
+   Same shape as the reel's Gaussian Blur, which is the one video effect this
+   panel already adds successfully: qe.addVideoEffect() to attach it, then the
+   normal DOM component to set parameters.
+
+   The NUMBERS are the web app's (engine/look.py). A clip corrected here and one
+   corrected in the web app land in the same place - one colour model across both
+   products, not two that drift.
+
+   Lumetri's parameter names are not documented for scripting and differ between
+   Premiere versions, so every setter tries a LIST of likely names and reports
+   which one took. A parameter that cannot be found is reported, never silently
+   skipped: "I set 3 of 4" is useful, "done" when nothing happened is not.
+   ------------------------------------------------------------------------ */
+
+// Basic Correction parameter aliases, most likely first.
+var OCHA_LUMETRI_PARAMS = {
+  exposure:   ["Exposure", "Basic Correction/Exposure", "Lumetri Color/Exposure"],
+  contrast:   ["Contrast", "Basic Correction/Contrast", "Lumetri Color/Contrast"],
+  saturation: ["Saturation", "Basic Correction/Saturation", "Lumetri Color/Saturation"],
+  temperature:["Temperature", "White Balance/Temperature", "Basic Correction/Temperature"],
+  shadows:    ["Shadows", "Basic Correction/Shadows", "Lumetri Color/Shadows"],
+  highlights: ["Highlights", "Basic Correction/Highlights", "Lumetri Color/Highlights"]
+};
+
+function ochaLumetriComp(clip) {
+  try {
+    var comps = clip.components;
+    for (var i = 0; i < comps.numItems; i++) {
+      var mn = "", dn = "";
+      try { mn = comps[i].matchName; } catch (e1) {}
+      try { dn = comps[i].displayName; } catch (e2) {}
+      if (/lumetri/i.test(mn) || /lumetri/i.test(dn)) return comps[i];
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Attach Lumetri if the clip has none yet. Returns the component or null.
+function ochaEnsureLumetri(clip, seq, trackIdx, clipIdx, isVideo) {
+  var have = ochaLumetriComp(clip);
+  if (have) return have;
+  try {
+    if (typeof qe === "undefined" || !qe) return null;
+    var qseq = qe.project.getActiveSequence();
+    if (!qseq) return null;
+    var qt = qseq.getVideoTrackAt(trackIdx);
+    if (!qt) return null;
+    // NEVER getItemAt(clipIdx): QE counts EMPTY GAPS as items, so the DOM clip
+    // index only lines up when the clip sits at the head of a gapless track.
+    // That is why colour "worked with one clip" and failed on the rest
+    // (2026-07-31) - and on the wrong layout an index lookup would attach the
+    // effect to a DIFFERENT clip. Match the clip by its START TICKS instead,
+    // skipping gap items; no match = fail honestly, never guess.
+    var wantTicks = "";
+    try { wantTicks = String(clip.start.ticks); } catch (eT) {}
+    var qc = null, total = 0;
+    try { total = qt.numItems; } catch (eNI) {}
+    for (var j = 0; j < total && !qc; j++) {
+      var it = null;
+      try { it = qt.getItemAt(j); } catch (eGI) { it = null; }
+      if (!it) continue;
+      var ty = ""; try { ty = String(it.type); } catch (eTy) {}
+      if (ty && ty.toLowerCase().indexOf("empty") >= 0) continue;
+      var tk = ""; try { tk = String(it.start.ticks); } catch (eTk) {}
+      if (wantTicks && tk === wantTicks) qc = it;
+    }
+    var fx = qe.project.getVideoEffectByName("Lumetri Color");
+    if (!qc || !fx) return null;
+    qc.addVideoEffect(fx);
+  } catch (e) { return null; }
+  // An effect's parameters attach a BEAT after the effect itself - the same
+  // behaviour ochaAdd() already polls for with Graphic Parameters. Reading
+  // straight away finds the component with nothing on it.
+  var got = null;
+  for (var w = 0; w < 8 && !got; w++) {
+    got = ochaLumetriComp(clip);
+    if (!got) $.sleep(120);
+  }
+  return got;
+}
+
+function ochaSetLumetriParam(comp, key, value) {
+  var names = OCHA_LUMETRI_PARAMS[key] || [key];
+  for (var i = 0; i < names.length; i++) {
+    var p = ochaFindParam(comp.properties, names[i]);
+    if (p) {
+      try { p.setValue(value, true); return names[i]; } catch (e) {}
+    }
+  }
+  return null;
+}
+
+/* Apply adjustments to the selected clips, or to every video clip in the
+   sequence when scope is "all".
+     b,c,s,w : -100..100, 0 = unchanged (the panel's own scale)
+   Returns "OK|<clips>|<detail>" or "ERR|...". */
+function ochaApplyColour(b, c, s, w, sh, hi, scope) {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return "ERR|Open a sequence first.";
+    var nb = parseFloat(b) || 0, nc = parseFloat(c) || 0;
+    var ns = parseFloat(s) || 0, nw = parseFloat(w) || 0;
+    var nsh = parseFloat(sh) || 0, nhi = parseFloat(hi) || 0;
+
+    // Panel scale -> Lumetri units. Ranges deliberately modest: this is for
+    // correcting a cast or a dark room, not grading.
+    var exposure    = nb / 100 * 1.2;          // stops
+    var contrast    = nc;                      // Lumetri contrast is -100..100
+    var saturation  = 100 + ns;                // 100 = unchanged
+    var temperature = nw;                      // -100..100, 0 = as shot
+    // Shadows/Highlights pass straight through as Lumetri's own -100..100.
+    // NOT inverted: an earlier version flipped Highlights so that dragging right
+    // "recovered" blown areas, but Javi's call is the plain reading - left darker,
+    // right brighter, same as Lumetri's own slider (2026-07-31). A control that
+    // disagrees with the panel it mirrors is a trap, however well-reasoned.
+    var shadows    = nsh;
+    var highlights = nhi;
+
+    var all = String(scope) === "all";
+    var targets = [], i, j, tr;
+    if (all) {
+      for (i = 0; i < seq.videoTracks.numTracks; i++) {
+        tr = seq.videoTracks[i];
+        for (j = 0; j < tr.clips.numItems; j++) targets.push({ c: tr.clips[j], t: i, k: j });
+      }
+    } else {
+      var sel = null;
+      try { sel = seq.getSelection(); } catch (eS) {}
+      var n = 0; try { n = sel.length; } catch (eN) { n = 0; }
+      for (i = 0; i < n; i++) {
+        var it = sel[i], mt = "";
+        try { mt = String(it.mediaType); } catch (eM) {}
+        if (mt && mt.toLowerCase().indexOf("audio") >= 0) continue;
+        // find its track/index so QE can reach it
+        for (var ti = 0; ti < seq.videoTracks.numTracks; ti++) {
+          var t2 = seq.videoTracks[ti];
+          for (var ci = 0; ci < t2.clips.numItems; ci++) {
+            if (t2.clips[ci].start.ticks === it.start.ticks && t2.clips[ci].name === it.name) {
+              targets.push({ c: it, t: ti, k: ci });
+              ti = seq.videoTracks.numTracks; break;
+            }
+          }
+        }
+      }
+      if (!targets.length) return "ERR|Select one or more video clips first, or choose the whole sequence.";
+    }
+
+    var done = 0, noFx = 0, missed = {};
+    for (i = 0; i < targets.length; i++) {
+      var comp = ochaEnsureLumetri(targets[i].c, seq, targets[i].t, targets[i].k, true);
+      if (!comp) { noFx++; continue; }
+      var okAny = false;
+      var pairs = [["exposure", exposure], ["contrast", contrast],
+                   ["saturation", saturation], ["temperature", temperature],
+                   ["shadows", shadows], ["highlights", highlights]];
+      for (j = 0; j < pairs.length; j++) {
+        var used = ochaSetLumetriParam(comp, pairs[j][0], pairs[j][1]);
+        if (used) okAny = true; else missed[pairs[j][0]] = 1;
+      }
+      if (okAny) done++;
+    }
+    var miss = [];
+    for (var k in missed) { if (missed.hasOwnProperty(k)) miss.push(k); }
+    if (!done) {
+      // DIAGNOSTIC, not an apology. Every failure here has three possible causes -
+      // no clip found, Lumetri not attachable, or its parameters named differently
+      // in this Premiere build - and they need completely different fixes. So say
+      // which one it was, and when it is the third, list the names actually present.
+      var why = "targets=" + targets.length + " lumetriMissing=" + noFx;
+      if (targets.length && !noFx) {
+        var first = ochaLumetriComp(targets[0].c);
+        var names = [];
+        if (first) {
+          try {
+            for (var q = 0; q < first.properties.numItems && names.length < 25; q++) {
+              var dn = ""; try { dn = first.properties[q].displayName; } catch (eD) {}
+              if (dn) names.push(dn);
+            }
+          } catch (eP) {}
+        }
+        why += " params[" + names.length + "]: " + (names.join(", ") || "none readable");
+      }
+      return "ERR|Nothing was changed. " + why;
+    }
+    var detail = "Adjusted " + done + " clip" + (done === 1 ? "" : "s");
+    if (noFx) detail += ", skipped " + noFx + " (no Lumetri)";
+    if (miss.length) detail += ". Not supported in this Premiere build: " + miss.join(", ");
+    return "OK|" + done + "|" + detail + ".";
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
+/* Read the selected clip's CURRENT colour back into panel units - the exact
+   inverse of ochaApplyColour's maths. Without this the sliders would lie: they
+   would sit at zero over a clip that is already graded, and the first nudge would
+   throw away everything previously applied.
+
+   "OK|<name>|b|c|s|w|sh|hi" or "none" (nothing selected / no Lumetri on it). The
+   clip NAME travels back so the panel can tell "same clip, mid-drag" from "a
+   different clip, repopulate". */
+function ochaReadColour() {
+  try {
+    var clip = ochaSelectedClipAny();
+    if (!clip) return "none";
+    var nm = ""; try { nm = clip.name; } catch (eN) {}
+    var comp = ochaLumetriComp(clip);
+    if (!comp) return "OK|" + nm + "|0|0|0|0|0|0";      // no grade yet: all neutral
+    function get(key, dflt) {
+      var names = OCHA_LUMETRI_PARAMS[key] || [key];
+      for (var i = 0; i < names.length; i++) {
+        var pr = ochaFindParam(comp.properties, names[i]);
+        if (pr) { try { var v = pr.getValue(); if (typeof v === "number") return v; } catch (e) {} }
+      }
+      return dflt;
+    }
+    var exposure    = get("exposure", 0);
+    var contrast    = get("contrast", 0);
+    var saturation  = get("saturation", 100);
+    var temperature = get("temperature", 0);
+    var shadows     = get("shadows", 0);
+    var highlights  = get("highlights", 0);
+    var b  = Math.round(exposure / 1.2 * 100);
+    var c  = Math.round(contrast);
+    var sa = Math.round(saturation - 100);
+    var w  = Math.round(temperature);
+    var sh = Math.round(shadows);
+    var hi = Math.round(highlights);
+    function cap(x) { return Math.max(-100, Math.min(100, x || 0)); }
+    return "OK|" + nm + "|" + cap(b) + "|" + cap(c) + "|" + cap(sa) + "|" +
+           cap(w) + "|" + cap(sh) + "|" + cap(hi);
+  } catch (e) { return "none"; }
+}
+
+/* EMPTY TRACKS - video and audio. Listed first so the user confirms which go:
+   removing a track is not undoable in the "obviously fine" way that adding one is,
+   and a 16-channel broadcast file can leave a lot of them.
+
+   A track holding a clip is NEVER listed, even if that clip is silent. Deleting
+   audio because it happens to be quiet is not a decision a tool should make.
+
+   Returns "OK|<count>|V2<US>V3<US>A5..." - the same shape the tick-list modal
+   already consumes for Remove unused. */
+function ochaEmptyTrackList() {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return "ERR|Open a sequence first.";
+    var US = String.fromCharCode(31);
+    var names = [];
+    var i, t, n;
+    for (i = 0; i < seq.videoTracks.numTracks; i++) {
+      t = seq.videoTracks[i];
+      n = 0; try { n = t.clips.numItems; } catch (e1) { n = 0; }
+      if (n === 0) names.push("V" + (i + 1));
+    }
+    for (i = 0; i < seq.audioTracks.numTracks; i++) {
+      t = seq.audioTracks[i];
+      n = 0; try { n = t.clips.numItems; } catch (e2) { n = 0; }
+      if (n === 0) names.push("A" + (i + 1));
+    }
+    return "OK|" + names.length + "|" + names.join(US);
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
+/* Remove the named tracks, e.g. "V2,A5,A6" (display names, 1-based).
+
+   Premiere's QE removal is called ONE TRACK AT A TIME and the result is VERIFIED
+   against the real sequence after every call - the count must drop, and no track
+   that held clips may vanish. Two reasons, both earned today:
+   - the first version of this tool reported success over a complete no-op (it was
+     fed row indexes, parsed nothing, removed nothing, said "Removed").
+   - QE's index base is undocumented; if it ever disagrees, the fingerprint check
+     catches the wrong-track case after ONE removal and says to press Undo,
+     instead of ploughing on.
+
+   HIGHEST INDEX FIRST per type: removing V2 renumbers everything above it. */
+function ochaTrackPrints(seq) {
+  var f = { v: [], a: [] };
+  var i, t, n;
+  for (i = 0; i < seq.videoTracks.numTracks; i++) {
+    t = seq.videoTracks[i];
+    n = 0; try { n = t.clips.numItems; } catch (e1) {}
+    f.v.push(n);
+  }
+  for (i = 0; i < seq.audioTracks.numTracks; i++) {
+    t = seq.audioTracks[i];
+    n = 0; try { n = t.clips.numItems; } catch (e2) {}
+    f.a.push(n);
+  }
+  return f;
+}
+
+function ochaRemoveTracks(csv) {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return "ERR|Open a sequence first.";
+    var qseq = (typeof qe !== "undefined" && qe) ? qe.project.getActiveSequence() : null;
+    if (!qseq) return "ERR|This Premiere build does not expose track removal to scripts.";
+
+    var wantV = [], wantA = [];
+    var parts = String(csv || "").split(",");
+    for (var i = 0; i < parts.length; i++) {
+      var raw = (parts[i] || "").replace(/^\s+|\s+$/g, "");
+      if (!raw) continue;
+      var kind = raw.substring(0, 1).toUpperCase();
+      var idx = parseInt(raw.substring(1), 10) - 1;        // "A5" -> 4
+      if (isNaN(idx) || idx < 0) continue;
+      if (kind === "V") wantV.push(idx); else if (kind === "A") wantA.push(idx);
+    }
+    if (!wantV.length && !wantA.length) return "ERR|Nothing recognisable to remove (got: " + String(csv).substring(0, 40) + ")";
+    var desc = function (a, b) { return b - a; };
+    wantV.sort(desc); wantA.sort(desc);
+
+    var goneV = 0, goneA = 0, refused = [], wrong = false;
+
+    function removeOne(kind, idx) {
+      var isV = kind === "V";
+      var tracks = isV ? app.project.activeSequence.videoTracks : app.project.activeSequence.audioTracks;
+      if (idx >= tracks.numTracks) { refused.push(kind + (idx + 1) + " (gone already)"); return true; }
+      var n = 0; try { n = tracks[idx].clips.numItems; } catch (eN) {}
+      if (n > 0) { refused.push(kind + (idx + 1) + " (not empty any more)"); return true; }
+      var before = ochaTrackPrints(app.project.activeSequence);
+      try { if (isV) qseq.removeVideoTrack(idx); else qseq.removeAudioTrack(idx); }
+      catch (eR) { refused.push(kind + (idx + 1)); return true; }
+      var after = ochaTrackPrints(app.project.activeSequence);
+      var bArr = isV ? before.v : before.a, aArr = isV ? after.v : after.a;
+      if (aArr.length !== bArr.length - 1) { refused.push(kind + (idx + 1) + " (Premiere refused)"); return true; }
+      // the expected result is the before-list minus THAT slot; anything else
+      // means a different track went - stop and say so, it is one Undo away
+      var expect = [];
+      for (var k = 0; k < bArr.length; k++) if (k !== idx) expect.push(bArr[k]);
+      for (var m = 0; m < expect.length; m++) {
+        if (expect[m] !== aArr[m]) { wrong = true; return false; }
+      }
+      if (isV) goneV++; else goneA++;
+      return true;
+    }
+
+    var go = true;
+    for (var x = 0; x < wantA.length && go; x++) go = removeOne("A", wantA[x]);
+    for (var y = 0; y < wantV.length && go; y++) go = removeOne("V", wantV[y]);
+
+    if (wrong) {
+      return "ERR|Premiere removed a DIFFERENT track than asked - press Cmd+Z / Ctrl+Z once to undo. This build counts tracks unexpectedly; stopped rather than continue.";
+    }
+    var gone = goneV + goneA;
+    if (!gone) {
+      return "ERR|Premiere did not remove " + (refused.length ? refused.join(", ") : "any of them") + ". Sequence > Delete Tracks does the same job from the menu.";
+    }
+    var msg = "Removed " + gone + " empty track" + (gone === 1 ? "" : "s");
+    if (goneV && goneA) msg += " (" + goneV + " video, " + goneA + " audio)";
+    if (refused.length) msg += ". Skipped: " + refused.join(", ");
+    return "OK|" + gone + "|" + msg + ".";
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
 function ochaReadMotion() {
   try {
     var clip = ochaSelectedOchaClip();
@@ -1539,8 +1896,68 @@ function ochaReadMotion() {
     var fi = "";
     var fpR = ochaFontParam(clip);
     if (fpR) { try { fi = String(Math.round(fpR.getValue())); } catch (eF) { fi = ""; } }
-    return nm + "|" + x + "|" + y + "|" + w + "|" + h + "|" + mode + "|" + fi;
+    // Fade rides along too, for the same reason as the font: this call already
+    // happens on every tick, so reading it here costs nothing, while a separate
+    // ochaFadeStatus() would double the traffic. "el|value", both blank when the
+    // clip has no adjustable amount.
+    var fadeEl = "", fadeVal = "";
+    var fd = ochaFadeParam(clip);
+    if (fd) {
+      fadeEl = fd.el;
+      try { fadeVal = String(Math.round(fd.p.getValue())); } catch (eD) { fadeVal = ""; }
+    }
+    return nm + "|" + x + "|" + y + "|" + w + "|" + h + "|" + mode + "|" + fi
+             + "|" + fadeEl + "|" + fadeVal;
   } catch (e) { return "none"; }
+}
+
+/* The one "amount" control a placed clip exposes, if any:
+     gradient -> Opacity   (the fade)
+     vignette -> Amount    (the strength)
+   Returns { el, p } or null. Fully guarded - a clip with no MOGRT component, or
+   an older template without the control, degrades to "no slider" rather than
+   throwing up through ochaReadMotion and unbinding everything. */
+function ochaFadeParam(clip) {
+  try {
+    var nm = ""; try { nm = clip.name; } catch (e0) { return null; }
+    var el = ochaElOfClip(nm);
+    if (el !== "gradient" && el !== "vignette") return null;
+    var mgt = clip.getMGTComponent();
+    if (!mgt) return null;
+    var want = (el === "gradient") ? "Opacity" : "Amount";
+    var p = ochaFindParam(mgt.properties, want);
+    return p ? { el: el, p: p } : null;
+  } catch (e) { return null; }
+}
+
+/* Is a gradient or vignette selected right now, and at what value?
+   "<el>|<value>" or "none". Used when a tool modal OPENS, so it can offer to edit
+   the selected clip instead of adding a second one. */
+function ochaSelectedFade() {
+  try {
+    var clip = ochaSelectedOchaClip();
+    if (!clip) return "none";
+    var fd = ochaFadeParam(clip);
+    if (!fd) return "none";
+    var v = 0;
+    try { v = Math.round(fd.p.getValue()); } catch (e1) { return "none"; }
+    return fd.el + "|" + v;
+  } catch (e) { return "none"; }
+}
+
+/* Write the fade/strength of the selected gradient or vignette. */
+function ochaSetFade(val) {
+  try {
+    var clip = ochaSelectedOchaClip();
+    if (!clip) return "ERR|no OCHA clip selected";
+    var fd = ochaFadeParam(clip);
+    if (!fd) return "ERR|that clip has no fade control";
+    var v = parseFloat(val);
+    if (isNaN(v)) return "ERR|bad value";
+    if (v < 0) v = 0; if (v > 100) v = 100;
+    fd.p.setValue(v, true);
+    return "OK|" + Math.round(v);
+  } catch (e) { return "ERR|" + e.toString(); }
 }
 
 /* ---------------------------------------------------------------------------
