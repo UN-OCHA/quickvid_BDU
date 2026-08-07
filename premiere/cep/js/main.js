@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "2026.0.48";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "2026.0.52";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -97,6 +97,7 @@ async function refresh() {
   checkColor();                                  // same tick as the format chip
   refreshTracks();
   curFmt = parts[2];
+  reelTileState(curFmt === "reels");     // the reel tool's job changes with the sequence
   chip.textContent = `${parts[0]}×${parts[1]} · ${parts[3]}`;
   chip.className = "chip is-ok";
   $("add").disabled = false;
@@ -854,16 +855,36 @@ async function relinkPackagedProject(fixFile) {
   }
 }
 
+/* The CTA label, and the "this opens outside Premiere" arrow for tools that hand
+   off to a browser. NINE places set this label as the modal re-reads its state, so
+   it goes through one helper: an icon appended at only some of them would appear
+   and vanish as the user moved around the dialog.
+   FA Classic Regular arrow-up-right-from-square, inlined - the panel must work
+   offline, so never the FA kit script. */
+const CTA_EXT_ICON = '<svg class="btn-ext" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M352 88C352 101.3 362.7 112 376 112L494.1 112L263.1 343C253.7 352.4 253.7 367.6 263.1 376.9C272.5 386.2 287.7 386.3 297 376.9L528 145.9L528 264C528 277.3 538.7 288 552 288C565.3 288 576 277.3 576 264L576 88C576 74.7 565.3 64 552 64L376 64C362.7 64 352 74.7 352 88zM144 160C99.8 160 64 195.8 64 240L64 496C64 540.2 99.8 576 144 576L400 576C444.2 576 480 540.2 480 496L480 408C480 394.7 469.3 384 456 384C442.7 384 432 394.7 432 408L432 496C432 513.7 417.7 528 400 528L144 528C126.3 528 112 513.7 112 496L112 240C112 222.3 126.3 208 144 208L232 208C245.3 208 256 197.3 256 184C256 170.7 245.3 160 232 160L144 160z"/></svg>';
+function setCta(run, text) {
+  if (!run) return;
+  run.textContent = String(text == null ? "" : text);   // textContent first: escapes
+  const cfg = TOOLS[curTool];
+  if (cfg && cfg.ctaExternal) run.insertAdjacentHTML("beforeend", CTA_EXT_ICON);
+}
+
 const TOOLS = {
   reel: {
-    title: "Square → Reel",
-    explain: "<ul><li>Turns a <strong>square 1:1</strong> sequence into a <strong>9:16 reel</strong>.</li>"
-      + "<li>Your clip stays centred; a blurred copy fills top and bottom — no black bars.</li>"
-      + "<li>Works on a <strong>duplicate</strong> — your square original is untouched.</li></ul>",
+    title: "Turn into a reel",
+    explain: "<ul><li>Turns a <strong>square</strong> or <strong>landscape</strong> sequence into a <strong>9:16 reel</strong>.</li>"
+      + "<li><strong>Square</strong> keeps the whole picture, with a blurred copy filling top and bottom. "
+      + "<strong>Landscape</strong> is cropped to the middle — no bars — and any clip can be reframed after.</li>"
+      + "<li>Works on a <strong>copy</strong> — your original sequence is untouched.</li></ul>",
     info: "ochaReelInfo()",
-    action: "ochaSquareToReel()",
-    cta: () => "Create reel",
+    action: () => {
+      const drop = ($("reel-drop-grad") || {}).checked ? "1" : "0";
+      return jsx(`ochaToReel(${lit(EXT_ROOT)},${lit(drop)},${lit("1")})`).then((r) => r || "");
+    },
+    cta: (n) => (n > 0 ? "Create reel" : "Already a reel"),
+    countGated: true,          // host sends 0 when the sequence IS a reel -> CTA greys out
     working: "Building the reel…",
+    reel: true,                                     // shows the reframing block
     // The host returns a clean headline plus a diagnostic trail. Show the
     // headline; only surface the trail when something in it actually went wrong,
     // so a normal run reads like a sentence and a bad one is still debuggable.
@@ -871,12 +892,31 @@ const TOOLS = {
       const s = String(r).replace(/^OK\|/, "");
       const hit = s.match(/Reel '([^']+)' (\d+x\d+)/);
       let msg = hit
-        ? `Reel <strong>${esc(hit[1])}</strong> created at ${esc(hit[2])} — your square sequence is untouched.`
+        ? `Reel <strong>${esc(hit[1])}</strong> created at ${esc(hit[2])} — your original sequence is untouched.`
         : esc(s);
+      const moved = s.match(/replaced=(\d+)/);
+      if (moved && +moved[1] > 0) {
+        msg += ` ${moved[1]} OCHA graphic${+moved[1] === 1 ? " was" : "s were"} re-placed at reel size.`;
+      }
+      const gone = s.match(/gradients-dropped=(\d+)/);
+      if (gone) msg += ` ${gone[1]} readability gradient${+gone[1] === 1 ? " was" : "s were"} left out.`;
+      const tidy = s.match(/tidy\[[^\]]*?(\d+) track/);
+      if (tidy) msg += ` ${tidy[1]} empty track${+tidy[1] === 1 ? "" : "s"} removed.`;
+      const other = s.match(/OTHERGFX=([^/]+)/);
+      if (other) {
+        msg += ` <em>These are Premiere's own text graphics, not OCHA elements, so the tool can't re-lay them out: `
+             + `${esc(other[1].trim())}. Move them by hand — or use the panel's <strong>Text on screen</strong> next time and they convert automatically.</em>`;
+      }
+      const bad = s.match(/ELFAIL=([^/]+)/);
+      if (bad) msg += ` <em>Couldn't re-place: ${esc(bad[1].trim())} — add ${+moved?.[1] ? "those" : "them"} from the panel.</em>`;
+      if (/captions=carried/.test(s)) {
+        msg += " <em>Subtitles kept their text but not their position — Premiere won't let a script move captions. Nudge them with the reel guide template.</em>";
+      }
       if (/captions=not-scriptable/.test(s)) {
         msg += " <em>Premiere wouldn't let the script remove the copied caption track — if you see the subtitles twice, delete the caption track on the reel (the nested square already carries them).</em>";
       }
       if (/ERR|FAILED|missing/.test(s)) msg += ` <em>${esc(s)}</em>`;
+      msg += " <strong>Clip out of frame?</strong> Razor it in the timeline, click it, then use the Framing slider above.";
       return msg;
     },
   },
@@ -941,6 +981,7 @@ const TOOLS = {
   },
   webapp: {
     title: "Compress a video",
+    ctaExternal: true,        // opens a browser, not a Premiere action - say so on the button
     explain: "<ul><li>Opens the free OCHA QuickVid web app in your browser.</li>"
       + "<li>Drop a heavy file, pick a quality, get a light MP4 that plays everywhere. It also cuts, captions and brands video without Premiere.</li></ul>"
       + "<p class=\"modal-hint\">Files never leave your computer.</p>",
@@ -1072,6 +1113,7 @@ setInterval(() => {
   // clip reloads ITS values rather than leaving the previous clip's on screen.
   const m = $("tool-modal");
   if (curTool === "colour" && m && !m.hidden && !colBusy) syncColourSelection(false);
+  if (curTool === "reel" && m && !m.hidden && !reelBusy) syncReframe(false);
 }, 900);
 
 setInterval(async () => {
@@ -1089,7 +1131,7 @@ setInterval(async () => {
     // Restore the CTA immediately - loadInfo() also does this, but it awaits the
     // host first, and "Done" must not linger on screen while that happens.
     const run = $("modal-run");
-    if (run) run.textContent = cfg.cta(1);
+    if (run) setCta(run, cfg.cta(1));
     loadInfo();                                                // restores Ready + enable state
   }
 }, 900);
@@ -1111,7 +1153,7 @@ async function checkEditTarget(cfg) {
   }
   const n = parseInt(val, 10);
   if (!isNaN(n)) { $("grad-op").value = n; $("grad-op-n").value = n; }
-  if (run) { run.textContent = "Done"; run.disabled = false; }
+  if (run) { setCta(run, "Done"); run.disabled = false; }
 }
 
 // Live write while editing. Debounced, so dragging is one call at the end of the
@@ -1154,6 +1196,7 @@ function openTool(key) {
   // open so a choice made for one gradient cannot silently ride into the next.
   if ($("modal-editing")) $("modal-editing").hidden = true;   // resolved async below
   if ($("modal-colour")) $("modal-colour").hidden = !cfg.colour;
+  if ($("modal-reel")) $("modal-reel").hidden = !cfg.reel;
   if ($("modal-track-row")) $("modal-track-row").hidden = !cfg.places;
   if ($("modal-track-hint")) $("modal-track-hint").hidden = !cfg.places;
   if (cfg.places && $("modal-track")) $("modal-track").value = "";
@@ -1177,13 +1220,14 @@ function openTool(key) {
   const run = $("modal-run");
   run.hidden = !!cfg.noRun;                         // button-only tools (Align) have no Run
   if (!cfg.noRun) run.hidden = false;               // a `once` tool hid it last time
-  run.textContent = cfg.cta(0);
+  setCta(run, cfg.cta(0));
   run.disabled = true;
   run.classList.toggle("is-danger", !!cfg.danger);
   $("tool-modal").hidden = false;
   loadInfo();
   if (cfg.editsSelection) checkEditTarget(cfg);
   if (cfg.colour) { colClip = null; syncColourSelection(true); }
+  if (cfg.reel) { reelClip = null; syncReframe(true); }
 }
 async function loadInfo() {
   const cfg = TOOLS[curTool];
@@ -1196,7 +1240,7 @@ async function loadInfo() {
     const ok = !cfg.needsFmt || !!curFmt;
     modalInfo(ok ? cfg.ready
                  : "Open a sequence in one of the OCHA formats (9:16, 4:5, 1:1, 16:9) first.", !ok);
-    $("modal-run").textContent = cfg.cta(1);
+    setCta($("modal-run"), cfg.cta(1));
     $("modal-run").disabled = !ok;
     return;
   }
@@ -1209,7 +1253,7 @@ async function loadInfo() {
   if (cfg.infoLine) {
     const n = parseInt(parts[1], 10) || 0;
     modalInfo(ok ? cfg.infoLine(n) : "Couldn't check Premiere's Text Styles.", !ok);
-    run.textContent = cfg.cta(n);
+    setCta(run, cfg.cta(n));
     run.disabled = !ok;
     return;
   }
@@ -1224,13 +1268,20 @@ async function loadInfo() {
                  : (res.replace(/^ERR\|/, "") || "Couldn't scan the project."), !ok);
     $("modal-list").hidden = !names.length;
     fillList(names);
-    if (!names.length) { run.disabled = true; run.textContent = cfg.cta(0); }
+    if (!names.length) { run.disabled = true; setCta(run, cfg.cta(0)); }
     return;
   }
   const status = parts[1] || (ok ? "" : (res.replace(/^ERR\|/, "") || "Couldn't read the project."));
   const count = parts.length > 2 ? parseInt(parts[2], 10) : null;
+  if (cfg.reel) {
+    // "reel" | "crop" | "fill" — decides which half of the tool shows, and
+    // whether the gradient option is even applicable (crop recipe only).
+    reelSourceShape = parts[3] || null;
+    reelTileState(reelSourceShape === "reel");
+    reelShowMode(reelSourceShape === "reel");
+  }
   modalInfo(status, !ok);
-  if (!ok) { run.disabled = true; run.textContent = cfg.cta(0); return; }
+  if (!ok) { run.disabled = true; setCta(run, cfg.cta(0)); return; }
   // The Colour tool's count means "the sequence still needs Rec. 709", which
   // changes what its button DOES - not whether it is usable. It always has
   // clips to adjust, so countGated must not grey it out.
@@ -1243,7 +1294,7 @@ async function loadInfo() {
     if ($("modal-info")) $("modal-info").hidden = true;
     return;
   }
-  run.textContent = cfg.cta(isNaN(count) ? 0 : (count == null ? 1 : count));
+  setCta(run, cfg.cta(isNaN(count) ? 0 : (count == null ? 1 : count)));
   run.disabled = (cfg.countGated && !cfg.colour) ? !(count > 0) : false;
 }
 async function runToolAction() {
@@ -1277,7 +1328,7 @@ async function runToolAction() {
     // Only show a greyed CTA when the tool gives it its own past-tense label.
     // Without one it read "Done" right next to the Cancel button, which also
     // becomes "Done" on success - two identical buttons.
-    if (cfg.doneCta) { run.disabled = true; run.textContent = cfg.doneCta; }
+    if (cfg.doneCta) { run.disabled = true; setCta(run, cfg.doneCta); }
     else { run.hidden = true; }
   } else if (ok) {
     refresh(); loadInfo();             // refresh format chip + re-read counts
@@ -1311,7 +1362,7 @@ function listCount() {
   const run = $("modal-run");
   if (curTool && TOOLS[curTool] && TOOLS[curTool].list) {
     run.disabled = n === 0;
-    run.textContent = TOOLS[curTool].cta(n);
+    setCta(run, TOOLS[curTool].cta(n));
   }
 }
 $("modal-list-all").addEventListener("click", () => {
@@ -1398,6 +1449,111 @@ async function syncColourSelection(force) {
   colClip = name;
   setColSliders([p[2], p[3], p[4], p[5], p[6], p[7]].map((n) => parseInt(n, 10) || 0));
 }
+
+/* ---------------- reframing a cropped reel shot ----------------
+   Same interaction as Colour above, deliberately: select a clip, a banner names
+   it, the sliders drive it live, and each clip keeps its own value. One thing to
+   learn, not two.
+
+   HOLD is a static crop position. PAN keyframes the same property from one
+   position to another across the clip, for a deliberate move. Both are per clip:
+   the user razors where the framing needs to change, because the timeline razor
+   is visible and native, and a second in/out mechanism inside the panel would be
+   an invisible one. */
+let reelClip = null, reelMode = "hold", reelBusy = false, reelTimer = null;
+let reelSourceShape = null;                 // "crop" | "fill" | "reel" — from ochaReelInfo
+
+/* The tile does DIFFERENT work depending on the open sequence, so it should not
+   keep claiming it will convert something that is already converted. */
+function reelTileState(isReel) {
+  const tile = $("tool-reel");
+  if (!tile) return;
+  const label = tile.querySelector(".tool-tile-name");
+  if (label) label.textContent = isReel ? "Adapt clips to frame" : "Turn into a reel";
+  tile.classList.toggle("tool-tile--on", !!isReel);
+  tile.title = isReel
+    ? "This sequence is already a reel. Reframe each clip: razor it, click it, then slide it left or right, or zoom in."
+    : "Turn the active square, 4:5 or landscape sequence into a 9:16 reel.";
+}
+
+function setReelSliders(a, b, z) {
+  const put = (id, v) => { if ($(id)) $(id).value = v; if ($(id + "-n")) $(id + "-n").value = v; };
+  put("reel-a", a); put("reel-b", b);
+  if (z != null) put("reel-z", z);
+}
+/* The tool has two jobs and only ever does one at a time: convert a sequence, or
+   reframe the shots of one already converted. `framing` picks which half shows. */
+function reelShowMode(framing) {
+  if ($("reel-frame")) $("reel-frame").hidden = !framing;
+  if ($("reel-opts")) $("reel-opts").hidden = !!framing || reelSourceShape !== "crop";
+}
+function setReelMode(mode) {
+  reelMode = mode === "pan" ? "pan" : "hold";
+  document.querySelectorAll("#reel-mode .seg__opt").forEach((o) =>
+    o.classList.toggle("is-active", o.dataset.mode === reelMode));
+  // the gate sits on the plain wrapper; .adj-row sets display and would win
+  if ($("reel-b-wrap")) $("reel-b-wrap").hidden = reelMode !== "pan";
+  if ($("reel-a-lab")) $("reel-a-lab").textContent = reelMode === "pan" ? "Starts at" : "Position";
+}
+
+/* Follow the selection while the modal is open. `force` reloads the sliders even
+   for the same clip (on open, and after a reset). */
+async function syncReframe(force) {
+  const res = await jsx("ochaReframeInfo()") || "none";
+  const banner = $("reel-clip");
+  const say = (txt, on) => { if (banner) { banner.textContent = txt; banner.classList.toggle("is-on", !!on); } };
+  if (res.indexOf("OK|") !== 0) {
+    // "notreel" means the tool is in CONVERT mode: show the pre-conversion
+    // options instead of framing controls for a reel that does not exist yet.
+    reelShowMode(res.indexOf("notreel") !== 0);
+    if (reelClip !== null || force) { reelClip = null; setReelSliders(0, 0); setReelMode("hold"); }
+    // Terse on purpose: .col-clip is a single nowrap line with an ellipsis, so a
+    // sentence here would be cut off mid-word. The instruction lives in #reel-help
+    // right below, which wraps.
+    say(res.indexOf("notreel") === 0 ? "Create the reel first" : "No clip selected", false);
+    return;
+  }
+  const p = res.split("|");
+  const name = p[1], id = p[6] || name;
+  reelShowMode(true);
+  say(name, true);
+  // Keyed on START TICKS (p[6]), not the name: razoring a shot - which is the
+  // workflow this tool tells you to use - gives every piece the same clip.name,
+  // so keying on the name left piece 1's numbers on screen while piece 2 was
+  // selected, and the next click wrote them onto piece 2.
+  if (id === reelClip && !force) return;           // same clip: don't yank the slider mid-drag
+  reelClip = id;
+  setReelMode(p[2]);
+  setReelSliders(parseInt(p[3], 10) || 0, parseInt(p[4], 10) || 0, parseInt(p[7], 10) || 100);
+}
+
+/* Debounced so dragging doesn't queue one ExtendScript round trip per pixel;
+   `now` skips the wait for a click (mode switch, reset). */
+function scheduleReframe(now) {
+  clearTimeout(reelTimer);
+  const go = async () => {
+    if (!reelClip) return;
+    reelBusy = true;
+    const a = parseInt(($("reel-a") || {}).value, 10) || 0;
+    const b = reelMode === "pan" ? (parseInt(($("reel-b") || {}).value, 10) || 0) : a;
+    const z = parseInt(($("reel-z") || {}).value, 10) || 100;
+    const r = await jsx(`ochaSetReframe(${lit(reelMode)},${lit(String(a))},${lit(String(b))},${lit(String(z))})`) || "";
+    reelBusy = false;
+    if (String(r).indexOf("ERR|") === 0) modalInfo(String(r).slice(4), true);
+  };
+  if (now) go(); else reelTimer = setTimeout(go, 140);
+}
+
+["reel-a", "reel-b", "reel-z"].forEach((id) => {
+  const s = $(id), n = $(id + "-n");
+  if (s) s.addEventListener("input", () => { if (n) n.value = s.value; scheduleReframe(false); });
+  if (n) n.addEventListener("change", () => { if (s) s.value = n.value; scheduleReframe(true); });
+  const r = $(id + "-r");
+  const home = id === "reel-z" ? 100 : 0;      // zoom's "home" is fit-the-frame
+  if (r) r.addEventListener("click", () => { if (s) s.value = home; if (n) n.value = home; scheduleReframe(true); });
+});
+document.querySelectorAll("#reel-mode .seg__opt").forEach((b) =>
+  b.addEventListener("click", () => { setReelMode(b.dataset.mode); scheduleReframe(true); }));
 
 // Reset: per slider and all at once. Both apply immediately - a reset you have to
 // confirm is not a reset. "All at zero" means the clip goes back to ungraded.

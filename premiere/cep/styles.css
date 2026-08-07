@@ -629,6 +629,36 @@ body {
 .col-foot .sec-hint { margin: 0; flex: 1 1 auto; }
 .col-reset { flex: 0 0 auto; }
 
+/* "opens outside Premiere" arrow on a CTA (browser hand-off). Sized from the
+   label so it tracks the button's own type scale. */
+.btn-ext {
+  width: 1em; height: 1em; margin-inline-start: .5em;
+  vertical-align: -.09em; opacity: .85; flex: 0 0 auto;
+}
+
+/* Toolbox sections. Nine equal tiles in one grid gave no way in; two labelled
+   groups do, and the label names the JOB rather than the tools. The rule is on
+   the heading, not a separate element, so a group can never be left without one. */
+.tool-group {
+  margin: var(--sp-300) 0 var(--sp-150);
+  padding-top: var(--sp-200);
+  border-top: 1px solid var(--border-default);
+  font-size: var(--fs-xs); font-weight: var(--fw-semibold);
+  letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.tool-group:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+
+/* A tool whose job CHANGES with the open sequence says so on the tile itself:
+   on a reel, "Turn into a reel" becomes "Adapt shots to frame". Accented so the
+   change is noticed rather than read. */
+.tool-tile--on {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent-text);
+}
+.tool-tile--on .tool-tile-icon { color: var(--accent); }
+
 /* ---- modal tick-list (Remove unused) ---- */
 .modal-list { margin: var(--sp-200) 0; }
 .modal-list__bar { display: flex; align-items: center; gap: var(--sp-100); margin-bottom: var(--sp-100); }

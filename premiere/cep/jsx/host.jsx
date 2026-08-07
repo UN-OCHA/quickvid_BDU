@@ -400,19 +400,9 @@ function ochaReadText() {
     var nm = ""; try { nm = clip.name; } catch (e) {}
     var el = ochaElOfClip(nm);
     if (!el) return "none";
-    var mgt = null; try { mgt = clip.getMGTComponent(); } catch (e1) { mgt = null; }
-    if (!mgt) return "none";
-    var out = [];
-    for (var i = 0; i < mgt.properties.numItems; i++) {
-      var pr = mgt.properties[i], dn = "";
-      try { dn = pr.displayName; } catch (e2) { continue; }
-      if (!dn || OCHA_BOOL[dn] || OCHA_NUM[dn] || dn === "Size") continue;
-      var v = "";
-      try { v = pr.getValue(); } catch (e3) { continue; }
-      if (typeof v !== "string") continue;
-      out.push(dn + "\u001F" + ochaUnwrapText(v));
-    }
-    return nm + "|" + el + "|" + out.join("\u001E");
+    var kv = ochaTextOfClip(clip, false);     /* text only: these fill text inputs */
+    if (kv === null) return "none";
+    return nm + "|" + el + "|" + kv;
   } catch (e) { return "none"; }
 }
 
@@ -1409,7 +1399,9 @@ function ochaSquareToReel() {
     var src = app.project.activeSequence;
     if (!src) return "ERR|Open the square sequence first.";
     var w = src.frameSizeHorizontal, h = src.frameSizeVertical;
-    if (!h || Math.abs(w / h - 1) > 0.12) return "ERR|Active sequence isn't square (" + w + "x" + h + ").";
+    /* Guards on the RECIPE, not on squareness: 4:5 is filled the same way (see
+       ochaReelFills). The old squareness test rejected 4:5 outright. */
+    if (!h || !ochaReelFills(ochaReelShape(src))) return "ERR|Active sequence isn't square or 4:5 (" + w + "x" + h + ").";
     var reelH = Math.round(w * 16 / 9);
     var srcName = src.name;
 
@@ -1447,6 +1439,553 @@ function ochaSquareToReel() {
 
     return "OK|Reel '" + reel.name + "' " + w + "x" + reelH + " / " + L.join(" / ");
   } catch (e) { return "ERR|" + L.join(" / ") + " || " + e.toString(); }
+}
+
+/* ===========================================================================
+   TURN INTO A REEL  (square path + landscape path + reframing)
+
+   TWO SHAPES, TWO RECIPES, ONE TOOL. The panel does not ask which: the active
+   sequence already says what it is.
+
+     square 1:1   -> nest twice, back copy scaled up and blurred to fill.
+                     Nothing is cropped, so nothing has to move. Unchanged from
+                     the original Square to Reel tool.
+     landscape    -> the picture is CROPPED to a 9:16 slice. No blur, no bars.
+
+   The landscape path deliberately does NOT nest. Nesting is right for the square
+   (the whole square stays visible inside the reel), but a cropped landscape keeps
+   only about a third of the width, so any OCHA graphic sitting near a 16x9 edge
+   would be sliced off inside the nest, where nothing can reach it. So the
+   landscape path CLONES the sequence and works on the clone: the real clips stay
+   real, the user can razor them, and the graphics can be re-placed properly.
+
+   RE-PLACED, never nudged. A 16x9 lower third moved into a 9:16 frame is still a
+   16x9 lower third: wrong width, wrong type size. The elements are read (element
+   type, every text field, in/out, track), removed, and placed again from the
+   REELS template through ochaAdd, which is the panel's one placement path. That
+   is what "adapted to the new composition according to the standards" has to mean;
+   adjusting transforms instead would be a second implementation of the standards
+   and it would drift.
+
+   Captions are the documented exception: Premiere exposes no way to script a
+   caption's position. They survive the clone with their text intact and the panel
+   says so, pointing at the reel guide template.
+   =========================================================================== */
+
+/* Which recipe applies. Uses the same ratio bands as ochaFmtFromSize so the tool
+   and the format picker can never disagree about what a sequence is. */
+function ochaReelShape(seq) {
+  if (!seq) return "none";
+  var w = 0, h = 0;
+  try { w = seq.frameSizeHorizontal; h = seq.frameSizeVertical; } catch (e) { return "none"; }
+  if (!w || !h) return "none";
+  var k = ochaFmtFromSize(w, h);
+  if (k === "reels") return "reel";
+  if (k === "square") return "square";
+  if (k === "event") return "landscape";
+  return "feed45";                       /* 4x5 crops like a landscape, just less */
+}
+
+/* Reel size for a source. The reel is as WIDE as the source is TALL, then 16/9 of
+   that: 1920x1080 gives 1080x1920, 3840x2160 gives 2160x3840. Full source height
+   is kept and the width is cropped, which is the whole point of the landscape
+   recipe (no upscale beyond what the crop itself needs). */
+/* Which recipe a shape gets. Anything NOT wider than tall has to be FILLED (the
+   reel is taller than it, so there is nothing to crop): square and 4:5 both. 4:5
+   used to route to the crop path, which made a 1080x1350 source into a 1350x2400
+   sequence - a sideways upscale of a shape that only needed height. */
+function ochaReelFills(shape) { return shape === "square" || shape === "feed45"; }
+
+function ochaReelSizeFor(w, h, shape) {
+  if (ochaReelFills(shape)) return { w: w, h: Math.round(w * 16 / 9) };
+  return { w: h, h: Math.round(h * 16 / 9) };
+}
+
+function ochaReelInfo() {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return "ERR|Open the sequence you want to turn into a reel.";
+    var w = seq.frameSizeHorizontal, h = seq.frameSizeVertical;
+    var shape = ochaReelShape(seq);
+    /* Already a reel is a STATE, not a failure: after a successful conversion the
+       panel re-reads this on the sequence it just built, and an ERR here painted
+       a red "nothing to convert" line over every success. OK with a count of 0
+       greys the CTA (countGated) and leaves the reframing controls usable, which
+       is exactly what someone coming back to fix a shot needs. */
+    if (shape === "reel") return "OK|This is a reel (" + w + "x" + h + "). Select a shot in the timeline to reframe it.|0|reel";
+    if (shape === "none") return "ERR|Couldn't read the sequence size.";
+    /* "OK|<status line>" and nothing else: loadInfo() reads parts[1] as the line
+       to show and parts[2] as a count. An extra segment here would print the
+       shape name at the user instead of the sentence. */
+    var r = ochaReelSizeFor(w, h, shape);
+    if (ochaReelFills(shape)) {
+      return "OK|Ready: '" + seq.name + "' is " + w + "x" + h + " - becomes a "
+        + r.w + "x" + r.h + " reel, with a blurred copy filling top and bottom.|1|fill";
+    }
+    return "OK|Ready: '" + seq.name + "' is " + w + "x" + h + " - becomes a "
+      + r.w + "x" + r.h + " reel, cropped to the middle. You can reframe any clip afterwards.|1|crop";
+  } catch (e) { return "ERR|" + e.toString(); }
+}
+
+/* Read the controls off ANY clip, as an ochaAdd kv blob.
+
+   `includeAll` is the difference between the two callers, and it matters:
+     false - TEXT ONLY, for the panel's selection-bound fields (ochaReadText).
+     true  - EVERY control, for the reel migration. A graphic is re-placed from a
+             FRESH template, so anything not captured here comes back at the
+             template default: a gradient tuned to 40% would return as the stock
+             bottom scrim, a location strip would lose its pin colour and icon,
+             and the user would redo work the tool says it carried over.
+   ochaAdd coerces on the way back in (OCHA_BOOL to boolean, OCHA_NUM to float),
+   so everything is captured as a plain string here and it stays symmetric. */
+function ochaTextOfClip(clip, includeAll) {
+  var mgt = null;
+  try { mgt = clip.getMGTComponent(); } catch (e) { return null; }
+  if (!mgt) return null;
+  var out = [];
+  for (var i = 0; i < mgt.properties.numItems; i++) {
+    var pr = mgt.properties[i], dn = "";
+    try { dn = pr.displayName; } catch (e2) { continue; }
+    if (!dn) continue;
+    var special = OCHA_BOOL[dn] || OCHA_NUM[dn] || dn === "Size";
+    if (special && !includeAll) continue;
+    var v = "";
+    try { v = pr.getValue(); } catch (e3) { continue; }
+    if (typeof v === "string") { out.push(dn + "\u001F" + ochaUnwrapText(v)); continue; }
+    if (!includeAll) continue;
+    if (typeof v === "boolean") { out.push(dn + "\u001F" + (v ? "true" : "false")); continue; }
+    if (typeof v === "number") { out.push(dn + "\u001F" + v); continue; }
+  }
+  return out.join("\u001E");
+}
+
+/* Is this clip's Scale animated? A time-varying property ignores setValue(). */
+function ochaScaleIsKeyed(clip) {
+  var mo = ochaFindComp(clip, "AE.ADBE Motion");
+  if (!mo) return false;
+  var sp = ochaFindParam(mo.properties, "Scale");
+  if (!sp) return false;
+  try { return !!sp.isTimeVarying(); } catch (e) { return false; }
+}
+
+function ochaGetMotionScale(clip) {
+  var mo = ochaFindComp(clip, "AE.ADBE Motion");
+  if (!mo) return null;
+  var sp = ochaFindParam(mo.properties, "Scale");
+  if (!sp) return null;
+  try { return sp.getValue(); } catch (e) { return null; }
+}
+
+/* Collect the OCHA elements in a sequence and take them out, so the footage can be
+   rescaled on its own and the elements can be placed again at reel spec. Returns
+   the list; the caller places them back. */
+function ochaTakeElements(seq, L) {
+  var found = [];
+  try {
+    for (var t = 0; t < seq.videoTracks.numTracks; t++) {
+      var cl = seq.videoTracks[t].clips;
+      for (var c = 0; c < cl.numItems; c++) {
+        var clip = cl[c], nm = "";
+        try { nm = clip.name; } catch (e) { continue; }
+        if (!OCHA_EL_RE.test(nm)) continue;
+        var el = ochaElOfClip(nm);
+        if (!el) continue;
+        var st = 0, en = 0;
+        try { st = clip.start.ticks; en = clip.end.ticks; } catch (e2) {}
+        found.push({ el: el, name: nm, track: t, start: st, end: en, kv: ochaTextOfClip(clip, true) || "" });
+      }
+    }
+  } catch (e) { L.push("scan ERR " + e.toString()); }
+  /* Remove AFTER the whole scan: removing while iterating renumbers the very
+     collection being walked, which silently skips every other clip. */
+  var removed = 0;
+  for (var f = found.length - 1; f >= 0; f--) {
+    try {
+      var tr = seq.videoTracks[found[f].track].clips;
+      for (var k = tr.numItems - 1; k >= 0; k--) {
+        var nm2 = ""; try { nm2 = tr[k].name; } catch (e3) {}
+        if (nm2 === found[f].name) { try { tr[k].remove(false, false); removed++; } catch (e4) {} break; }
+      }
+    } catch (e5) {}
+  }
+  L.push("elements=" + found.length + " removed=" + removed);
+  return found;
+}
+
+/* The OCHA clip starting at these ticks. Matched by START TICKS, never by index:
+   a track's clip collection is renumbered by every insert. */
+function ochaClipAtTicks(seq, ticks) {
+  for (var t = seq.videoTracks.numTracks - 1; t >= 0; t--) {
+    var cl = seq.videoTracks[t].clips;
+    for (var c = 0; c < cl.numItems; c++) {
+      var nm = ""; try { nm = cl[c].name; } catch (e) { continue; }
+      if (!OCHA_EL_RE.test(nm)) continue;
+      var st = ""; try { st = cl[c].start.ticks; } catch (e2) { continue; }
+      if (String(st) === String(ticks)) return cl[c];
+    }
+  }
+  return null;
+}
+
+/* Place the collected elements back, from the REELS templates, at their original
+   times. ochaAdd inserts at the playhead, so the playhead is moved per element. */
+function ochaPlaceElements(seq, list, extRoot, L) {
+  var ok = 0, failed = [];
+  for (var i = 0; i < list.length; i++) {
+    var e = list[i];
+    try { seq.setPlayerPosition(e.start); } catch (e1) {}
+    var res = "";
+    try { res = ochaAdd(e.el, "reels", extRoot, e.kv, "top"); } catch (e2) { res = "ERR|" + e2.toString(); }
+    if (String(res).indexOf("OK") !== 0) { failed.push(e.name); continue; }
+    /* Match the original duration. The template's own default length is right for
+       a fresh graphic but wrong for one that was timed to a shot. */
+    try {
+      var placed = ochaClipAtTicks(seq, e.start);
+      /* parseFloat, NOT a bare ">": Time.ticks is a STRING, so ">" compares
+         lexicographically. At 254016000000 ticks/sec the digit count rolls over
+         around 3.9s, so a graphic running 1s to 5s compared FALSE and silently
+         kept the template's default length, while 0s to 2s worked - which reads
+         as random. Same lesson as ochaSelectedFade's parseFloat on ticks. */
+      if (placed && parseFloat(e.end) > parseFloat(e.start)) {
+        var tEnd = placed.end;
+        tEnd.ticks = String(e.end);
+        placed.end = tEnd;
+      }
+    } catch (e3) {}
+    ok++;
+  }
+  L.push("replaced=" + ok + (failed.length ? " failed=" + failed.join(",") : ""));
+  return { ok: ok, failed: failed };
+}
+
+/* Clips that are graphics but NOT ours: a title made with Premiere's own Text
+   tool, mostly. They are positioned in absolute pixels against the old frame, so
+   a 9:16 resize leaves them off-screen - and unlike an OCHA element there is no
+   template to re-place them from, so a script cannot lay them out again. Name
+   them in the result instead of leaving the user to find them.
+   Detected by having no media file behind them (a title has no footage on disk). */
+function ochaOtherGraphics(seq) {
+  var out = [];
+  try {
+    for (var t = 0; t < seq.videoTracks.numTracks; t++) {
+      var cl = seq.videoTracks[t].clips;
+      for (var c = 0; c < cl.numItems; c++) {
+        var nm = ""; try { nm = cl[c].name; } catch (e) { continue; }
+        if (OCHA_EL_RE.test(nm)) continue;                 /* ours: already handled */
+        var path = null;
+        try { path = cl[c].projectItem.getMediaPath(); } catch (e2) { path = null; }
+        if (path) continue;                                /* real footage */
+        var isMgt = false;
+        try { isMgt = !!cl[c].getMGTComponent(); } catch (e3) { isMgt = false; }
+        if (isMgt) continue;                               /* someone else's mogrt */
+        out.push(nm);
+      }
+    }
+  } catch (e4) {}
+  return out;
+}
+
+function ochaSeqHasCaptions(seq) {
+  try {
+    if (!seq.captionTracks) return false;
+    for (var i = 0; i < seq.captionTracks.numTracks; i++) {
+      if (seq.captionTracks[i].clips.numItems > 0) return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+/* `dropGradients` - readability gradients are sized for the OLD frame and are
+   usually re-made for the new one, so the panel offers to leave them out (ticked
+   by default). `tidyTracks` - a conversion routinely leaves empty tracks behind. */
+function ochaLandscapeToReel(extRoot, dropGradients, tidyTracks) {
+  var L = [];
+  try {
+    var src = app.project.activeSequence;
+    if (!src) return "ERR|Open the sequence first.";
+    var w = src.frameSizeHorizontal, h = src.frameSizeVertical;
+    var shape = ochaReelShape(src);
+    if (shape !== "landscape") return "ERR|'" + src.name + "' isn't landscape (" + w + "x" + h + ").";
+    var size = ochaReelSizeFor(w, h, shape);
+    var srcName = src.name;
+    var hadCaptions = ochaSeqHasCaptions(src);
+
+    /* Work on a CLONE. The clone carries the real clips, cuts, audio and effects,
+       so the user can razor and reframe shot by shot; the original is untouched. */
+    src.clone();
+    var reel = app.project.activeSequence;
+    if (!reel || reel.name === srcName) return "ERR|Couldn't duplicate '" + srcName + "'.";
+    try { reel.name = srcName + " - Reel"; } catch (eN) {}
+    L.push("base=clone");
+
+    /* Elements out BEFORE the resize, so the re-placed ones land in a sequence
+       that is already reel-shaped (importMGT sizes to the sequence it enters). */
+    var els = ochaTakeElements(reel, L);
+
+    L.push(ochaResizeSeq(reel, size.w, size.h));
+
+    /* Fill the new height. Everything filled the old frame height, so one factor
+       covers the lot, and MULTIPLYING preserves any punch-in already dialled in. */
+    var factor = size.h / h, scaled = 0, noMotion = 0, keyed = 0;
+    for (var t = 0; t < reel.videoTracks.numTracks; t++) {
+      var cl = reel.videoTracks[t].clips;
+      for (var c = 0; c < cl.numItems; c++) {
+        /* A KEYFRAMED Scale (an animated push-in) cannot be moved with setValue:
+           Premiere silently ignores the write on a time-varying property, so the
+           shot would keep its old scale and show black bars while the tool
+           reported success. Count those and name them instead. */
+        if (ochaScaleIsKeyed(cl[c])) { keyed++; continue; }
+        var cur = ochaGetMotionScale(cl[c]);
+        if (cur === null) { noMotion++; continue; }
+        ochaSetMotionScale(cl[c], cur * factor);
+        scaled++;
+      }
+    }
+    L.push("scaled=" + scaled + "x" + Math.round(factor * 1000) / 1000
+      + (noMotion ? " noMotion=" + noMotion : "") + (keyed ? " KEYEDSCALE=" + keyed : ""));
+
+    var keep = [], dropped = 0;
+    for (var g = 0; g < els.length; g++) {
+      if (dropGradients && els[g].el === "gradient") { dropped++; continue; }
+      keep.push(els[g]);
+    }
+    if (dropped) L.push("gradients-dropped=" + dropped);
+    var back = ochaPlaceElements(reel, keep, extRoot, L);
+    if (hadCaptions) L.push("captions=carried");
+
+    var others = ochaOtherGraphics(reel);
+    if (others.length) L.push("OTHERGFX=" + others.join(", "));
+
+    /* Empty tracks are a normal by-product of taking the graphics out and putting
+       them back on a different track. Reuses Tidy tracks' own remover so there is
+       one implementation of "remove a track" and its safety checks. */
+    if (tidyTracks) {
+      var el2 = ochaEmptyTrackList();
+      if (el2.indexOf("OK|") === 0) {
+        var US2 = String.fromCharCode(31);
+        var names2 = el2.split("|")[2] || "";
+        var list2 = names2 ? names2.split(US2) : [];
+        if (list2.length) L.push("tidy[" + ochaRemoveTracks(list2.join(",")) + "]");
+        else L.push("tidy=none");
+      }
+    }
+
+    return "OK|Reel '" + reel.name + "' " + size.w + "x" + size.h + " / " + L.join(" / ")
+      + (back.failed.length ? " / ELFAIL=" + back.failed.join(",") : "");
+  } catch (e) { return "ERR|" + L.join(" / ") + " || " + e.toString(); }
+}
+
+/* The one entry point the panel calls. */
+function ochaToReel(extRoot, dropGradients, tidyTracks) {
+  var seq = app.project.activeSequence;
+  var shape = ochaReelShape(seq);
+  if (shape === "reel") return "ERR|That sequence is already a reel.";
+  /* The fill recipe nests the source whole, so its gradients live inside the nest
+     where nothing can reach them - the options only apply to the crop recipe. */
+  if (ochaReelFills(shape)) return ochaSquareToReel();
+  if (shape === "landscape") return ochaLandscapeToReel(extRoot, dropGradients === "1", tidyTracks !== "0");
+  return "ERR|Open a square or landscape sequence first.";
+}
+
+/* ---------------- reframing a cropped shot ----------------
+   The crop is centred by default because where to look is a judgement call no
+   script can make. The user razors the shot they want to move and slides it.
+
+   HOLD is one static position. PAN keyframes the same property from one position
+   to another across the clip: a deliberate move, chosen by the user, not an
+   automatic tween between two framings.
+
+   Motion Position is NORMALIZED (fractions of the frame, 0.5 = centre) while
+   Effect Controls shows pixels. Same gotcha the element position sliders hit. */
+
+/* How far the picture can travel before its edge shows, as a fraction of the reel
+   width. Derived from the SOURCE sequence, found by name: the reel is always
+   "<source> - Reel", so the geometry is recoverable without storing anything. */
+function ochaReframeTravel(reel) {
+  var fallback = 1.08;                 /* a 16x9 source: (16/9 * 16/9 - 1) / 2 */
+  try {
+    var nm = reel.name.replace(/ - Reel$/, "");
+    if (nm === reel.name) return fallback;
+    var sw = 0, sh = 0;
+    for (var i = 0; i < app.project.sequences.numSequences; i++) {
+      var s = app.project.sequences[i];
+      if (s.name === nm) { sw = s.frameSizeHorizontal; sh = s.frameSizeVertical; break; }
+    }
+    if (!sw || !sh) return fallback;
+    var reelW = reel.frameSizeHorizontal, reelH = reel.frameSizeVertical;
+    var shownW = sw * (reelH / sh);           /* width after filling the new height */
+    var over = shownW - reelW;
+    if (over <= 0) return 0;
+    return (over / 2) / reelW;
+  } catch (e) { return fallback; }
+}
+
+/* Travel at the clip's CURRENT zoom: zooming in shows less width, so there is
+   more of it to slide. Without this the slider's ends stop matching the picture
+   as soon as Zoom leaves 100%. */
+function ochaTravelAt(reel, clip) {
+  var base = ochaReframeTravel(reel);
+  var fill = ochaFillScale(reel);
+  var cur = ochaGetMotionScale(clip);
+  if (cur === null || !fill) return base;
+  var zoom = cur / fill;
+  if (!(zoom > 0)) return base;
+  var reelW = reel.frameSizeHorizontal;
+  /* base is half the overflow over reelW at fill scale; the shown width scales
+     with zoom, so re-derive rather than scaling `base` (which is an offset, not
+     a width). */
+  var shownOverReelW = (base * 2 + 1) * zoom;
+  var over = shownOverReelW - 1;
+  /* Scaled BELOW the frame (a transparent overlay, an animation) there is no
+     overflow to slide - but the thing still needs to be positionable, so allow
+     half a frame either way instead of freezing the slider at zero. */
+  return over <= 0 ? 0.5 : over / 2;
+}
+
+/* The scale at which a clip exactly fills the reel's height, as a percentage.
+   Derived from the source sequence the same way travel is. Assumes the clip filled
+   the source frame (the normal case); a clip that was already punched in reads a
+   little high, which only shifts where 100% sits on the Zoom slider. */
+function ochaFillScale(reel) {
+  try {
+    var nm = reel.name.replace(/ - Reel$/, "");
+    if (nm === reel.name) return 100 * 16 / 9;
+    for (var i = 0; i < app.project.sequences.numSequences; i++) {
+      var s = app.project.sequences[i];
+      if (s.name === nm) return 100 * (reel.frameSizeVertical / s.frameSizeVertical);
+    }
+  } catch (e) {}
+  return 100 * 16 / 9;
+}
+
+/* The selected PICTURE clip. Skips OCHA graphics on purpose: reframing moves the
+   footage under them, never the branding, which has its own position controls. */
+function ochaSelectedVideoClip() {
+  var seq = app.project.activeSequence;
+  if (!seq) return null;
+  var sel = null;
+  try { sel = seq.getSelection(); } catch (e) { return null; }
+  if (!sel) return null;
+  var n = 0; try { n = sel.length; } catch (e) { n = 0; }
+  for (var i = 0; i < n; i++) {
+    var it = sel[i], nm = ""; try { nm = it.name; } catch (e2) {}
+    if (OCHA_EL_RE.test(nm)) continue;
+    if (ochaFindComp(it, "AE.ADBE Motion")) return it;
+  }
+  return null;
+}
+
+function ochaPosXParam(clip) {
+  var mo = ochaFindComp(clip, "AE.ADBE Motion");
+  if (!mo) return null;
+  return ochaFindParam(mo.properties, "Position");
+}
+
+function ochaPctOf(val, travel) {
+  var x = 0.5;
+  try { x = (val && val.length !== undefined) ? val[0] : val; } catch (e) {}
+  if (!travel) return 0;
+  /* Negated to match ochaSetReframe's sign, so reading a clip back puts the
+     slider where the user left it rather than mirrored. */
+  return Math.round(((0.5 - x) / travel) * 100);
+}
+
+/* "OK|<clipName>|<mode>|<startPct>|<endPct>|<travelPct>", or a one-word state the
+   panel turns into a banner: notreel / noclip / none. Percentages are -100..100 of
+   the available travel, which is what the slider shows. */
+function ochaReframeInfo() {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return "none";
+    if (ochaReelShape(seq) !== "reel") return "notreel|" + (seq.name || "");
+    var clip = ochaSelectedVideoClip();
+    if (!clip) return "noclip";
+    var nm = ""; try { nm = clip.name; } catch (e) {}
+    /* START TICKS are the clip's identity, never the name. Razoring one shot
+       gives every piece the SAME clip.name, and razoring is this feature's
+       documented workflow - so keying on the name showed piece 1's numbers while
+       piece 2 was selected, and one click then wrote them onto piece 2. */
+    var idt = ""; try { idt = String(clip.start.ticks); } catch (eI) {}
+    var travel = ochaTravelAt(seq, clip);
+    var fill = ochaFillScale(seq);
+    var curS = ochaGetMotionScale(clip);
+    var zoomPct = (curS === null || !fill) ? 100 : Math.round((curS / fill) * 100);
+    var p = ochaPosXParam(clip);
+    if (!p) return "OK|" + nm + "|hold|0|0|" + Math.round(travel * 100) + "|" + idt + "|" + zoomPct;
+    var varying = false;
+    try { varying = !!p.isTimeVarying(); } catch (e2) { varying = false; }
+    var a = 0, b = 0;
+    try {
+      if (varying) {
+        a = ochaPctOf(p.getValueAtTime(clip.inPoint), travel);   /* clip-relative, as written */
+        b = ochaPctOf(p.getValueAtTime(clip.outPoint), travel);
+      } else {
+        a = ochaPctOf(p.getValue(), travel);
+        b = a;
+      }
+    } catch (e3) {}
+    return "OK|" + nm + "|" + (varying ? "pan" : "hold") + "|" + a + "|" + b + "|"
+      + Math.round(travel * 100) + "|" + idt + "|" + zoomPct;
+  } catch (e) { return "none"; }
+}
+
+/* mode "hold": startPct only. mode "pan": startPct at the clip's first frame,
+   endPct at its last. Percentages are -100..100 of the available travel. */
+/* `zoomPct` is a percentage of the frame-filling scale: 100 = exactly fills, and
+   below 100 would show edges, so the panel clamps it there.
+
+   SIGN: a POSITIVE pct moves the picture RIGHT, matching the slider. See the
+   note at the offset itself - the direction was settled by testing, not by
+   reasoning about the axis. */
+function ochaSetReframe(mode, startPct, endPct, zoomPct) {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return "ERR|No sequence.";
+    var clip = ochaSelectedVideoClip();
+    if (!clip) return "ERR|Select the clip to reframe (razor it first if only part of it is out of frame).";
+    var p = ochaPosXParam(clip);
+    if (!p) return "ERR|That clip has no Motion to move.";
+    /* Zoom FIRST: travel depends on it, so reading travel before the new scale is
+       applied would clamp the position against the old width. */
+    var z = parseFloat(zoomPct);
+    if (!isNaN(z) && z > 0) {
+      var fillS = ochaFillScale(seq);
+      if (fillS) ochaSetMotionScale(clip, fillS * (z / 100));
+    }
+    var travel = ochaTravelAt(seq, clip);
+    var y = 0.5;
+    try { var cur = p.getValue(); if (cur && cur.length !== undefined) y = cur[1]; } catch (e) {}
+    /* SIGN SET BY TEST, not by reading the axis: dragging the slider right has to
+       move the PICTURE right. Measured the other way round on 2026-08-06, so the
+       offset is subtracted. If this is ever "fixed" back to +, the control fights
+       the picture again. The read-back in ochaPctOf carries the same sign. */
+    var xa = 0.5 - (parseFloat(startPct) / 100) * travel;
+    var xb = 0.5 - (parseFloat(endPct) / 100) * travel;
+
+    if (mode === "pan") {
+      try { p.setTimeVarying(true); } catch (e1) { return "ERR|Premiere wouldn't allow keyframes on this clip."; }
+      /* Clear any earlier pan so a second edit REPLACES it rather than layering a
+         new pair of keys on top of the old ones. */
+      try {
+        var keys = p.getKeys();
+        for (var k = keys.length - 1; k >= 0; k--) { try { p.removeKey(keys[k]); } catch (e2) {} }
+      } catch (e3) {}
+      /* Keyframe times on a TrackItem's parameter are CLIP-relative (the media's
+         own time base), not sequence time. Passing clip.start/clip.end put both
+         keys outside the clip's own range, where the pan did nothing at all and
+         still reported OK. inPoint/outPoint are that same clip-relative base. */
+      var kA = clip.inPoint, kB = clip.outPoint;
+      try {
+        p.addKey(kA); p.setValueAtKey(kA, [xa, y], true);
+        p.addKey(kB); p.setValueAtKey(kB, [xb, y], true);
+      } catch (e4) { return "ERR|Couldn't set the pan keyframes: " + e4.toString(); }
+      return "OK|Pan set on '" + clip.name + "'.";
+    }
+
+    try { if (p.isTimeVarying()) p.setTimeVarying(false); } catch (e5) {}
+    try { p.setValue([xa, y], true); } catch (e6) { return "ERR|Couldn't move the shot: " + e6.toString(); }
+    return "OK|Framing set on '" + clip.name + "'.";
+  } catch (e) { return "ERR|" + e.toString(); }
 }
 
 function ochaCollectReport() {
@@ -2044,17 +2583,6 @@ function ochaIsMedia(it) {
   var nm = ""; try { nm = it.name; } catch (e) {}
   if (!nm || OCHA_EL_RE.test(nm)) return false;
   return true;
-}
-
-// ---- Reel ----
-function ochaReelInfo() {
-  try {
-    var seq = app.project.activeSequence;
-    if (!seq) return "ERR|Open the square sequence first.";
-    var w = seq.frameSizeHorizontal, h = seq.frameSizeVertical;
-    if (!h || Math.abs(w / h - 1) > 0.12) return "ERR|'" + seq.name + "' is " + w + "x" + h + " - the reel needs a square (1:1) sequence.";
-    return "OK|Ready: '" + seq.name + "' is square (" + w + "x" + h + ") - becomes a " + w + "x" + Math.round(w * 16 / 9) + " reel.";
-  } catch (e) { return "ERR|" + e.toString(); }
 }
 
 // ---- Clean unused MOGRTs ----

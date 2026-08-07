@@ -110,6 +110,19 @@ logbook). This file is just the map + standing rules.
 - **Never `x = float(spec.get("k") or default)` on a NUMBER** — `0` is falsy, so
   zero can never be expressed. This silently moved the ending logo to the end of
   the clip. Use `is None`.
+- **Premiere `Time.ticks` is a STRING.** `a.ticks > b.ticks` is a LEXICOGRAPHIC
+  compare: at 254016000000 ticks/sec the digit count rolls over near 3.9s, so
+  1s–5s compares *false* while 0s–2s works — a bug that looks random. `parseFloat`
+  both sides to compare, `String()` both sides to match.
+- **A timeline clip's `name` is NOT its identity** — every piece of a razored shot
+  carries the same name, as does every reuse of one source file. Identify a clip
+  by `start.ticks`. (A QE item index is not a DOM index either: QE counts gaps.)
+- **Keyframe times on a clip's parameter are CLIP-relative** (`inPoint`/`outPoint`),
+  not sequence time. Passing `clip.start`/`clip.end` puts the keys outside the
+  clip's own range, where the animation does nothing *and still reports success*.
+- **A keyframed (time-varying) property ignores `setValue()`** — silently, no
+  throw. Check `isTimeVarying()` first and report, or the write is a no-op that
+  counts as a success.
 - **Logos are always SVG**, rasterised at render time — never ship a PNG.
 - **Versioning is CalVer** `2026.MINOR.PATCH`: for the plugin, `2026.0.x` =
   internal testing / `2026.1+` = public; the web app's `VERSION` continues the

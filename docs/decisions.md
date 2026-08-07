@@ -3,6 +3,177 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-08-06 — Landscape to reel, and reframing by razor (plugin 2026.0.49)
+
+"Square to Reel" becomes **"Turn into a reel"** and accepts landscape. One tool,
+no format question: the active sequence already says what it is.
+
+**Two shapes, two recipes.** Anything NOT wider than tall (square, 4:5) is
+FILLED: the old nest-twice recipe, blurred copy behind. Landscape is CROPPED to a
+9:16 slice, no blur, no bars. `ochaReelFills()` is the single place that decides,
+so the size formula, the routing and both guards cannot drift apart. That split
+came out of a bug I found before the reviewers did: 4:5 was routed to the crop
+path, which turned a 1080x1350 source into a **1350x2400** sequence, upscaling the
+width of a shape that only ever needed height.
+
+**The landscape path does not nest, on purpose.** Nesting is right for a square
+(the whole square stays visible), but a cropped landscape keeps only ~32% of the
+width, so a graphic near a 16:9 edge would be sliced off *inside* the nest where
+nothing can reach it. So it CLONES the sequence: the clips stay real and razorable,
+the original is untouched, and the graphics can be re-placed properly.
+
+**Graphics are re-placed, never nudged.** A 16:9 lower third moved into a 9:16
+frame is still a 16:9 lower third. Each element is read (type, every control,
+in/out, track), removed, and placed again from the REELS template through
+`ochaAdd` — the panel's one placement path. That is what "adapted to the new
+composition according to the standards" has to mean.
+
+**Reframing: razor, not in/out points.** The crop is centred by default because
+where to look is a judgement no script can make. The user razors the shot and
+slides it — the same interaction as the Colour tool, so there is one thing to
+learn. A second in/out mechanism inside the panel would be an invisible razor
+next to the timeline's visible one. HOLD is static; PAN keyframes a deliberate
+move across the shot (Javi asked for it mid-build; my earlier objection was to
+*automatic* tweening between framings, which is a different thing).
+
+### The review pass, and what it caught
+
+Javi opted into an adversarial review before testing: 5 lenses, every finding
+independently refuted-or-confirmed. **38 raised, 16 confirmed, which collapsed to
+5 distinct bugs** (the lenses kept rediscovering the same ones). All were in code
+I had just written and all would have surfaced in his first test as something
+that "sometimes works":
+
+- **Tick strings compared with `>`.** `e.end > e.start` on `Time.ticks` is a
+  LEXICOGRAPHIC compare — ticks is a String. At 254016000000 ticks/sec the digit
+  count rolls over near 3.9s, so a graphic running 1s–5s compared *false* and
+  silently kept the template's default duration, while 0s–2s worked. 19% of a
+  realistic 0–60s grid failed, concentrated on the most typical lower third.
+  Now `parseFloat` both sides, matching `ochaSelectedFade`'s existing precedent.
+- **Clip identity by name.** Razoring — the workflow this feature *tells* you to
+  use — gives every piece the same `clip.name`. The panel keyed on it, so piece 1's
+  numbers stayed on screen while piece 2 was selected, and one click on the mode
+  buttons then wrote them onto piece 2 (planting an unrequested pan if piece 1 was
+  panning). Identity is now START TICKS, which is what the rest of the file
+  already uses.
+- **Pan keyframes at sequence time.** Keyframes on a TrackItem's parameter are
+  CLIP-relative; `clip.start`/`clip.end` put both keys outside the clip's own
+  range, where the pan did nothing and still reported OK. Now `inPoint`/`outPoint`.
+- **Non-text controls dropped.** The reader skipped every non-string control, so
+  a gradient tuned to 40% came back as the stock bottom scrim, a location strip
+  lost its pin colour and icon, and Size/alignment reverted — silently, under a
+  "replaced=N" success line. `ochaTextOfClip(clip, includeAll)` now captures
+  everything for migration and text-only for the panel's fields; `ochaAdd` already
+  coerced bool/num on the way back in, so it is symmetric.
+- **Every success painted a red error.** On success the panel re-reads
+  `ochaReelInfo()` — but the active sequence is now the reel it just built, so the
+  old "already a reel" ERR overwrote the success line. Already-a-reel is now a
+  STATE (`OK|…|0`, `countGated` greys the CTA) and the reframing controls stay
+  usable, which is exactly what someone coming back to fix a shot needs.
+
+Also surfaced and handled: a **keyframed Scale** (an animated push-in) silently
+ignores `setValue`, so those shots would keep their old scale and show black bars
+while being counted as scaled. They are now detected and reported rather than
+miscounted.
+
+**What the review is worth, honestly:** it cannot tell whether the crop lands
+where a human would put it, or whether the reel *looks* right — that is still a
+Premiere test. What it did was stop five defects that would each have read as
+"sometimes it works", which is the most expensive kind of bug to debug from the
+outside.
+
+### Round 2, from Javi's first real test (2026.0.50)
+
+It worked; seven changes came back. The ones with a decision in them:
+
+- **Gradients are left out by default.** A readability gradient is sized for the
+  frame it was made in, so most need re-making after a crop. It is a ticked
+  checkbox, not a silent removal — and it is offered ONLY on the crop recipe,
+  because the fill recipe nests the source whole and its gradients live inside the
+  nest where no script can reach them.
+- **Premiere's own Text-tool graphics cannot be fixed, only reported.** They are
+  positioned in absolute pixels against the old frame and have no template to be
+  re-placed from, so a 9:16 resize leaves them off-screen and a script cannot lay
+  them out again. The tool now names them and points at the panel's own **Text on
+  screen** element, which does convert automatically. Detected by having no media
+  file behind them.
+- **Zoom 0-200%, and travel that follows it.** Zooming in shows less width, so
+  there is more of it to slide; travel is derived at the clip's CURRENT scale, not
+  only at the fill scale, or the slider's ends stop matching the picture as soon
+  as Zoom leaves 100%. The range starts at 0, not 100: a transparent overlay or an
+  animation often needs scaling DOWN. Below 100% there is no overflow to slide, so
+  travel falls back to half a frame either way rather than freezing the position
+  slider at zero.
+- **Slider direction was set by TEST, not by reasoning.** Motion Position X grows
+  to the right, so adding the offset *should* move the picture right — measured
+  the other way round, so the offset is subtracted and the read-back carries the
+  same sign. The comment says so at the offset itself; "fixing" it back to `+`
+  makes the control fight the picture again. **Worth noting how this was nearly
+  re-broken:** Javi reported it still wrong AFTER the flip was written, which read
+  as "flip it again" - but he was testing 2026.0.49 and the flip only exists in
+  2026.0.50. Flipping again would have restored the bug. Check which build a
+  report came from before acting on it.
+- **The tile says what it will do.** On a sequence that is already a reel,
+  "Turn into a reel" becomes "Adapt clips to frame" and takes the accent colour.
+  A tool whose job changes with the open sequence should not keep advertising the
+  job it already did — and this is the path back to the reframing controls after
+  the dialog was closed.
+- **Undo: a real limitation, not a bug.** Premiere does not put panel-driven
+  parameter changes on its undo stack, and there is no undo-group API in its
+  ExtendScript DOM (unlike After Effects). The reset buttons are the escape hatch
+  and the panel now says so in the tool.
+
+Empty tracks are cleared after a conversion, through Tidy tracks' own remover, so
+there is still one implementation of "remove a track" and its safety checks.
+
+### The Toolbox got two sections (2026.0.52)
+
+Nine equal tiles in one grid, ordered by when each was built, with no way in.
+Now two groups, and the heading names the JOB rather than the tools:
+
+- **Look & framing** - Turn into a reel, Colour, Readability gradient, Vignette.
+- **Project & files** - Tidy tracks, Remove unused, Tidy project, Package project,
+  Compress a video. The three tidies first, then the two that put something on disk.
+
+Javi rejected a third "Deliver" group: Package project does not deliver anything,
+it collects the project. Merging it into the housekeeping group and naming that
+group for what it touches was his call and is the better read. "Project settings"
+was considered and dropped - nothing in there is a setting, and the word would
+make people expect preferences.
+
+The rule sits on the heading itself (`.tool-group`, cleared on `:first-child`)
+rather than being a separate divider element, so a group cannot end up without one.
+The one-line description under each heading was cut on Javi's call: the heading
+already says it, and this panel has been trimmed for text twice now.
+
+**The CTA label goes through one `setCta()`.** `tool-webapp` opens a browser rather
+than doing something in Premiere, so its button carries the external-link arrow
+(FA Classic Regular `arrow-up-right-from-square`, inlined - the panel must work
+offline). NINE places set that label as the modal re-reads its state, so routing
+them all through one helper is what stops the icon appearing and vanishing as the
+user moves around the dialog.
+
+Two things this turned up:
+- **`--border-subtle` does not exist** in the panel's CSS. It was written with a
+  `var(x, fallback)` and would have silently used the fallback forever. Same class
+  of mistake as the invented `--bg-input`/`--border` in the font picker: check the
+  token exists, do not invent one and lean on the fallback.
+- **A CSS-only change still needs the version bump.** `styles.css` is cache-busted
+  with the panel version, so editing it without bumping means an already-loaded
+  panel keeps serving the old file - the new rules were provably absent from
+  `document.styleSheets` until the bump. Hence 2026.0.51 for what looks like a
+  markup-only change.
+
+**`tool-webapp` is misleadingly named.** The tile reads "Compress a video" but the
+tool only opens the QuickVid web app in a browser; the compression happens there.
+It sits in Project & files because that is where someone would look for it, but
+the id and the label disagree, which will confuse the next person reading the code.
+
+**Highest remaining risk:** the keyframe API (`setTimeVarying`/`addKey`/
+`setValueAtKey`) is used nowhere else in this codebase, so Pan is unproven against
+a real Premiere. It is guarded and reports its own failure, but it is the first
+thing to check.
+
 ## 2026-08-04 — Element previews on real footage, and the web app reports usage (2026.0.33)
 
 Closes the last four items of the 2026-07-30 feedback round (`docs/webapp-plan-2026-07-30b.md`).
