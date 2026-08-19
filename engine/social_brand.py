@@ -2,8 +2,9 @@
 """
 OCHA social branding pass — captions + animated lower third(s) + OCHA logo ending.
 
-Library + CLI port of the proven ocha-social-subtitles renderer (Venezuela USG /
-ASG Ukraine builds), for the OCHA QuickVid engine. Everything is rendered as
+Library + CLI port of the proven OCHA video-branding renderer (Venezuela USG /
+ASG Ukraine builds), for the OCHA QuickVid engine. The `ocha-video-branding` skill
+(named `ocha-social-subtitles` before 2026-08-06) is a thin shim onto this. Everything is rendered as
 transparent PNGs via cairosvg (this Mac's ffmpeg has no libfreetype — and PNG
 layers are the better approach anyway) and composited with ffmpeg overlay.
 

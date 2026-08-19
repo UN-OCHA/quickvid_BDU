@@ -188,6 +188,22 @@ It worked; seven changes came back. The ones with a decision in them:
 Empty tracks are cleared after a conversion, through Tidy tracks' own remover, so
 there is still one implementation of "remove a track" and its safety checks.
 
+### The branding skill was renamed (2026-08-06)
+
+`ocha-social-subtitles` -> **`ocha-video-branding`**. The name described one element
+while the skill places all of them: captions, lower third, location strip, text on
+screen, logo watermark, look, ending. Javi: "doesn't make sense to call it
+ocha-social-subtitles when it's about branding a video."
+
+Renamed rather than left alone because the NAME is what a person types and what a
+reader trusts; the description already covered the full scope, but a skill whose name
+contradicts its contents teaches the wrong mental model every time it is listed.
+
+**Earlier entries in this log still say `ocha-social-subtitles` and are left as they
+were** - this file is append-only history, and rewriting it would make the record lie
+about what things were called at the time. If an old entry's pointer does not resolve,
+it means this rename.
+
 ### The Toolbox got two sections (2026.0.52)
 
 Nine equal tiles in one grid, ordered by when each was built, with no way in.
