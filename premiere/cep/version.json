@@ -1,7 +1,7 @@
 {
-  "version": "2026.0.52",
+  "version": "2026.0.53",
   "date": "2026-08-06",
-  "notes": "Turn into a reel now takes LANDSCAPE as well as square and 4:5. A 16:9 sequence is cropped to a 9:16 slice - no bars, no blur - and every OCHA graphic on it is re-placed automatically from the reel templates, keeping its text, its settings and its timing. Readability gradients are left out by default (they are sized for the old frame) and empty tracks are cleared afterwards. Framing starts centred: razor the clip you want to move, click it, then slide it left or right - the picture follows the slider - or zoom in. Pan keyframes a deliberate move across a clip. Each clip keeps its own framing. On a sequence that is already a reel the tool changes to Adapt clips to frame, so reopening it brings the controls and the how-to back. The Toolbox is now split into two labelled sections, Look and framing and Project and files, instead of nine tiles in one grid. Tools that open a browser rather than doing something in Premiere now show the external-link arrow on their button.",
+  "notes": "The caption tool now says which style each format uses: OCHA Boxed for reels and 4:5 feed posts, OCHA Clean for square and 16:9. Square moved to Clean - the video team's standard - and the QuickVid web app applies the same rule automatically.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
-  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=2026.0.52"
+  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=2026.0.53"
 }

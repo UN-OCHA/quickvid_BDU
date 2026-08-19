@@ -1,7 +1,7 @@
 /* OCHA Branding — panel logic (runs in CEP's Chromium; modern JS is fine here.
    All Premiere work happens in jsx/host.jsx via evalScript). */
 
-const PANEL_VERSION = "2026.0.52";           // keep in sync with CSXS/manifest.xml
+const PANEL_VERSION = "2026.0.53";           // keep in sync with CSXS/manifest.xml
 
 const $ = (id) => document.getElementById(id);
 // Version strings land in the banner via innerHTML — escape them. Everything here
@@ -954,6 +954,7 @@ const TOOLS = {
   capstyles: {
     title: "Install the OCHA caption styles",
     explain: "<ul><li>Adds <strong>OCHA Boxed</strong> and <strong>OCHA Clean</strong> to Premiere's <strong>Style browser</strong> (under Local).</li>"
+      + "<li><strong>Boxed</strong> for reels and 4:5 feed posts — <strong>Clean</strong> for square and 16:9. Same standard the web app applies.</li>"
       + "<li>Once per computer — they stay for every project.</li>"
       + "<li>Run again anytime to refresh with brand updates.</li></ul>"
       + "<p class=\"modal-hint\">Captioning steps are on the Captions tab.</p>",

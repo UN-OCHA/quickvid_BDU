@@ -3,6 +3,60 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-08-06 — Square captions use the CLEAN style (plugin 2026.0.53 shipped;
+web app 2026.0.34 built, NOT yet published)
+
+The video team's standard, reported by Javi: square videos use the clean caption
+look (white text over a soft gradient), not the grey box. Confirmed as a standard,
+not a preference, so the default and the wording both changed. Reels and 4:5 stay
+boxed - that is the muted-scroll case the box exists for.
+
+The standard is now: **boxed** = reels, feed 4:5 · **clean** = square, event.
+
+The PLUGIN half shipped as 2026.0.53 (guidance copy only). The WEB APP half - where
+the automatic behaviour actually lives - is built and verified but deliberately not
+pushed: Javi asked for the plugin only, and a push to main auto-deploys the web app,
+so its files are held uncommitted rather than riding along.
+
+**The rule lived in four places, three of which the engine could not see.**
+`sub_config()` lets an explicit style override the preset, and the web app always
+sends one - so changing `PRESETS["square"]["sub"]["box"]` alone would have changed
+nothing for any web-app render. The UI defaults are what actually decide.
+
+Now there is ONE map, `OchaCaptions.styleFor()` in the shared caption module, read
+by both tabs; `engine/statement.py` mirrors it and both carry a comment saying to
+change the other. A third copy of the w/h thresholds went in beside it
+(`fmtFromSize`), matching `preset_for()` and `ochaFmtFromSize()`.
+
+**A bug this uncovered, older than the request.** The Titles tab NEVER picked a
+caption look from the video at all - it was hardcoded to boxed. Brand a finished
+16:9 event clip there and you got boxed captions, while the Edit tab gave the same
+footage clean ones. It has been wrong for every format since it shipped, not just
+square. It now probes the source and picks from its shape, and a manual choice is
+never overridden afterwards (`tSubsTouched`).
+
+**The buttons were renamed for what they LOOK like.** "Social - boxed" and
+"Event - clean" tied the names to formats, so "Event" stopped being true the moment
+square moved. They are now **Boxed** and **Clean**, with the format guidance in the
+hint underneath - which is the part that changes when a standard does.
+
+**The plugin needed no code.** It installs both styles and the user picks in
+Premiere's Style browser (captions are not scriptable - the known limitation), and
+its caption guides are position-only, with square already sharing the event band.
+Only the guidance changed: the tool never said which style went with which format,
+and now it does.
+
+**Method note.** The question "does clean actually look right on a square?" was
+answered by rendering both, on real footage, through `brand_preview.py` - the same
+graph that burns the captions. That is what the preview work was for.
+
+**A scripted-replace near-miss worth remembering.** Retargeting the init call
+`stSetSubStyle("box");` hit the FIRST occurrence, which was inside the Boxed
+button's own handler, and the inline `//` comment I added then swallowed the rest
+of that line. The assertion passed - the string existed, it just was not the one I
+meant. Anchor on a full line (leading and trailing newline) when a short statement
+appears more than once, and never append a `//` comment to a line that continues.
+
 ## 2026-08-06 — Landscape to reel, and reframing by razor (plugin 2026.0.49)
 
 "Square to Reel" becomes **"Turn into a reel"** and accepts landscape. One tool,
