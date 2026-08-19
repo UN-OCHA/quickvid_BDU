@@ -12,7 +12,8 @@ import os
 import shutil
 
 from lower_third import ease, esc, _svg2png  # same brand plumbing (cairosvg + real Raleway)
-from svgpng import has_arabic as _has_arabic
+from svgpng import has_arabic as _has_arabic, font_for as _font_for, font_path as _font_path
+from PIL import ImageFont
 
 # ---- the plugin's DATA.text numbers (premiere/ae/make_assets.py) ----
 RATIO = {"portrait": 0.052, "square": 0.058, "landscape": 0.062}
@@ -54,8 +55,19 @@ def build(lines, W, H, rtl=None):
     # strip: full width; from a size above line 1 to below the last line + rise
     top = y0 - size - 4
     bot = y0 + (len(lines) - 1) * line_h + round(size * 0.35) + rise + 4
+    # Widest line, measured with the face that will RENDER it — the cloud behind the
+    # text has to be sized to the WORDS. A fixed fraction of the frame is right for a
+    # short line on a wide frame and far too small for a portrait line that runs
+    # nearly edge to edge.
+    try:
+        face = _font_path("Raleway-Bold.ttf")
+        text_w = max(ImageFont.truetype(_font_for(l, WEIGHT, face), size).getbbox(l)[2]
+                     for l in lines)
+    except Exception:
+        text_w = round(W * 0.6)                 # measuring must never fail a render
     return dict(lines=list(lines), size=size, line_h=line_h, rise=rise,
-                x=x, y0=y0, top=top, H_strip=bot - top, W=W, rtl=bool(rtl))
+                x=x, y0=y0, top=top, H_strip=bot - top, W=W, rtl=bool(rtl),
+                text_w=text_w)
 
 
 def total(duration):
@@ -112,70 +124,58 @@ def render_seq(g, dur, fps, outdir):
 # picture. Feathering it horizontally as well turns it into a soft cloud sitting
 # behind the words — the same treatment the plugin's middle gradient offers. Portrait
 # and square keep the full width: there the band is already about as wide as the text.
-MID_CLOUD_MIN_RATIO = 1.2        # W/H above this counts as landscape
-MID_CLOUD_W_FRAC = 0.55          # solid part, from the TEXT'S OWN EDGE inwards
-MID_CLOUD_FEATHER = 0.18         # the ramp that fades it out across the empty side
+# THE CLOUD. Mirrors the plugin's own gradient spec (make_assets.py DATA.gradient):
+# an ellipse with a big feather — edges fade to nothing, the middle is the darkest
+# part — sized as fractions of W/H so it is proportional in every format. These
+# three numbers and the plugin's MUST stay equal, or the same text block gets a
+# different backing in Premiere than it does here.
+MID_CLOUD_RX_FRAC = 0.34         # half-width, fraction of W
+MID_CLOUD_RY_FRAC = 0.30         # half-height, fraction of H
+MID_CLOUD_FEATHER_FRAC = 0.14    # feather, fraction of W
 
 
-def mid_gradient_svg(W, H, opacity=None, rtl=False):
-    """The static feather-dark-feather band (black, transparent outside): dark core
-    between the feathers, alpha ramps on both edges. On landscape it is ALSO
-    feathered left and right, so it reads as a cloud rather than a bar.
+def mid_gradient_svg(W, H, opacity=None, rtl=False, block=None):
+    """A soft elliptical CLOUD behind the text: darkest in the middle, edges
+    transparent. Not a band — a full-width bar reads as a letterbox stripe, and the
+    picture either side of the words does not need darkening.
 
-    `opacity` is 0..1 and is PER TEXT BLOCK — the web app offers it as a picker
-    so a block over dark footage can use a lighter band (or none) without
-    weakening the one over a bright shot. Omitted = MID_OPACITY, which stays
-    the default everywhere and is the value the plugin's AE gradient is baked
-    at (make_assets.py DATA.gradient.opacity), so the two stay in step."""
-    top, bot = MID_TOP_FRAC, MID_BOT_FRAC
-    f = MID_FEATHER_FRAC / 2       # the feather STRADDLES each band edge (half
+    Centred on the TEXT, which is left-aligned at the safe margin (right when RTL),
+    so the cloud sits under the words rather than in the middle of the frame.
+
+    `opacity` is 0..1 and is PER TEXT BLOCK — the web app offers it as a picker so a
+    block over dark footage can use a lighter cloud (or none) without weakening the
+    one over a bright shot. Omitted = MID_OPACITY, the value the plugin's AE template
+    is baked at, so the two stay in step.
+    """
     a = MID_OPACITY if opacity is None else max(0.0, min(1.0, float(opacity)))
+    feather = MID_CLOUD_FEATHER_FRAC * W
+    rx, ry = MID_CLOUD_RX_FRAC * W, MID_CLOUD_RY_FRAC * H
+    cy = (MID_TOP_FRAC + MID_BOT_FRAC) / 2 * H          # fallback: the mid band's centre
+    if block:
+        # Sized and placed from the BLOCK: wide enough to carry the longest line
+        # (plus the feather, which is transparent at its outer edge), and centred on
+        # the text's own rows rather than the middle of the frame.
+        want = block.get("text_w", 0) / 2 + feather
+        rx = max(rx, want)
+        strip_mid = block.get("top", 0) + block.get("H_strip", 0) / 2
+        if strip_mid:
+            cy = strip_mid
+        ry = max(ry, block.get("H_strip", 0) / 2 + feather * 0.6)
+    rx = min(rx, W)                                     # never wider than the frame
+    # hug the text's side: the ellipse's own edge sits at the frame edge
+    cx = (W - rx) if rtl else rx
+    core = max(0.0, (rx - feather) / rx) if rx else 0.0  # solid until here, then fade
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}">'
-            f'<defs><linearGradient id="band" x1="0" y1="0" x2="0" y2="1">'
-            f'<stop offset="{top - f:.4f}" stop-color="#000" stop-opacity="0"/>'
-            f'<stop offset="{top + f:.4f}" stop-color="#000" stop-opacity="{a}"/>'
-            f'<stop offset="{bot - f:.4f}" stop-color="#000" stop-opacity="{a}"/>'
-            f'<stop offset="{bot + f:.4f}" stop-color="#000" stop-opacity="0"/>'
-            f'</linearGradient></defs>'
-            + _cloud_mask(W, H, rtl) +
-            f'<rect width="{W}" height="{H}" fill="url(#band)"{_cloud_ref(W, H)}/></svg>')
+            f'<defs><radialGradient id="cloud">'
+            f'<stop offset="0" stop-color="#000" stop-opacity="{a}"/>'
+            f'<stop offset="{core:.4f}" stop-color="#000" stop-opacity="{a}"/>'
+            f'<stop offset="1" stop-color="#000" stop-opacity="0"/>'
+            f'</radialGradient></defs>'
+            f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" rx="{rx:.1f}" ry="{ry:.1f}" fill="url(#cloud)"/>'
+            f'</svg>')
 
 
-def _is_wide(W, H):
-    return H and (W / H) >= MID_CLOUD_MIN_RATIO
-
-
-def _cloud_mask(W, H, rtl=False):
-    """A horizontal alpha ramp, as a mask. Only on landscape; empty otherwise so
-    portrait and square render byte-identically to before.
-
-    ANCHORED TO THE TEXT'S SIDE, not centred: the text is left-aligned at the safe
-    margin (right when RTL), so a centred cloud leaves the first words in the fade
-    and darkens empty picture on the far side. Solid from the text's edge, fading
-    out across the empty half."""
-    if not _is_wide(W, H):
-        return ""
-    solid, feather = MID_CLOUD_W_FRAC, MID_CLOUD_FEATHER
-    if rtl:      # text on the right: solid from the right edge, fading leftwards
-        a, b = max(0.0, 1.0 - solid - feather), 1.0 - solid
-        stops = (f'<stop offset="{a:.4f}" stop-color="#fff" stop-opacity="0"/>'
-                 f'<stop offset="{b:.4f}" stop-color="#fff" stop-opacity="1"/>'
-                 f'<stop offset="1" stop-color="#fff" stop-opacity="1"/>')
-    else:        # text on the left: solid from the left edge, fading rightwards
-        a, b = solid, min(1.0, solid + feather)
-        stops = (f'<stop offset="0" stop-color="#fff" stop-opacity="1"/>'
-                 f'<stop offset="{a:.4f}" stop-color="#fff" stop-opacity="1"/>'
-                 f'<stop offset="{b:.4f}" stop-color="#fff" stop-opacity="0"/>')
-    return (f'<defs><linearGradient id="cloudx" x1="0" y1="0" x2="1" y2="0">{stops}'
-            f'</linearGradient>'
-            f'<mask id="cloud"><rect width="{W}" height="{H}" fill="url(#cloudx)"/></mask></defs>')
-
-
-def _cloud_ref(W, H):
-    return ' mask="url(#cloud)"' if _is_wide(W, H) else ""
-
-
-def render_mid_gradient(W, H, out_png, opacity=None, rtl=False):
-    _svg2png(bytestring=mid_gradient_svg(W, H, opacity, rtl).encode(),
+def render_mid_gradient(W, H, out_png, opacity=None, rtl=False, block=None):
+    _svg2png(bytestring=mid_gradient_svg(W, H, opacity, rtl, block).encode(),
              write_to=out_png, output_width=W, output_height=H)
     return out_png

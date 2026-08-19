@@ -104,6 +104,23 @@
   border: 1px solid var(--line); border-radius: var(--radius-sm);
 }
 .ex-thumb figcaption { font-size: 0.78rem; color: var(--muted); margin-top: var(--sp-8); }
+/* One preview PER ELEMENT, each at the frame that element appears on. auto-fit so
+   two lower thirds sit side by side and five text blocks wrap, with no breakpoint. */
+.bp-multi {
+  display: grid; gap: var(--sp-12); margin-top: var(--sp-8);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.bp-multi[hidden] { display: none; }
+.bp-item { margin: 0; min-width: 0; }
+.bp-item img {
+  display: block; width: 100%; height: auto;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.bp-item__cap {
+  margin-top: var(--sp-4); font-size: 0.75rem; color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 /* live-preview strip under an example thumbnail (browser/brandpreview.js) */
 .bp-bar { display: flex; align-items: center; gap: var(--sp-8); flex-wrap: wrap; margin-top: var(--sp-8); }
 .bp-note:empty { display: none; }

@@ -38,7 +38,7 @@ const ENGINE_MIN = "0.5.0";
 // This page's OWN version — the repo's VERSION at the time it was published. It is
 // also the newest published version by definition (the page always ships from main),
 // so ENGINE_LATEST seeds from it: one constant to bump, not two that can drift.
-const APP_VERSION = "2026.0.37";
+const APP_VERSION = "2026.0.38";
 let ENGINE_LATEST = APP_VERSION;
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
@@ -636,9 +636,14 @@ const tBpCommon = {
   base: () => ({ look: tLook.collect(), rtl: $("#t-rtl").checked || undefined }),
 };
 
+// No sourceTime here: this tab brands a FINISHED clip, so an element's start time
+// is already a time on the video itself.
 tBp.lt = OchaBrandPreview.mount({
   ...tBpCommon, figure: $("#t-bp-lt"),
-  collect: () => { const l = ftLt.collect(); return l && l.length ? { lower_thirds: l } : null; },
+  collectMany: () => (ftLt.collect() || []).filter((l) => l.name).map((l) => ({
+    spec: { lower_thirds: [l] }, at: +l.start || 0,
+    label: `${l.name} · ${OchaBrandPreview.clock(l.start)}`,
+  })),
   watch: () => [...document.querySelectorAll("#lt-rows input, #lt-rows select")],
 });
 
@@ -661,13 +666,19 @@ tBp.bug = OchaBrandPreview.mount({
 
 tBp.pin = OchaBrandPreview.mount({
   ...tBpCommon, figure: $("#t-bp-pin"),
-  collect: () => { const p = tLoc.collect(); return p && p.length ? { pins: p } : null; },
+  collectMany: () => (tLoc.collect() || []).filter((p) => p.place).map((p) => ({
+    spec: { pins: [p] }, at: +p.start || 0,
+    label: `${p.place} · ${OchaBrandPreview.clock(p.start)}`,
+  })),
   watch: () => [...document.querySelectorAll("#t-loc-rows input, #t-loc-rows select")],
 });
 
 tBp.texton = OchaBrandPreview.mount({
   ...tBpCommon, figure: $("#t-bp-texton"),
-  collect: () => { const t = tTexts.collect(); return t && t.length ? { texts: t } : null; },
+  collectMany: () => (tTexts.collect() || []).filter((t) => (t.lines || []).length).map((t) => ({
+    spec: { texts: [t] }, at: +t.start || 0,
+    label: `${t.lines[0]} · ${OchaBrandPreview.clock(t.start)}`,
+  })),
   watch: () => [...document.querySelectorAll("#t-tx-rows input, #t-tx-rows textarea, #t-tx-rows select")],
 });
 

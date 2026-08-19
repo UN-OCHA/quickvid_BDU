@@ -291,7 +291,7 @@ def render(spec: dict, log=print) -> str:
         g["band"] = os.path.join(work, f"txt_band{i}.png")
         TX.render_mid_gradient(W, H, g["band"],
                                None if gp is None else float(gp) / 100.0,
-                               rtl=bool(g.get("rtl")))
+                               rtl=bool(g.get("rtl")), block=g)
         txt_gs.append(g)
 
     grad_png = None

@@ -3,6 +3,48 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-08-06 — One preview per element, at its own moment; the text cloud (2026.0.38)
+
+Javi: an element with a start time should preview at THAT frame, and several elements
+should give several previews. Both right — and the second is what makes the first
+useful, since one preview for three text blocks was answering about only one of them.
+
+**Per-element previews.** `collectMany()` returns `[{spec, at, label}]` and the section
+renders one preview EACH, at that element's own time, labelled with its name and
+timecode. Lower thirds, location strips, text blocks. Captions, the logo watermark and
+the ending stay single — they are not individually timed.
+
+**The Edit tab has to map the time.** An element's start is on the FINISHED clip, but
+the preview samples the SOURCE, and that tab CUTS — so 10s into the result is not 10s
+into the footage. `stSourceTime()` walks the kept sentences until their durations add
+up to the wanted time. The Titles tab brands a finished clip, where the two are the
+same, so it passes no mapper at all.
+
+**The text band became the plugin's CLOUD.** Javi asked for something subtler with
+transparent edges — and the plugin already had exactly that defined (`make_assets.py`
+DATA.gradient: an ellipse with a big feather, edges fading out, radii as fractions of
+W/H). Used those numbers rather than inventing a softening, so the two implementations
+agree. Then sized it to the TEXT: a fixed fraction is right for a short line on a wide
+frame and far too small for a portrait line running nearly edge to edge, so `build()`
+now measures the widest line and the cloud grows to carry it.
+
+### Two bugs I made and caught here, both worth the note
+
+**`const bpClock` in BOTH tab files.** They share one global lexical scope, so the
+second file to load threw "Identifier already declared" and died where it stood, taking
+`stShowPanel` and everything after it with it. The helper now lives once, on
+`OchaBrandPreview`. Note what HID it: re-running each file in a fresh scope — this
+repo's standard trick for finding a mid-file throw — reported all three clean, because
+a fresh scope has no clash. Only the browser console had it. **A duplicate top-level
+`const` across two files is invisible to the re-eval probe.** Grep the two files'
+top-level names against each other instead.
+
+**`fig.querySelector("figcaption")` matched the wrong caption.** The multi grid is
+inserted ABOVE the section's own `<figcaption>`, so a bare lookup found the FIRST
+PREVIEW'S label, and the section caption silently overwrote element 1's name. All four
+lookups are now `:scope > figcaption`. Inserting content changes what an unscoped
+descendant selector resolves to — scope them the moment a container gains children.
+
 ## 2026-08-06 — Titles & branding could save a project but never reopen one (2026.0.37)
 
 Javi noticed there was no "Open a saved project" on the Titles tab. Looking for the

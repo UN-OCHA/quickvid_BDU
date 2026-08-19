@@ -807,6 +807,21 @@ const stLoc = OchaLocation.mount({
    preview can never disagree with the export. The Titles tab mounts the same five.
    Each section sends ONLY its own element: one thing at a time is what you want
    when you are positioning that thing. */
+/* An element's start time is on the FINISHED clip, but the preview samples the
+   SOURCE — and this tab CUTS, so 10s into the result is not 10s into the footage.
+   Walk the kept sentences until their durations add up to the wanted time. */
+function stSourceTime(clipT) {
+  const want = Math.max(0, +clipT || 0);
+  let acc = 0;
+  const sel = ST.segments.filter((x) => x.sel).sort((a, b) => a.in - b.in);
+  for (const seg of sel) {
+    const len = seg.out - seg.in;
+    if (acc + len >= want) return seg.in + (want - acc);
+    acc += len;
+  }
+  return sel.length ? sel[sel.length - 1].out - 0.1 : want;   // past the end: last frame
+}
+
 const stBpTime = () => { const s = ST.segments.find((x) => x.sel); return s ? s.in + 0.3 : 1; };
 const stBpCanvas = () => PRESET_CANVAS[(document.querySelector('input[name="st-preset"]:checked')
   || {}).value] || PRESET_CANVAS.reels;
@@ -815,8 +830,11 @@ const stBpCommon = { getVideo: () => ST.src, getTime: stBpTime, engine: ENGINE,
                      canvas: stBpCanvas, base: stBpBase };
 
 stBp.lt = OchaBrandPreview.mount({
-  ...stBpCommon, figure: $st("#st-bp-lt"),
-  collect: () => { const l = stCollectLts(); return l.length ? { lower_thirds: l } : null; },
+  ...stBpCommon, figure: $st("#st-bp-lt"), sourceTime: stSourceTime,
+  collectMany: () => stCollectLts().filter((l) => l.name).map((l, i) => ({
+    spec: { lower_thirds: [l] }, at: +l.start || 0,
+    label: `${l.name} · ${OchaBrandPreview.clock(l.start)}`,
+  })),
   watch: () => [...document.querySelectorAll("#st-lt-rows input, #st-lt-rows select")],
 });
 
@@ -839,14 +857,20 @@ stBp.bug = OchaBrandPreview.mount({
 });
 
 stBp.pin = OchaBrandPreview.mount({
-  ...stBpCommon, figure: $st("#st-bp-pin"),
-  collect: () => { const p = stLoc.collect(); return p && p.length ? { pins: p } : null; },
+  ...stBpCommon, figure: $st("#st-bp-pin"), sourceTime: stSourceTime,
+  collectMany: () => (stLoc.collect() || []).filter((p) => p.place).map((p) => ({
+    spec: { pins: [p] }, at: +p.start || 0,
+    label: `${p.place} · ${OchaBrandPreview.clock(p.start)}`,
+  })),
   watch: () => [...document.querySelectorAll("#st-loc-rows input, #st-loc-rows select")],
 });
 
 stBp.texton = OchaBrandPreview.mount({
-  ...stBpCommon, figure: $st("#st-bp-texton"),
-  collect: () => { const t = stTexts.collect(); return t && t.length ? { texts: t } : null; },
+  ...stBpCommon, figure: $st("#st-bp-texton"), sourceTime: stSourceTime,
+  collectMany: () => (stTexts.collect() || []).filter((t) => (t.lines || []).length).map((t) => ({
+    spec: { texts: [t] }, at: +t.start || 0,
+    label: `${t.lines[0]} · ${OchaBrandPreview.clock(t.start)}`,
+  })),
   watch: () => [...document.querySelectorAll("#st-tx-rows input, #st-tx-rows textarea, #st-tx-rows select")],
 });
 
