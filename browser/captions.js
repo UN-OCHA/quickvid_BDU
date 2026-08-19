@@ -146,5 +146,23 @@ const OchaCaptions = (() => {
     };
   }
 
-  return { mount };
+  /* THE caption-look standard, in one place. Both tabs read it, so the Edit
+     tab's format picker and the Titles tab's shape detection cannot drift.
+     Mirrored by engine/statement.py PRESETS[*].sub.box - change both together.
+       boxed  - reels, feed 4:5   (muted scrolling: the box carries the text)
+       clean  - square, event     (video team's standard for square, 2026-08-06) */
+  const CAPTION_STYLE = { reels: "box", feed45: "box", square: "gradient", event: "gradient" };
+  const styleFor = (fmt) => CAPTION_STYLE[fmt] || "box";
+
+  /* w/h -> format key. Same thresholds as engine/statement.py preset_for() and the
+     plugin's ochaFmtFromSize(), so all three bucket a video identically. */
+  function fmtFromSize(w, h) {
+    const r = (w || 1) / (h || 1);
+    if (r <= 0.66) return "reels";
+    if (r < 0.92) return "feed45";
+    if (r <= 1.12) return "square";
+    return "event";
+  }
+
+  return { mount, styleFor, fmtFromSize };
 })();

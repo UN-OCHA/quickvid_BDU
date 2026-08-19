@@ -47,10 +47,13 @@ FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 # keys kept for the renderer's sake). LT name/org sizes come from
 # browser/brand-lt.json ratios (same source as the plugin's MOGRTs) — no more
 # per-format overrides here.
+# CAPTION LOOK PER FORMAT (`sub.box`): boxed for reels and 4:5, CLEAN for square
+# and event. Square moved to clean on 2026-08-06 - the video team's standard, not a
+# preference. Mirrored in browser/captions.js styleFor(); change both together.
 PRESETS = {
     "reels":  {"canvas": [1080, 1920], "sub": {"box": True,  "size": 48, "max_w": 960,  "bottom_hi": 1320, "bottom_lo": 1320},
                "lt": {"bottom": 1160}},
-    "square": {"canvas": [1080, 1080], "sub": {"box": True,  "size": 48, "max_w": 870,  "bottom_hi": 980,  "bottom_lo": 980},
+    "square": {"canvas": [1080, 1080], "sub": {"box": False, "size": 48, "max_w": 870,  "bottom_hi": 980,  "bottom_lo": 980},
                "lt": {"bottom": 821}},
     "feed45": {"canvas": [1080, 1350], "sub": {"box": True,  "size": 48, "max_w": 900,  "bottom_hi": 970,  "bottom_lo": 970},
                "lt": {"bottom": 815}},

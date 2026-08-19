@@ -38,7 +38,7 @@ const ENGINE_MIN = "0.5.0";
 // This page's OWN version — the repo's VERSION at the time it was published. It is
 // also the newest published version by definition (the page always ships from main),
 // so ENGINE_LATEST seeds from it: one constant to bump, not two that can drift.
-const APP_VERSION = "2026.0.33";
+const APP_VERSION = "2026.0.34";
 let ENGINE_LATEST = APP_VERSION;
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
@@ -213,6 +213,7 @@ async function enginePick() {
       const changed = state.enginePath && state.enginePath !== path;
       state.enginePath = path; $("#drop-text").textContent = path.split(/[\\/]/).pop(); $("#drop").classList.add("has-file"); setStatus("");
       OchaBrandPreview.refreshAll();              // element previews can now use real footage
+      tCaptionDefault(path);                      // caption look follows the video's shape
       if (changed) tCaps.clear("Video changed — captions reset.");   // stale cue text must never burn onto another clip
       if (changed) tLook.resetPreview();                             // stills belong to the old clip
     }
@@ -462,12 +463,27 @@ function tSubExample() {
   return {                                             // box = 9:16 reel, event = 16:9 — intrinsic size avoids stretch/shift
     src: box ? "img/ex-sub-box.jpg" : "img/ex-sub-event.jpg",
     width: 360, height: box ? 640 : 203,
-    caption: box ? "Social — white text on a grey box (feeds & reels)."
-                 : "Event — clean white text over a soft gradient (16:9 screens).",
+    caption: box ? "Boxed — white text on a grey box. Reels and 4:5 feed posts."
+                 : "Clean — white text over a soft dark gradient. Square and 16:9 screens.",
   };
 }
-$("#t-substyle-box").onclick = () => tSetSubStyle("box");
-$("#t-substyle-event").onclick = () => tSetSubStyle("gradient");
+/* This tab has no format picker - it brands a finished clip - so the caption look
+   comes from the VIDEO'S OWN SHAPE. It never did: the style was hardcoded to boxed,
+   so a finished 16:9 event clip got boxed captions here while the Edit tab gave it
+   clean ones for the same footage. Same map as the Edit tab. */
+async function tCaptionDefault(path) {
+  if (tSubsTouched) return;                      // never override a manual choice
+  try {
+    const r = await fetch(`${ENGINE}/api/statement/probe?src=${encodeURIComponent(path)}`);
+    if (!r.ok) return;
+    const p = await r.json();
+    if (!p.width || !p.height) return;
+    tSetSubStyle(OchaCaptions.styleFor(OchaCaptions.fmtFromSize(p.width, p.height)));
+  } catch (e) { /* a probe failure just leaves the default alone */ }
+}
+let tSubsTouched = false;
+$("#t-substyle-box").onclick = () => { tSubsTouched = true; tSetSubStyle("box"); };
+$("#t-substyle-event").onclick = () => { tSubsTouched = true; tSetSubStyle("gradient"); };
 
 /* ---- caption editor: the SHARED component (browser/captions.js) ----
    The Edit tab mounts the same one. Generate = transcribe once (a job), review

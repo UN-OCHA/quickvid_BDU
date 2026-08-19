@@ -3,8 +3,7 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
-## 2026-08-06 — Square captions use the CLEAN style (plugin 2026.0.53 shipped;
-web app 2026.0.34 built, NOT yet published)
+## 2026-08-06 — Square captions use the CLEAN style (web app 2026.0.34, plugin 2026.0.53)
 
 The video team's standard, reported by Javi: square videos use the clean caption
 look (white text over a soft gradient), not the grey box. Confirmed as a standard,
@@ -13,10 +12,12 @@ boxed - that is the muted-scroll case the box exists for.
 
 The standard is now: **boxed** = reels, feed 4:5 · **clean** = square, event.
 
-The PLUGIN half shipped as 2026.0.53 (guidance copy only). The WEB APP half - where
-the automatic behaviour actually lives - is built and verified but deliberately not
-pushed: Javi asked for the plugin only, and a push to main auto-deploys the web app,
-so its files are held uncommitted rather than riding along.
+Shipped as two releases on Javi's call, a few minutes apart: the PLUGIN first
+(2026.0.53, guidance copy only), then the WEB APP (2026.0.34, where the automatic
+behaviour lives). Worth noting the mechanics - a push to main auto-deploys the web
+app, so shipping "the plugin only" meant committing premiere/cep on its own and
+holding browser/ and engine/ back uncommitted, rather than letting them ride along
+on the plugin's push.
 
 **The rule lived in four places, three of which the engine could not see.**
 `sub_config()` lets an explicit style override the preset, and the web app always

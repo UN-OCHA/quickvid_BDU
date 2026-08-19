@@ -668,8 +668,8 @@ function stSubExample() {
   return {                                             // box = 9:16 reel, event = 16:9 — intrinsic size avoids stretch/shift
     src: box ? "img/ex-sub-box.jpg" : "img/ex-sub-event.jpg",
     width: 360, height: box ? 640 : 203,
-    caption: box ? "Social — white text on a grey box (feeds & reels)."
-                 : "Event — clean white text over a soft gradient (16:9 screens).",
+    caption: box ? "Boxed — white text on a grey box. Reels and 4:5 feed posts."
+                 : "Clean — white text over a soft dark gradient. Square and 16:9 screens.",
   };
 }
 function stSetSubStyle(style) {
@@ -691,10 +691,12 @@ $st("#st-tail").addEventListener("change", stSave);
 $st("#st-substyle-box").onclick = () => { stSetSubStyle("box"); stSave(); };
 $st("#st-substyle-event").onclick = () => { stSetSubStyle("gradient"); stSave(); };
 $st("#st-captions").addEventListener("change", () => { $st("#st-subs-opts").hidden = !$st("#st-captions").checked; });
-// the format sets the sensible default look (reels/feed = boxed; event screen = clean)
+// The format sets the caption look. The map lives in OchaCaptions.styleFor so the
+// two tabs and the engine cannot disagree about it.
 document.querySelectorAll('input[name="st-preset"]').forEach((r) =>
-  r.addEventListener("change", () => stSetSubStyle(r.value === "event" ? "gradient" : "box")));
-stSetSubStyle("box");
+  r.addEventListener("change", () => stSetSubStyle(OchaCaptions.styleFor(r.value))));
+// reels is the default format, so start from its caption look
+stSetSubStyle(OchaCaptions.styleFor("reels"));
 
 /* ---- caption editor: the SHARED component (browser/captions.js) ----
    The Titles tab mounts the same one. Here the cues come from the CURRENT
@@ -1376,7 +1378,7 @@ function stRestore(p) {
       lts = [{ name: p.lt.name, org: p.lt.title, org2: p.lt.title2, start: 2, duration: 5, align: p.lt.align }];
     stLt.restore(lts || []);
     $st("#st-captions").checked = p.captions !== false;
-    stSetSubStyle(p.subsStyle || ((p.preset === "event") ? "gradient" : "box"));
+    stSetSubStyle(p.subsStyle || OchaCaptions.styleFor(p.preset));
     $st("#st-subs-opts").hidden = !$st("#st-captions").checked;
     $st("#st-bug-on").checked = !!p.bug;                       // off by default — including for older saved projects
     stLoc.restore(p.pins || p.pin);      // `pin` = a project saved before Jul 2026

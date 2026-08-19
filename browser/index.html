@@ -19,14 +19,14 @@
   <script src="field.js?v=1" defer></script>      <!-- shared required project-folder field: BOTH tabs -->
   <script src="location.js?v=2" defer></script>   <!-- shared location strip: BOTH tabs -->
   <script src="lowerthird.js?v=1" defer></script>  <!-- shared lower-third rows: BOTH tabs -->
-  <script src="captions.js?v=1" defer></script>    <!-- shared caption editor: BOTH tabs -->
+  <script src="captions.js?v=2" defer></script>    <!-- shared caption editor: BOTH tabs -->
   <script src="waiting.js?v=1" defer></script>   <!-- shared waiting lines: BOTH tabs -->
   <script src="look.js?v=2" defer></script>        <!-- shared footage-look picker: BOTH tabs -->
   <script src="texton.js?v=3" defer></script>      <!-- shared text-on-screen cards: BOTH tabs -->
   <script src="brandpreview.js?v=1" defer></script>  <!-- shared element previews on real footage: BOTH tabs -->
   <script src="analytics.js?v=1" defer></script>  <!-- anonymous usage pings; opt-out in the footer -->
-  <script src="app.js?v=28" defer></script>
-  <script src="statement.js?v=23" defer></script>
+  <script src="app.js?v=29" defer></script>
+  <script src="statement.js?v=24" defer></script>
   <script src="toolbox.js?v=2" defer></script>
 </head>
 <body>
@@ -204,7 +204,7 @@
         <div class="cd-help__panel" id="help-t3s" hidden>
           <ul>
             <li>OCHA QuickVid <strong>listens to the video on your computer</strong> (nothing is uploaded), writes down the words, and burns them in as subtitles. Adds a few minutes to the render.</li>
-            <li>Two looks: <strong>Social</strong> — white text on a grey box (feeds &amp; reels) — or <strong>Event</strong> — clean white text over a soft dark gradient (16:9 screens). The preview shows each.</li>
+            <li>Two looks, and the format picks one for you: <strong>Boxed</strong> for reels and 4:5 feed posts, where people scroll muted and the box carries the words — <strong>Clean</strong> for square and 16:9. You can switch either way.</li>
             <li>Transcription runs on this computer's engine — a long video adds a few minutes to the render.</li>
           </ul>
         </div>
@@ -217,12 +217,12 @@
           </div>
           <div id="t-subs-opts">
             <div class="st-btn-row" role="group" aria-label="Subtitle style">
-              <button type="button" id="t-substyle-box" class="cd-button cd-button--small"><span class="cd-button__text">Social — boxed</span></button>
-              <button type="button" id="t-substyle-event" class="cd-button cd-button--small cd-button--outline"><span class="cd-button__text">Event — clean</span></button>
+              <button type="button" id="t-substyle-box" class="cd-button cd-button--small"><span class="cd-button__text">Boxed</span></button>
+              <button type="button" id="t-substyle-event" class="cd-button cd-button--small cd-button--outline"><span class="cd-button__text">Clean</span></button>
             </div>
             <figure class="ex-thumb" id="t-bp-subs">
               <img id="t-subs-preview" src="img/ex-sub-box.jpg" width="360" height="640" alt="Subtitle style preview" />
-              <figcaption id="t-subs-cap">Social — white text on a grey box (feeds &amp; reels).</figcaption>
+              <figcaption id="t-subs-cap">Boxed — white text on a grey box. Reels and 4:5 feed posts.</figcaption>
             </figure>
             <div class="cap-review">
               <button type="button" id="t-caps-gen" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Review &amp; edit captions</span></button>
@@ -614,7 +614,7 @@
             <ul>
               <li>A <strong>lower third</strong> introduces a speaker: name on top, job title under it. One row per person — <strong>Add lower third</strong> for more.</li>
               <li><strong>Start</strong> = seconds into the finished clip; <strong>Duration</strong> = seconds on screen (5–6 reads well). <strong>2nd line</strong> adds a second title line — e.g. a Spanish translation for a bilingual strip.</li>
-              <li><strong>Subtitles</strong>: the speaker's words, burned in — keep ON for social (most people watch muted). Two looks: <strong>Social</strong> (white on a grey box) or <strong>Event</strong> (clean white over a soft gradient, for 16:9 screens); the preview shows each, and the format you picked in step 6 sets the sensible default.</li>
+              <li><strong>Subtitles</strong>: the speaker's words, burned in — keep ON for social (most people watch muted). Two looks: <strong>Boxed</strong> for reels and 4:5, <strong>Clean</strong> for square and 16:9. The format you picked in step 6 sets it; the preview shows each.</li>
               <li><strong>OCHA logo</strong>: a small watermark, top-right, on for the whole clip — typically for event videos (social media rarely needs it). Off by default; available for any format.</li>
               <li><strong>Text on screen</strong>: up to three big lines that rise in and out, over an automatic readability gradient. Add as many blocks as the video needs — each has its own words and timing.</li>
               <li><strong>Ending</strong>: <em>Over footage</em> = the OCHA logo snaps over the closing shot with the click sound (the standard). <em>Over black</em> = clean black end card. <em>No ending</em> = finish on the last words.</li>
@@ -638,12 +638,12 @@
           </div>
           <div id="st-subs-opts">
             <div class="st-btn-row" role="group" aria-label="Subtitle style">
-              <button type="button" id="st-substyle-box" class="cd-button cd-button--small"><span class="cd-button__text">Social — boxed</span></button>
-              <button type="button" id="st-substyle-event" class="cd-button cd-button--small cd-button--outline"><span class="cd-button__text">Event — clean</span></button>
+              <button type="button" id="st-substyle-box" class="cd-button cd-button--small"><span class="cd-button__text">Boxed</span></button>
+              <button type="button" id="st-substyle-event" class="cd-button cd-button--small cd-button--outline"><span class="cd-button__text">Clean</span></button>
             </div>
             <figure class="ex-thumb" id="st-bp-subs">
               <img id="st-subs-preview" src="img/ex-sub-box.jpg" width="360" height="640" alt="Subtitle style preview" />
-              <figcaption id="st-subs-cap">Social — white text on a grey box (feeds &amp; reels).</figcaption>
+              <figcaption id="st-subs-cap">Boxed — white text on a grey box. Reels and 4:5 feed posts.</figcaption>
             </figure>
             <div class="cap-review">
               <button type="button" id="st-caps-gen" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Review &amp; edit captions</span></button>
