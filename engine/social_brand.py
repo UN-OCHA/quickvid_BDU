@@ -30,10 +30,19 @@ Spec (JSON; library entry point is render(spec, log)):
   "cues": [[start, "text"], ...],                      // end = next start; "" = boundary
   "lower_thirds": [{"name": "...", "titles": ["…","…"], "align": "center",
                      "in": 1.5, "hold": 3.6, "bottom": px?, "name_size": px?, "org_size": px?}],
+  "pins": [{"on": true, "place": "GENEVA", "date": "8 July 2026", "icon": true,
+             "color": "red"|"blue", "start": 4.0, "duration": 5.0}],   // top-left location strip
+  "texts": [{"lines": ["up to","three","lines"], "start": 1.0, "duration": 5.0,
+              "gradient": 80?}],   // text on screen; a readability band goes behind it
   "bug": {"on": false},             // small OCHA vertical-logo watermark, top-right, whole clip
+  "look": {"preset": "none"|"brighter"|"punchier"|"auto", "phone_fix": false,
+            "adjust": {...}}?,      // footage grade, applied UNDER every overlay
+  "rtl": true?,                     // right-to-left layout for the WHOLE video;
+                                    //   omit = auto-detected from any Arabic in the copy
   "ending": {"style": "over_footage" | "over_black" | "none",
               "at": secs?,          // logo snap time; default footage_end
-              "hold": 2.0, "click": true, "logo_ratio": 0.055}
+              "hold": 2.0, "click": true, "logo_ratio": 0.055,
+              "logo_y_frac": 0.5?}  // over_footage only; 0.5 = centred (the standard)
 }
 """
 import argparse

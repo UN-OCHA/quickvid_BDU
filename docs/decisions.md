@@ -51,6 +51,13 @@ and now it does.
 answered by rendering both, on real footage, through `brand_preview.py` - the same
 graph that burns the captions. That is what the preview work was for.
 
+**One place was missed and shipped wrong: the format CARD.** 2026.0.34 went live with
+the Square card still reading "1:1 · boxed captions" while the app behaved correctly.
+Corrected in 2026.0.35. The lesson is about where a rule hides: I swept the style
+BUTTONS and their hints, but each format card carries its own one-line summary of the
+same rule, and nothing links the two. When a standard changes, grep for the VALUE
+("boxed", "clean") across markup, not just for the control that sets it.
+
 **A scripted-replace near-miss worth remembering.** Retargeting the init call
 `stSetSubStyle("box");` hit the FIRST occurrence, which was inside the Boxed
 button's own handler, and the inline `//` comment I added then swallowed the rest
