@@ -38,7 +38,7 @@ const ENGINE_MIN = "0.5.0";
 // This page's OWN version — the repo's VERSION at the time it was published. It is
 // also the newest published version by definition (the page always ships from main),
 // so ENGINE_LATEST seeds from it: one constant to bump, not two that can drift.
-const APP_VERSION = "2026.0.36";
+const APP_VERSION = "2026.0.37";
 let ENGINE_LATEST = APP_VERSION;
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
@@ -336,11 +336,27 @@ drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " "
    repopulating the form doesn't save over the file it just read. */
 let ftSaveTimer = null, ftRestoring = false;
 
+/* Path of the video RELATIVE to the job folder, when it lives inside it. Mirrors
+   statement.js stRelSrc() — that is what survives the folder being renamed, moved,
+   or opened on another machine. */
+function ftRelSrc() {
+  if (!state.enginePath || !state.jobDir) return null;
+  const dir = state.jobDir.replace(/[/\\]+$/, "");
+  const norm = (x) => x.replace(/\\/g, "/");
+  return norm(state.enginePath).startsWith(norm(dir) + "/")
+    ? norm(state.enginePath).slice(norm(dir).length + 1) : null;
+}
+
 function ftSnapshot() {
   const f = ftCollect();
   return {
     v: 1, mode: "titles", name: ($("#f-proj-name").value || "").trim(),
+    // `src` + `src_rel` are the keys the ENGINE's _resolve_src() reads, so a moved or
+    // renamed folder still finds the video. This used to store `video` only, which
+    // that resolver never looks at — every reopened Titles job reported its source
+    // missing. `video` is still written for projects saved before 2026-08-06.
     video: state.enginePath || null,
+    src: state.enginePath || null, src_rel: ftRelSrc(),
     lower_thirds: f.lowerThirds, ending: f.ending,
     subtitles: f.subtitles, bug: f.bug, pins: f.pins, look: f.look,
     saved_at: new Date().toISOString(),
@@ -364,6 +380,16 @@ function ftRestore(p) {
   ftRestoring = true;
   try {
     if (p.name) $("#f-proj-name").value = p.name;
+    // The video itself, not just the settings — restoring the form onto no video
+    // left the tab looking ready while every render and preview had nothing to work
+    // from. `src` is resolved by the engine (it may have moved); `video` is the
+    // pre-2026-08-06 key.
+    const vid = p.src || p.video;
+    if (vid) {
+      state.enginePath = vid;
+      $("#drop-text").textContent = vid.split(/[\\/]/).pop();
+      $("#drop").classList.add("has-file");
+    }
     ftLt.restore(p.lower_thirds);
     const end = document.querySelector(`input[name="ending"][value="${(p.ending || {}).style || "none"}"]`);
     if (end) end.checked = true;
@@ -379,7 +405,42 @@ function ftRestore(p) {
     document.querySelectorAll("#panel-titles input, #panel-titles select")
       .forEach((el) => el.dispatchEvent(new Event("change", { bubbles: true })));
   } finally { ftRestoring = false; }
+  // outside the guard: these must run with saving re-enabled
+  if (state.enginePath) {
+    OchaBrandPreview.refreshAll();
+    try { tLook.preview(); } catch (e) {}
+  }
 }
+
+/* Reopen an earlier job from its .ochaquickvid.json. Same engine endpoint the Edit
+   tab uses — it is mode-agnostic — so the MODE is checked here: a project saved on
+   the other tab would half-restore and look like a bug. */
+$("#f-open-proj").onclick = async () => {
+  try {
+    setStatus("Opening the project file…", "busy");
+    const r = await fetch(`${ENGINE}/api/statement/open-project`, { method: "POST" });
+    if (!r.ok) { setStatus((await r.json()).detail || "Couldn't open that file.", "warn"); return; }
+    const { project, dir, source, source_name } = await r.json();
+    if (project && project.mode !== "titles") {
+      setStatus("That's an Edit project — open it on the “Edit a video” tab instead.", "warn");
+      return;
+    }
+    ftRestore(project);
+    if (dir) {                                    // where the file IS beats any stored path
+      state.jobDir = dir;
+      ftFolderMissing(false);
+      $("#f-folder-path").innerHTML =
+        `<i class="fa-regular fa-circle-check" aria-hidden="true"></i> Reopened from <strong>${esc(dir)}</strong> — edits save back here.`;
+    }
+    if (source === "missing") {
+      setStatus(`Opened “${project.name || "project"}”, but its video (${esc(source_name || "the source")}) isn't where it was — choose it again below.`, "warn");
+    } else {
+      if (source === "moved") setStatus("Source video found in this folder — path updated.", "ok");
+      else setStatus(`Opened “${project.name || "project"}” — continue below.`, "ok");
+    }
+    ftSave();
+  } catch (e) { setStatus("Couldn't open the project: " + e.message, "error"); }
+};
 
 // any edit in the Titles panel schedules a save (no-op until a folder is picked)
 ["input", "change"].forEach((ev) =>

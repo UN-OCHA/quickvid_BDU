@@ -3,6 +3,30 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-08-06 — Titles & branding could save a project but never reopen one (2026.0.37)
+
+Javi noticed there was no "Open a saved project" on the Titles tab. Looking for the
+button turned up that it was three gaps, not one:
+
+1. **No button.** The Edit tab had one; this tab did not — even though its own hint
+   already promised "you can reopen the job later".
+2. **`ftRestore()` never restored the VIDEO.** It repopulated every setting and left
+   `state.enginePath` null, so the tab looked ready while every render and preview had
+   nothing to work from. That also affected the existing same-folder reload prompt,
+   which has been half-restoring since it shipped.
+3. **The snapshot stored the video under `video`, but the engine's `_resolve_src()`
+   reads `src`/`src_rel`.** So the shared resolver could never find a Titles project's
+   video and would have reported it missing every time. Now writes `src` + `src_rel`
+   like the Edit tab (and keeps `video` for older files).
+
+**Mode guards on BOTH tabs.** `/api/statement/open-project` is mode-agnostic and serves
+both, so opening a Titles project on the Edit tab restored half a form and looked like
+a bug. Neither tab checked. Both now say which tab the file belongs to.
+
+The lesson is the shape of it: a save path and a restore path that are never exercised
+end-to-end drift apart silently. Nothing errored — the file was written, the function
+existed, and the only symptom was a button that was never there to press.
+
 ## 2026-08-06 — Previews that never fired, and a text band that was a bar (web app 2026.0.36)
 
 Javi: several elements showed no preview, and the Look "see it bigger" modals did

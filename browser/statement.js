@@ -252,6 +252,12 @@ $st("#st-open-proj").onclick = async () => {
     const r = await fetch(`${ENGINE}/api/statement/open-project`, { method: "POST" });
     if (!r.ok) { stStatus((await r.json()).detail || "Couldn't open that file.", "warn"); return; }
     const { project, dir, source, source_name } = await r.json();
+    // Mode guard, same reason as the Titles tab's: this endpoint serves both, and a
+    // Titles project restored here would populate half the form and look broken.
+    if (project && project.mode === "titles") {
+      stStatus("That's a Titles & branding project — open it on the “Titles & branding” tab instead.", "warn");
+      return;
+    }
     stRestore(project);
     if (source === "missing") stSourceMissing(source_name);
     else if (source === "moved") stStatus("Source video found in this folder — path updated.", "ok");

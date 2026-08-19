@@ -25,8 +25,8 @@
   <script src="texton.js?v=3" defer></script>      <!-- shared text-on-screen cards: BOTH tabs -->
   <script src="brandpreview.js?v=2" defer></script>  <!-- shared element previews on real footage: BOTH tabs -->
   <script src="analytics.js?v=1" defer></script>  <!-- anonymous usage pings; opt-out in the footer -->
-  <script src="app.js?v=30" defer></script>
-  <script src="statement.js?v=25" defer></script>
+  <script src="app.js?v=31" defer></script>
+  <script src="statement.js?v=26" defer></script>
   <script src="toolbox.js?v=2" defer></script>
 </head>
 <body>
@@ -140,6 +140,10 @@
             Choose a project folder first — name the job, then press <strong>Choose where to save…</strong>
           </p>
           <span class="app-hint" id="f-folder-path">Name the job, then pick a location — a folder with that name is created there and the finished video lands in its <code>export/</code> folder, with a README explaining how it was made. Your settings autosave there too, so you can reopen the job later.</span>
+          <div class="st-open-row">
+            <button class="cd-button cd-button--outline cd-button--small" id="f-open-proj" type="button"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><span class="cd-button__text">Open a saved project…</span></button>
+            <span class="app-hint">Coming back to an earlier job? Pick its <code>.ochaquickvid.json</code> file to reload the video and every setting.</span>
+          </div>
         </div>
 
         <div class="dropzone" id="drop" role="button" tabindex="0">
