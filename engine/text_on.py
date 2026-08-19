@@ -108,9 +108,19 @@ def render_seq(g, dur, fps, outdir):
     return n
 
 
-def mid_gradient_svg(W, H, opacity=None):
-    """The static feather-dark-feather band (full frame, black, transparent
-    outside): dark core between the feathers, alpha ramps on both edges.
+# On a LANDSCAPE frame a full-width band reads as a letterbox bar across the whole
+# picture. Feathering it horizontally as well turns it into a soft cloud sitting
+# behind the words — the same treatment the plugin's middle gradient offers. Portrait
+# and square keep the full width: there the band is already about as wide as the text.
+MID_CLOUD_MIN_RATIO = 1.2        # W/H above this counts as landscape
+MID_CLOUD_W_FRAC = 0.55          # solid part, from the TEXT'S OWN EDGE inwards
+MID_CLOUD_FEATHER = 0.18         # the ramp that fades it out across the empty side
+
+
+def mid_gradient_svg(W, H, opacity=None, rtl=False):
+    """The static feather-dark-feather band (black, transparent outside): dark core
+    between the feathers, alpha ramps on both edges. On landscape it is ALSO
+    feathered left and right, so it reads as a cloud rather than a bar.
 
     `opacity` is 0..1 and is PER TEXT BLOCK — the web app offers it as a picker
     so a block over dark footage can use a lighter band (or none) without
@@ -127,10 +137,45 @@ def mid_gradient_svg(W, H, opacity=None):
             f'<stop offset="{bot - f:.4f}" stop-color="#000" stop-opacity="{a}"/>'
             f'<stop offset="{bot + f:.4f}" stop-color="#000" stop-opacity="0"/>'
             f'</linearGradient></defs>'
-            f'<rect width="{W}" height="{H}" fill="url(#band)"/></svg>')
+            + _cloud_mask(W, H, rtl) +
+            f'<rect width="{W}" height="{H}" fill="url(#band)"{_cloud_ref(W, H)}/></svg>')
 
 
-def render_mid_gradient(W, H, out_png, opacity=None):
-    _svg2png(bytestring=mid_gradient_svg(W, H, opacity).encode(),
+def _is_wide(W, H):
+    return H and (W / H) >= MID_CLOUD_MIN_RATIO
+
+
+def _cloud_mask(W, H, rtl=False):
+    """A horizontal alpha ramp, as a mask. Only on landscape; empty otherwise so
+    portrait and square render byte-identically to before.
+
+    ANCHORED TO THE TEXT'S SIDE, not centred: the text is left-aligned at the safe
+    margin (right when RTL), so a centred cloud leaves the first words in the fade
+    and darkens empty picture on the far side. Solid from the text's edge, fading
+    out across the empty half."""
+    if not _is_wide(W, H):
+        return ""
+    solid, feather = MID_CLOUD_W_FRAC, MID_CLOUD_FEATHER
+    if rtl:      # text on the right: solid from the right edge, fading leftwards
+        a, b = max(0.0, 1.0 - solid - feather), 1.0 - solid
+        stops = (f'<stop offset="{a:.4f}" stop-color="#fff" stop-opacity="0"/>'
+                 f'<stop offset="{b:.4f}" stop-color="#fff" stop-opacity="1"/>'
+                 f'<stop offset="1" stop-color="#fff" stop-opacity="1"/>')
+    else:        # text on the left: solid from the left edge, fading rightwards
+        a, b = solid, min(1.0, solid + feather)
+        stops = (f'<stop offset="0" stop-color="#fff" stop-opacity="1"/>'
+                 f'<stop offset="{a:.4f}" stop-color="#fff" stop-opacity="1"/>'
+                 f'<stop offset="{b:.4f}" stop-color="#fff" stop-opacity="0"/>')
+    return (f'<defs><linearGradient id="cloudx" x1="0" y1="0" x2="1" y2="0">{stops}'
+            f'</linearGradient>'
+            f'<mask id="cloud"><rect width="{W}" height="{H}" fill="url(#cloudx)"/></mask></defs>')
+
+
+def _cloud_ref(W, H):
+    return ' mask="url(#cloud)"' if _is_wide(W, H) else ""
+
+
+def render_mid_gradient(W, H, out_png, opacity=None, rtl=False):
+    _svg2png(bytestring=mid_gradient_svg(W, H, opacity, rtl).encode(),
              write_to=out_png, output_width=W, output_height=H)
     return out_png

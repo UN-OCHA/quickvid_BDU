@@ -3,6 +3,50 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-08-06 — Previews that never fired, and a text band that was a bar (web app 2026.0.36)
+
+Javi: several elements showed no preview, and the Look "see it bigger" modals did
+nothing. Five reports, three causes.
+
+**A chicken-and-egg in the preview wiring (location strip, text on screen, Look
+sliders).** A preview wires itself to the inputs its section holds, and re-wires on
+every refresh. But the location and text sections start EMPTY — their rows are created
+at runtime. So a row added after load had no listener, nothing triggered a refresh, and
+without a refresh nothing ever re-wired. The section sat on its static example forever.
+The lower third escaped it only because `stLt.ensure()` creates a row at load.
+
+Fixed at the source: every shared component's own `onChange` now refreshes the previews.
+That is the one event that fires for add, remove AND edit, so it cannot be out of step
+with what is on screen. The Look sliders already called `onChange`, which is why the
+same one-line change fixed the manual brightness/colour case too.
+
+**The Look "modals don't work" was really "there is nothing to click".** The magnifier
+is hidden until a still exists, and stills only rendered when the user pressed "Preview
+on this video" — which nothing told them to do. The stills now load as soon as a video
+is picked (they are cached server-side, so it is one render per video), and the button
+is relabelled "Refresh these previews" because it is no longer a prerequisite.
+
+*Worth recording how nearly this was misdiagnosed:* the first probe reported the modal
+as invisible, because it tested `offsetParent !== null` — which is ALWAYS null for a
+`position: fixed` element. The modal was working the whole time. `offsetParent` is the
+honest visibility test for flow content and a false negative for fixed overlays; check
+`getComputedStyle().display` plus a non-zero rect there instead.
+
+**Text on screen: the readability band was a bar across a landscape frame.** It is a
+full-width vertical feather, which is right for portrait (the band is about as wide as
+the text) and wrong for 16:9, where it reads as a letterbox stripe. It is now also
+feathered horizontally on landscape, and ANCHORED TO THE TEXT'S OWN SIDE rather than
+centred: the text is left-aligned at the safe margin (right when RTL), so a centred
+cloud left the first words in the fade while darkening empty picture on the far side.
+Portrait and square render byte-identically to before. Matches the plugin's
+middle-left/middle-right gradient.
+
+**The ending preview showed the wrong frame.** The logo appears in the last seconds, so
+previewing a mid-clip frame answered a question nobody asked. It now samples ~the third-
+last frame, and drops "Another frame" — there is only one frame worth seeing. Needed the
+duration, which the Titles tab did not have; it now keeps the probe it already runs for
+the caption default.
+
 ## 2026-08-06 — Square captions use the CLEAN style (web app 2026.0.34, plugin 2026.0.53)
 
 The video team's standard, reported by Javi: square videos use the clean caption

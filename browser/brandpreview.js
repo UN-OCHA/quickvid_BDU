@@ -103,7 +103,13 @@ const OchaBrandPreview = {
         note.textContent = "Rendering a preview…";
 
         const shared = (cfg.base && cfg.base()) || {};
-        const t = Math.max(0, (cfg.getTime ? cfg.getTime() : 1) + P._nudge);
+        // `atEnd` sections (the ending logo) preview the LAST frames, because that is
+        // where the element actually appears — a mid-clip frame answers the wrong
+        // question. They also drop "Another frame": there is only one right frame.
+        const endT = cfg.atEnd && cfg.getDuration ? cfg.getDuration() : null;
+        const t = endT != null && endT > 0
+          ? Math.max(0, endT - 0.1)                      // ~3rd-last frame at 30fps
+          : Math.max(0, (cfg.getTime ? cfg.getTime() : 1) + P._nudge);
         const body = {
           video, t,
           canvas: (cfg.canvas && cfg.canvas()) || null,
@@ -128,7 +134,7 @@ const OchaBrandPreview = {
           img.src = P._url;
           const cap = fig.querySelector("figcaption");
           if (cap) cap.textContent = "Your footage, with the real OCHA branding — exactly what will be exported.";
-          another.hidden = false;
+          another.hidden = !!cfg.atEnd;   // one right frame — nothing to cycle through
           P._live = true;
           note.textContent = "";
         } catch (e) {

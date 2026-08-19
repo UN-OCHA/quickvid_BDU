@@ -23,10 +23,10 @@
   <script src="waiting.js?v=1" defer></script>   <!-- shared waiting lines: BOTH tabs -->
   <script src="look.js?v=2" defer></script>        <!-- shared footage-look picker: BOTH tabs -->
   <script src="texton.js?v=3" defer></script>      <!-- shared text-on-screen cards: BOTH tabs -->
-  <script src="brandpreview.js?v=1" defer></script>  <!-- shared element previews on real footage: BOTH tabs -->
+  <script src="brandpreview.js?v=2" defer></script>  <!-- shared element previews on real footage: BOTH tabs -->
   <script src="analytics.js?v=1" defer></script>  <!-- anonymous usage pings; opt-out in the footer -->
-  <script src="app.js?v=29" defer></script>
-  <script src="statement.js?v=24" defer></script>
+  <script src="app.js?v=30" defer></script>
+  <script src="statement.js?v=25" defer></script>
   <script src="toolbox.js?v=2" defer></script>
 </head>
 <body>
@@ -152,7 +152,7 @@
           <div id="t-look-grid" class="look-grid"></div>
           <div id="t-look-adjust" class="adjust-grid"></div>
           <!-- stays with the grid: it fills those four cards with real frames -->
-          <button type="button" id="t-look-prev" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Preview on this video</span></button>
+          <button type="button" id="t-look-prev" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Refresh these previews</span></button>
         </div>
 
         <!-- Extra settings — the two rescue toggles, out of the main flow. Both are
@@ -658,7 +658,7 @@
           <div id="st-look-grid" class="look-grid"></div>
           <div id="st-look-adjust" class="adjust-grid"></div>
           <!-- stays with the grid: it fills those four cards with real frames -->
-          <button type="button" id="st-look-prev" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Preview on this video</span></button>
+          <button type="button" id="st-look-prev" class="cd-button cd-button--outline cd-button--small"><span class="cd-button__text">Refresh these previews</span></button>
         </div>
 
         <!-- Extra settings — same grouping as the Titles tab, so both tabs read alike -->

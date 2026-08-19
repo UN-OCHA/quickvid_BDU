@@ -127,6 +127,11 @@ async function stUseSource(path, opts = {}) {
   stStatus("");
   st4kSync();                                    // source dims known → enable/disable 4K
   OchaBrandPreview.refreshAll();                  // element previews can now use real footage
+      // Load the Look stills straight away. They used to wait for a button press,
+      // and the magnifier is hidden until a still exists — so "open the bigger
+      // view" simply did nothing, with no way to tell why. The stills are cached
+      // server-side, so this costs one render per video, not per visit.
+  try { stLook.preview(); } catch (e) {}
   stInitSync();
   $st("#st-card-sync").hidden = false;
   $st("#st-card-sync").scrollIntoView({ behavior: "smooth" });
@@ -719,7 +724,9 @@ const stLook = OchaLook.mount({
   adjust: $st("#st-look-adjust"),
   getVideo: () => ST.src,
   getTime: () => { const sSel = ST.segments.find((x) => x.sel); return sSel ? sSel.in + 0.3 : 1; },
-  engine: ENGINE, onChange: () => stSave(),
+  engine: ENGINE,
+  // the Look is baked into every preview's still, so a grade change moves them all
+  onChange: () => { stSave(); OchaBrandPreview.refreshAll(); },
 });
 
 // Text on screen — the SHARED component (browser/texton.js); Titles tab mounts the same one.
@@ -741,7 +748,12 @@ document.addEventListener("input", (e) => {
 $st("#st-rtl").addEventListener("change", (e) => { e.target.dataset.touched = "1"; });
 
 const stTexts = OchaTextOn.mount({
-  rows: $st("#st-tx-rows"), add: $st("#st-tx-add"), onChange: () => stSave(),
+  rows: $st("#st-tx-rows"), add: $st("#st-tx-add"),
+      // Rows are ADDED at runtime, so a preview wired only at mount never sees
+      // them — and nothing else triggers a refresh, so the section sat on its
+      // static example forever. The component's own onChange is the one event
+      // that fires for add, remove AND edit.
+  onChange: () => { stSave(); OchaBrandPreview.refreshAll(); },
 });
 
 // How many SPOKEN sentences were dropped immediately before each kept one.
@@ -781,7 +793,7 @@ $st("#st-caps-gen").onclick = async () => {
    The Titles & branding tab mounts the same one — one implementation, both tabs. */
 const stLoc = OchaLocation.mount({
   rows: $st("#st-loc-rows"), add: $st("#st-loc-add"),
-  onChange: () => stSave(),
+  onChange: () => { stSave(); OchaBrandPreview.refreshAll(); },
 });
 
 /* ---- "show it on MY video": the five element previews (browser/brandpreview.js).
@@ -846,6 +858,7 @@ function stLogoYVis() {
 }
 stBp.ending = OchaBrandPreview.mount({
   ...stBpCommon, figure: $st("#st-bp-ending"),
+  atEnd: true, getDuration: () => (ST.probe && ST.probe.duration) || 0,
   // A preview only means something where the logo sits over the picture. Over
   // black it is a black card the body graph never draws — see brand_preview.py.
   collect: () => (stEndStyle() === "over_footage"
@@ -862,7 +875,8 @@ stLogoYLabel(); stLogoYVis();
 // Edit-tab defaults: appears at 0:02, centred, 5s (was a hand-rolled copy of the
 // Titles rows that had drifted on defaults + alignment order).
 const stLt = OchaLowerThirds.mount({
-  rows: $st("#st-lt-rows"), add: $st("#st-lt-add"), onChange: () => stSave(),
+  rows: $st("#st-lt-rows"), add: $st("#st-lt-add"),
+  onChange: () => { stSave(); OchaBrandPreview.refreshAll(); },
   defaults: { start: 2, duration: 5, align: "center" },
 });
 const stCollectLts = () => stLt.collect();

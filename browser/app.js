@@ -38,7 +38,7 @@ const ENGINE_MIN = "0.5.0";
 // This page's OWN version — the repo's VERSION at the time it was published. It is
 // also the newest published version by definition (the page always ships from main),
 // so ENGINE_LATEST seeds from it: one constant to bump, not two that can drift.
-const APP_VERSION = "2026.0.35";
+const APP_VERSION = "2026.0.36";
 let ENGINE_LATEST = APP_VERSION;
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
@@ -213,6 +213,11 @@ async function enginePick() {
       const changed = state.enginePath && state.enginePath !== path;
       state.enginePath = path; $("#drop-text").textContent = path.split(/[\\/]/).pop(); $("#drop").classList.add("has-file"); setStatus("");
       OchaBrandPreview.refreshAll();              // element previews can now use real footage
+      // Load the Look stills straight away. They used to wait for a button press,
+      // and the magnifier is hidden until a still exists — so "open the bigger
+      // view" simply did nothing, with no way to tell why. The stills are cached
+      // server-side, so this costs one render per video, not per visit.
+      try { tLook.preview(); } catch (e) {}
       tCaptionDefault(path);                      // caption look follows the video's shape
       if (changed) tCaps.clear("Video changed — captions reset.");   // stale cue text must never burn onto another clip
       if (changed) tLook.resetPreview();                             // stills belong to the old clip
@@ -311,7 +316,8 @@ const fmtMMSS = (sec) => { sec = Math.max(0, Math.round(sec || 0)); return Strin
 /* lower thirds: the SHARED component (browser/lowerthird.js) — the Edit tab mounts
    the same one. Titles default: appears at 0:10, left-aligned, 4s. */
 const ftLt = OchaLowerThirds.mount({
-  rows: $("#lt-rows"), add: $("#lt-add"), onChange: () => ftSave(),
+  rows: $("#lt-rows"), add: $("#lt-add"),
+  onChange: () => { ftSave(); OchaBrandPreview.refreshAll(); },
   defaults: { start: 10, duration: 4, align: "left" },
 });
 ftLt.ensure();
@@ -477,6 +483,7 @@ async function tCaptionDefault(path) {
     const r = await fetch(`${ENGINE}/api/statement/probe?src=${encodeURIComponent(path)}`);
     if (!r.ok) return;
     const p = await r.json();
+    state.probe = p;                 // the ending preview needs the duration
     if (!p.width || !p.height) return;
     tSetSubStyle(OchaCaptions.styleFor(OchaCaptions.fmtFromSize(p.width, p.height)));
   } catch (e) { /* a probe failure just leaves the default alone */ }
@@ -496,7 +503,7 @@ const tLook = OchaLook.mount({
   grid: $("#t-look-grid"), fix: $("#t-look-fix"), previewBtn: $("#t-look-prev"),
   adjust: $("#t-look-adjust"),
   getVideo: () => state.enginePath, getTime: () => 1, engine: ENGINE,
-  onChange: () => ftSave(),
+  onChange: () => { ftSave(); OchaBrandPreview.refreshAll(); },
 });
 // Text on screen — the SHARED component (browser/texton.js); Edit tab mounts the same one.
 // Auto-tick RTL the moment Arabic is typed anywhere in this tab. It stays a
@@ -516,7 +523,7 @@ document.addEventListener("input", (e) => {
 $("#t-rtl").addEventListener("change", (e) => { e.target.dataset.touched = "1"; });
 
 const tTexts = OchaTextOn.mount({
-  rows: $("#t-tx-rows"), add: $("#t-tx-add"), onChange: () => ftSave(),
+  rows: $("#t-tx-rows"), add: $("#t-tx-add"), onChange: () => { ftSave(); OchaBrandPreview.refreshAll(); },
 });
 $("#t-caps-gen").onclick = async () => {
   if (!state.enginePath) return setStatus("Choose a video first.", "warn");
@@ -547,7 +554,12 @@ $("#t-caps-gen").onclick = async () => {
    The Edit tab mounts the same one. Change the strip's fields, defaults or
    behaviour in location.js and BOTH tabs move together. */
 const tLoc = OchaLocation.mount({
-  rows: $("#t-loc-rows"), add: $("#t-loc-add"), onChange: () => ftSave(),
+  rows: $("#t-loc-rows"), add: $("#t-loc-add"),
+      // Rows are ADDED at runtime, so a preview wired only at mount never sees
+      // them — and nothing else triggers a refresh, so the section sat on its
+      // static example forever. The component's own onChange is the one event
+      // that fires for add, remove AND edit.
+  onChange: () => { ftSave(); OchaBrandPreview.refreshAll(); },
 });
 
 $("#t-subs-on").addEventListener("change", () => { $("#t-subs-opts").hidden = !$("#t-subs-on").checked; });
@@ -610,6 +622,7 @@ function tLogoYLabel() {
 function tLogoYVis() { $("#t-logoy-row").hidden = tEndStyle() !== "over_footage"; }
 tBp.ending = OchaBrandPreview.mount({
   ...tBpCommon, figure: $("#t-bp-ending"),
+  atEnd: true, getDuration: () => (state.probe && state.probe.duration) || 0,
   // Only meaningful where the logo sits over the picture; over black is a card
   // the body graph never draws — see engine/brand_preview.py.
   collect: () => (tEndStyle() === "over_footage"
