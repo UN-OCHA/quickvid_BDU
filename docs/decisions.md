@@ -3,6 +3,46 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-08-20 — Lower third size: off the SHORT SIDE, name 54 on 1080
+
+Javi: "lower thirds are a bit small. We need to increase a bit the size of the name and
+a bit more the title." Approved on the WHD Fletcher clip at **name 54 / title 36** on a
+1080 square — which is the existing 0.66 title-to-name ratio, so only the name size moved.
+
+**The real bug was the rule, not the number.** `brand-lt.json` sized the name as a ratio of
+canvas HEIGHT, per orientation. On the same 1080-wide canvas that gave:
+
+| format | canvas | before | after |
+|---|---|---|---|
+| reels | 1080x1920 | 44 | 54 |
+| feed 4:5 | 1080x1350 | **31** | 54 |
+| square | 1080x1080 | 33 | 54 |
+| event 16:9 | 1920x1080 | 41 | 54 |
+
+4:5 and 9:16 are both "portrait" and both 1080 wide, yet got 31 and 44 — a 40% difference
+with no design reason behind it. The strip is horizontal, so what governs how big it reads
+is the **narrow** dimension of the frame, not the tall one.
+
+So `geometry.name_ratio` (a per-orientation table) became **`geometry.name_short_ratio: 0.05`**,
+applied to `min(canvas_w, canvas_h)`. One number, consistent across every format, and it
+scales correctly if anyone exports at 4K (a 2160x3840 reel gets 108 / 71).
+
+`orient` is still passed to `lower_third.build()` — other callers rely on the argument — but
+it no longer affects sizing. `build()` and `render()` gained `canvas_w`; `social_brand.py` and
+`finish.py` pass it.
+
+Comparison sheet, rendered through the real graph at all four formats:
+`docs/lower-third-size-2026-08-20.jpg`.
+
+**Not changed:** the pin locator (`line1_ratio`) and text-on-screen (`text.ratio`) still scale
+by height per orientation. They have the same latent inconsistency; nobody has complained, so
+they were left alone rather than changed on spec.
+
+**Shipping:** web app **2026.0.39** (engine reads `brand-lt.json` at runtime, so the bump is
+what gets it onto installed copies). Plugin: `builder_template.jsx` updated and
+`build_ocha_mogrts.jsx` regenerated via `make_assets.py` — **the .mogrt files themselves still
+have the old size baked in** until the builder is run in After Effects.
+
 ## 2026-08-06 — One preview per element, at its own moment; the text cloud (2026.0.38)
 
 Javi: an element with a start time should preview at THAT frame, and several elements

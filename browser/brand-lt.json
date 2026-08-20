@@ -1,5 +1,5 @@
 {
-  "_comment": "OCHA lower third — SINGLE SOURCE OF TRUTH for the numbers (look B, approved 2026-07-12, ASG Ukraine reference: name 44px on a 1080x1920 canvas). Consumed by engine/lower_third.py (Titles & branding Full + statement clips) AND browser/engine.js (Lite mode). Change the look here once; drawing logic lives in those two files.",
+  "_comment": "OCHA lower third — SINGLE SOURCE OF TRUTH for the numbers (look B, approved 2026-07-12; SIZE raised 2026-08-20 to name 54px on a 1080-wide canvas). name_short_ratio multiplies the canvas SHORT SIDE, not its height: the strip is horizontal, so what governs how big it reads is the narrow dimension. The old per-orientation height ratios gave 4:5 a 31px name and 9:16 a 44px one on the same 1080 width - that inconsistency is what this replaced. Consumed by engine/lower_third.py (Titles & branding Full + statement clips) AND browser/engine.js (Lite mode). Change the look here once; drawing logic lives in those two files.",
   "timing": {
     "name_in": 0.5,
     "org_delay": 0.26,
@@ -9,11 +9,7 @@
     "name_out": 0.44
   },
   "geometry": {
-    "name_ratio": {
-      "portrait": 0.02292,
-      "square": 0.0306,
-      "landscape": 0.0382
-    },
+    "name_short_ratio": 0.05,
     "org_scale": 0.66,
     "name_pad_x": 0.6,
     "name_pad_y": 0.32,

@@ -38,7 +38,7 @@ const ENGINE_MIN = "0.5.0";
 // This page's OWN version — the repo's VERSION at the time it was published. It is
 // also the newest published version by definition (the page always ships from main),
 // so ENGINE_LATEST seeds from it: one constant to bump, not two that can drift.
-const APP_VERSION = "2026.0.38";
+const APP_VERSION = "2026.0.39";
 let ENGINE_LATEST = APP_VERSION;
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 

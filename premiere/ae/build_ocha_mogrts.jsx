@@ -40,11 +40,7 @@ var DATA = {
    "name_out": 0.44
   },
   "geometry": {
-   "name_ratio": {
-    "portrait": 0.02292,
-    "square": 0.0306,
-    "landscape": 0.0382
-   },
+   "name_short_ratio": 0.05,
    "org_scale": 0.66,
    "name_pad_x": 0.6,
    "name_pad_y": 0.32,
@@ -716,7 +712,10 @@ function buildLT(fmt) {
   // selecting it changes nothing, which is better than a build that dies on an
   // older spec file.
   var ALT = LT.fonts.alt || { label: "Alternate", postscript: "", scale: 1, uppercase_all: true };
-  var NSIZE = Math.max(20, Math.round(H * G.name_ratio[fmt.orient]));
+  // Size tracks the canvas SHORT side, not its height: the strip is horizontal,
+  // so the narrow dimension governs how big it reads. Matches engine/lower_third.py.
+  var SHORT = Math.min(W, H);
+  var NSIZE = Math.max(20, Math.round(SHORT * G.name_short_ratio));
   var OSIZE = Math.max(12, Math.round(NSIZE * G.org_scale));
   var NPX = Math.round(NSIZE * G.name_pad_x), NPY = Math.round(NSIZE * G.name_pad_y);
   var OPX = Math.round(OSIZE * G.org_pad_x), OPY = Math.round(OSIZE * G.org_pad_y);

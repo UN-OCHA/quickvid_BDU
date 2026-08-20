@@ -227,7 +227,7 @@ def render(spec: dict, log=print) -> str:
         rtl = any(_has_arabic(t or "") for t in _copy)
     rtl = bool(rtl)
 
-    lts = [LT.build({**lt, "rtl": rtl}, canvas_h=H, orient=LT.orient_of(W, H))
+    lts = [LT.build({**lt, "rtl": rtl}, canvas_h=H, canvas_w=W, orient=LT.orient_of(W, H))
            for lt in (spec.get("lower_thirds") or []) if lt.get("name")]
     windows = [(g["t_in"], g["t_in"] + LT.total(g["hold"])) for g in lts]
 

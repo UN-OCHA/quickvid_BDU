@@ -81,13 +81,19 @@ def state(t, hold):
     return max(0.0, min(1.0, nr)), max(0.0, min(1.0, orr)), pan
 
 
-def build(lt, canvas_h=None, orient="portrait"):
+def build(lt, canvas_h=None, orient="portrait", canvas_w=None):
     """Geometry for one lower third. `lt` keys: name, org|titles[], align,
     hold, in, bottom, left, name_size?/org_size? (explicit px override the
-    canvas-relative spec sizing)."""
+    canvas-relative spec sizing).
+
+    Size tracks the canvas SHORT SIDE. The strip is horizontal, so the narrow
+    dimension is what governs how big it reads - scaling by height gave 4:5 a
+    31px name and 9:16 a 44px one on the same 1080 width. `orient` no longer
+    affects sizing; it is kept because callers still pass it."""
     name = lt["name"].upper() if SPEC.get("uppercase_name", True) else lt["name"]
     titles = [t for t in (lt.get("titles") or ([lt.get("org")] if lt.get("org") else [])) if t]
-    nsize = lt.get("name_size") or (max(20, round(canvas_h * _G["name_ratio"][orient])) if canvas_h else 44)
+    short = min(x for x in (canvas_w, canvas_h) if x) if (canvas_w or canvas_h) else None
+    nsize = lt.get("name_size") or (max(20, round(short * _G["name_short_ratio"])) if short else 54)
     osize = lt.get("org_size") or max(12, round(nsize * _G["org_scale"]))
     npx, npy = round(nsize * _G["name_pad_x"]), round(nsize * _G["name_pad_y"])
     opx, opy, oline = round(osize * _G["org_pad_x"]), round(osize * _G["org_pad_y"]), round(osize * _G["org_line"])
@@ -173,7 +179,7 @@ def render_seq(g, fps, outdir):
     return n
 
 
-def render(name, org, canvas_h, align, fps, hold, outdir, name_ratio=None, orient="portrait", org2=None, rtl=None):
+def render(name, org, canvas_h, align, fps, hold, outdir, name_ratio=None, orient="portrait", org2=None, rtl=None, canvas_w=None):
     """finish.py-compatible API. Sizes come from the shared spec (per
     orientation); an explicit name_ratio still overrides for special cases.
     org2 = optional second title line (bilingual)."""
@@ -182,7 +188,7 @@ def render(name, org, canvas_h, align, fps, hold, outdir, name_ratio=None, orien
         lt["rtl"] = rtl
     if name_ratio:
         lt["name_size"] = max(20, round(canvas_h * name_ratio))
-    g = build(lt, canvas_h=canvas_h, orient=orient)
+    g = build(lt, canvas_h=canvas_h, orient=orient, canvas_w=canvas_w)
     n = render_seq(g, fps, outdir)
     block_left = ((g["W"] - g["BW"] - g["pan"]) if g["rtl"] else g["pan"]) \
                  if align == "left" else (g["W"] - g["BW"]) / 2
@@ -196,13 +202,14 @@ def main():
     ap.add_argument("--org", required=True)
     ap.add_argument("--out", required=True, help="output frames dir")
     ap.add_argument("--canvas-h", type=int, default=1920)
+    ap.add_argument("--canvas-w", type=int, default=1080)
     ap.add_argument("--orient", choices=["portrait", "square", "landscape"], default="portrait")
     ap.add_argument("--align", choices=["center", "left"], default="center")
     ap.add_argument("--fps", type=int, default=30)
     ap.add_argument("--hold", type=float, default=3.4)
     args = ap.parse_args()
     g = render(args.name, args.org, args.canvas_h, args.align, args.fps, args.hold,
-               args.out, orient=args.orient)
+               args.out, orient=args.orient, canvas_w=args.canvas_w)
     print(f"frames -> {g['dir']} ({g['frames']} frames, {g['W']}x{g['H']}, block {g['BW']}px)")
 
 

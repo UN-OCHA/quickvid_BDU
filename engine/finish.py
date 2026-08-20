@@ -229,7 +229,8 @@ def run(spec, bitrate=12.0):
         hold = max(0.5, float(lt.get("duration", 4.0)) - lower_third.ENTER_END - lower_third.EXIT_DUR)
         seqdir = os.path.join(tmp, f"lt{i}")
         g = lower_third.render(lt["name"], lt["org"], H, align, fps, hold, seqdir,
-                               orient=prof["orient"], org2=lt.get("org2"), rtl=rtl)
+                               orient=prof["orient"], org2=lt.get("org2"), rtl=rtl,
+                               canvas_w=W)
         x, y = place(g, W, H, prof, align)
         start = float(lt["start"])
         inputs += ["-framerate", str(fps), "-start_number", "0",
