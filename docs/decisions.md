@@ -3,6 +3,20 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-08-20 — Plugin 2026.0.54: the new lower third reaches Premiere
+
+The short-side lower third shipped in the web app at 2026.0.39, but the plugin places
+MOGRTs and those ship INSIDE the signed .zxp — regenerating them in After Effects put
+the new size in the repo, not on anyone's machine. This release is what carries it.
+
+All 28 templates (7 elements x 4 formats) rebuilt from `name_short_ratio` via the AE
+builder, then packaged and signed. Verified before pushing: the four Lower Third
+.mogrts inside the .zxp hash-match the ones in `premiere/mogrts/`, so the package
+really does contain the AE rebuild and not a stale copy.
+
+No panel code changed — only the version sites (manifest x2, index.html cache-busts x4,
+PANEL_VERSION, version.json x2) and the templates.
+
 ## 2026-08-20 — Lower third size: off the SHORT SIDE, name 54 on 1080
 
 Javi: "lower thirds are a bit small. We need to increase a bit the size of the name and

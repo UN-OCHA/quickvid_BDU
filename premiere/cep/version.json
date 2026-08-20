@@ -1,7 +1,7 @@
 {
-  "version": "2026.0.53",
+  "version": "2026.0.54",
   "date": "2026-08-06",
   "notes": "The caption tool now says which style each format uses: OCHA Boxed for reels and 4:5 feed posts, OCHA Clean for square and 16:9. Square moved to Clean - the video team's standard - and the QuickVid web app applies the same rule automatically.",
   "downloadUrl": "https://github.com/UN-OCHA/quickvid_BDU/tree/main/premiere/cep",
-  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=2026.0.53"
+  "packageUrl": "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/distribution/ocha_quickvid_plugin_download/ocha_quickvid_plugin.zxp?v=2026.0.54"
 }
