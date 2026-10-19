@@ -157,9 +157,15 @@ def add_ending(FF_, video, style, darken, bitrate, tmp, out, p_lo=0, p_hi=100,
         delay = int(max(0, at - 0.30) * 1000)          # click peak (@0.3s) lands as the logo snaps on
         fc = (vfilt + ";" + aud_main +
               f"[2:a]atrim=0:0.7,asetpts=PTS-STARTPTS,adelay={delay}|{delay}[ca];"
-              f"[va][ca]amix=inputs=2:duration={adur}:normalize=0[a]")
+              f"[va][ca]amix=inputs=2:duration={adur}:normalize=0[am];"
+              f"[am]apad=whole_dur={out_dur:.2f}[a]")
     else:
-        fc = vfilt + ";" + aud_main.replace("[va]", "[a]")
+        # LOAD-BEARING: the audio must run exactly as long as the picture. Without
+        # the apad, over_black audio stops where the footage (or the click) stops,
+        # ~1.1 s before the logo hold ends, and the exported file has an audio
+        # stream shorter than its video (9.27 s of audio on a 10.40 s video,
+        # 19 Oct 2026). The ocha-video house rule: both durations must match.
+        fc = vfilt + ";" + aud_main.replace("[va]", "[am]") + f";[am]apad=whole_dur={out_dur:.2f}[a]"
 
     ff_progress([FF_, "-y", "-v", "error"] + inputs + [
         "-filter_complex", fc, "-map", "[v]", "-map", "[a]",

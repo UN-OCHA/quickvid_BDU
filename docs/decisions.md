@@ -3,6 +3,33 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-10-19 — Over-black ending: audio padded to the picture's length
+
+Seen on the ASG's SG Awards vote message: a 10.40 s video exported with 9.27 s of audio.
+`add_ending()` over black mixed the footage audio with the click (`amix duration=longest`),
+so the audio stopped when the click ended, about 0.4 s after the logo lands. The picture
+runs the full 1.5 s hold, leaving the audio stream about 1.1 s short. The ocha-video house
+rule says the two durations must match.
+
+Fix: every audio path in `ending.py` now ends in `apad=whole_dur=out_dur`, so the audio
+runs exactly as long as the picture (the `-t` cap still trims it from the other side).
+Checked on a 4 s test clip, old code vs new, by ffprobe stream durations:
+
+| source | style | before | after |
+|---|---|---|---|
+| with audio | over_black | audio 4.400 / video 5.500 | 5.500 / 5.500 |
+| with audio | over_footage | 4.000 / 4.000 | 4.000 / 4.000 |
+| silent | over_black | 5.500 / 5.500 | 5.500 / 5.500 |
+| silent | over_footage | 4.000 / 4.000 | 4.000 / 4.000 |
+
+Only over_black with a real audio track was broken: over_footage mixes with
+`duration=first` (the footage, already as long as the picture) and a silent source gets an
+`anullsrc` of the full length. The pad is applied to all four anyway, so a source whose
+audio is slightly shorter than its picture can't drift either.
+
+Jobs that padded the audio themselves as a stop-gap (the ASG video message's
+`brand_jobs.py`) can drop that step once this engine version is installed.
+
 ## 2026-08-20 — Plugin 2026.0.54: the new lower third reaches Premiere
 
 The short-side lower third shipped in the web app at 2026.0.39, but the plugin places
