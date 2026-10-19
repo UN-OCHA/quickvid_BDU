@@ -34,7 +34,9 @@ Spec (JSON; library entry point is render(spec, log)):
   "pins": [{"on": true, "place": "GENEVA", "date": "8 July 2026", "icon": true,
              "color": "red"|"blue", "start": 4.0, "duration": 5.0}],   // top-left location strip
   "texts": [{"lines": ["up to","three","lines"], "start": 1.0, "duration": 5.0,
-              "gradient": 80?}],   // text on screen; a readability band goes behind it
+              "gradient": 80?,     // text on screen; a readability band goes behind it
+              "align": "center"?}],   // optional: centre the block on the frame (engine only);
+                                      //   omit = left-aligned at the safe margin
   "bug": {"on": false},             // small OCHA vertical-logo watermark, top-right, whole clip
   "look": {"preset": "none"|"brighter"|"punchier"|"auto", "phone_fix": false,
             "adjust": {...}}?,      // footage grade, applied UNDER every overlay
@@ -281,7 +283,7 @@ def render(spec: dict, log=print) -> str:
         t_lines = [str(l).strip() for l in (tx.get("lines") or []) if str(l or "").strip()][:3]
         if not t_lines:
             continue
-        g = TX.build(t_lines, W, H, rtl=rtl)
+        g = TX.build(t_lines, W, H, rtl=rtl, align=tx.get("align"))
         g["t_in"] = float(tx.get("start", 1.0))
         g["dur"] = TX.total(float(tx.get("duration", 5.0)))
         g["dir"] = os.path.join(work, f"txt{i}")

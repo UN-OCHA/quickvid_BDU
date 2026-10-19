@@ -3,6 +3,26 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-10-19 — Text on screen: optional centred alignment (engine only)
+
+For the ASG vote message's end card ("Thanks for voting!"). Javier chose "this video only"
+over making centred text the new standard for end cards or keeping it left-aligned.
+
+A text on screen may now carry `"align": "center"` in its `texts[]` entry. `text_on.build()`
+takes `align`; when it is "center" (or "centre") the text is anchored in the middle at W/2,
+every line centred, and the cloud behind follows (its centre sits on W/2 instead of hugging
+the safe margin). `social_brand.render()` passes `tx.get("align")` through; `brand_preview`
+already copies each text's fields, so previews honour it.
+
+Without `align`, nothing changes: left at the safe margin, right when RTL. Proved by
+rendering the same 1080x1920 black clip with the old and the new engine and comparing every
+decoded frame's md5 — identical, for a one-line text and for a two-line text with a custom
+gradient. With `"align": "center"` the lit pixels of "Thanks for voting!" span x 112–965 on a
+1080 frame (gaps 112 left, 114 right; centre 538.5 vs 540).
+
+**Engine only for now.** The web app UI and the Premiere panel do not send or know this
+field, and their defaults are untouched. Not shipped in a release yet (no version bump).
+
 ## 2026-10-19 — Web app 2026.0.40: over-black ending audio padded to the picture's length
 
 Seen on the ASG's SG Awards vote message: a 10.40 s video exported with 9.27 s of audio.

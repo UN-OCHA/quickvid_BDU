@@ -1,7 +1,7 @@
 """OCHA "Text on screen" — the web-app twin of the plugin's OCHA Text MOGRT.
 
 Up to three lines of white Raleway Bold, left-aligned at the format's safe
-margin, line-1 baseline at 52% of frame height. Each line RISES into place and
+margin (optionally centred on the frame: `align: "center"`, engine only), line-1 baseline at 52% of frame height. Each line RISES into place and
 fades in (staggered), holds, then leaves in reverse — the same motion the AE
 template bakes (premiere/ae/make_assets.py DATA.text; the numbers here MIRROR
 that table, change them together). Rendered as a PNG strip sequence and
@@ -39,9 +39,15 @@ def orient_of(w, h):
     return "landscape" if r > 1.25 else ("portrait" if r < 0.85 else "square")
 
 
-def build(lines, W, H, rtl=None):
+def build(lines, W, H, rtl=None, align=None):
     """Geometry for a text block. `lines` = 1..3 non-empty strings (already
-    compacted — the web UI drops blanks, so there is no gap-close logic)."""
+    compacted — the web UI drops blanks, so there is no gap-close logic).
+
+    `align` is OPTIONAL: "center" centres every line on the frame (text-anchor
+    middle at W/2) and the cloud behind follows. Anything else, or None, keeps the
+    standard left-aligned block at the safe margin (right-aligned when RTL). Engine
+    only for now — neither the web app nor the Premiere panel sends it, so no
+    default anywhere changes."""
     # RTL mirrors the block to the RIGHT safe margin, right-aligned. Explicit flag
     # wins (one video-level setting); otherwise auto-detect from the copy.
     if rtl is None:
@@ -50,7 +56,11 @@ def build(lines, W, H, rtl=None):
     size = round(H * RATIO[orient])
     line_h = round(size * LINE_GAP)
     rise = round(H * RISE_FRAC)
-    x = round(W * (1 - SAFE_LEFT[orient])) if rtl else round(W * SAFE_LEFT[orient])
+    center = str(align or "").strip().lower() in ("center", "centre")
+    if center:
+        x = round(W / 2)
+    else:
+        x = round(W * (1 - SAFE_LEFT[orient])) if rtl else round(W * SAFE_LEFT[orient])
     y0 = round(H * Y_FRAC)                      # line-1 baseline (comp coords)
     # strip: full width; from a size above line 1 to below the last line + rise
     top = y0 - size - 4
@@ -67,7 +77,7 @@ def build(lines, W, H, rtl=None):
         text_w = round(W * 0.6)                 # measuring must never fail a render
     return dict(lines=list(lines), size=size, line_h=line_h, rise=rise,
                 x=x, y0=y0, top=top, H_strip=bot - top, W=W, rtl=bool(rtl),
-                text_w=text_w)
+                text_w=text_w, center=center)
 
 
 def total(duration):
@@ -95,13 +105,14 @@ def state(t, dur, i, n):
 def svg(g, t, dur):
     n = len(g["lines"])
     parts = []
+    anchor = "middle" if g.get("center") else ("end" if g.get("rtl") else "start")
     for i, line in enumerate(g["lines"]):
         a, dyf = state(t, dur, i, n)
         if a <= 0 or dyf is None:
             continue
         y = (g["y0"] - g["top"]) + i * g["line_h"] + dyf * g["rise"]
         parts.append(
-            f'<text x="{g["x"]}" y="{y:.1f}" text-anchor="{"end" if g.get("rtl") else "start"}" font-family="Raleway" '
+            f'<text x="{g["x"]}" y="{y:.1f}" text-anchor="{anchor}" font-family="Raleway" '
             f'font-weight="{WEIGHT}" font-size="{g["size"]}" fill="{COLOR}" '
             f'fill-opacity="{a:.3f}">{esc(line)}</text>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{g["W"]}" '
@@ -162,8 +173,9 @@ def mid_gradient_svg(W, H, opacity=None, rtl=False, block=None):
             cy = strip_mid
         ry = max(ry, block.get("H_strip", 0) / 2 + feather * 0.6)
     rx = min(rx, W)                                     # never wider than the frame
-    # hug the text's side: the ellipse's own edge sits at the frame edge
-    cx = (W - rx) if rtl else rx
+    # hug the text's side: the ellipse's own edge sits at the frame edge — or,
+    # for a centred block, sit on the frame's middle.
+    cx = W / 2 if (block and block.get("center")) else ((W - rx) if rtl else rx)
     core = max(0.0, (rx - feather) / rx) if rx else 0.0  # solid until here, then fade
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}">'
             f'<defs><radialGradient id="cloud">'
