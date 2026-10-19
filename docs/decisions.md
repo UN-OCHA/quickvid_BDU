@@ -3,7 +3,7 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
-## 2026-10-19 — Over-black ending: audio padded to the picture's length
+## 2026-10-19 — Web app 2026.0.40: over-black ending audio padded to the picture's length
 
 Seen on the ASG's SG Awards vote message: a 10.40 s video exported with 9.27 s of audio.
 `add_ending()` over black mixed the footage audio with the click (`amix duration=longest`),
@@ -27,8 +27,9 @@ Only over_black with a real audio track was broken: over_footage mixes with
 `anullsrc` of the full length. The pad is applied to all four anyway, so a source whose
 audio is slightly shorter than its picture can't drift either.
 
-Jobs that padded the audio themselves as a stop-gap (the ASG video message's
-`brand_jobs.py`) can drop that step once this engine version is installed.
+Shipped as web app 2026.0.40 (VERSION, APP_VERSION, two cache-busts in index.html), so the
+launcher re-downloads it. Jobs that padded the audio themselves as a stop-gap (the ASG video
+message's `brand_jobs.py`) can drop that step once this version is installed.
 
 ## 2026-08-20 — Plugin 2026.0.54: the new lower third reaches Premiere
 
