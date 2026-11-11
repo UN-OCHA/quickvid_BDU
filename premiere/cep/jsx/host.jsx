@@ -44,7 +44,7 @@ var OCHA_FMT = {
   event:  { folder: "event",  label: "Event 16x9" }
 };
 // value coercion per control (everything not listed is text)
-var OCHA_BOOL = { "Centre align": 1, "Show pin icon": 1, "Over black": 1, "Top": 1, "Middle": 1,
+var OCHA_BOOL = { "Centre align": 1, "Show pin icon": 1, "Over black": 1, "Top right": 1, "Top": 1, "Middle": 1,
                     "Middle left": 1, "Middle right": 1, "Full screen": 1 };
 var OCHA_NUM  = { "Pin colour": 1, "Size": 1, "Opacity": 1, "Amount": 1 };
 // Renamed EGP controls: panel sends the CURRENT name; clips placed with an older
@@ -1115,11 +1115,12 @@ function ochaFixColor() {
    SKIPPED (with a one-time .ocha-backup made before our first rewrite). */
 var OCHA_GUIDE_SETS = [
   // Positions by Javier (2026-07-23, original template + option-3 collision fix):
-  // square/event = caption box band 832-974 on 1080-tall; portrait band sits
+  // square/event = caption box band 883-1025 on 1080-tall (moved down 51px on
+  // 2026-11-11 with the LT, was 832-974); portrait band sits
   // BETWEEN the Text block and the LT, reels 1190-1300; feed45 = same fractions
   // of height as reels (836.7 -> 837, 914.1 -> 914).
-  { name: "OCHA Captions - Square 1x1", ys: [832, 974] },
-  { name: "OCHA Captions - Event 16x9", ys: [832, 974] },
+  { name: "OCHA Captions - Square 1x1", ys: [883, 1025] },
+  { name: "OCHA Captions - Event 16x9", ys: [883, 1025] },
   { name: "OCHA Captions - Reels 9x16", ys: [1190, 1300] },
   { name: "OCHA Captions - Feed 4x5", ys: [837, 914] }
 ];

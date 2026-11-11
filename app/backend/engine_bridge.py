@@ -329,9 +329,11 @@ def _finish_with_subtitles(job, workdir, out) -> None:
             "hold": max(0.5, float(l.get("duration", 5)) - LT.ENTER_END - LT.EXIT_DUR)}
            for l in job.meta.get("lower_thirds", []) if l.get("name")]
 
-    est = (job.meta.get("ending") or {}).get("style", "none")
+    end_meta = job.meta.get("ending") or {}
+    est = end_meta.get("style", "none")
     if est == "over_footage":                           # logo over the last 1.5s (finish.py's HOLD)
-        ending = {"style": "over_footage", "at": max(0.0, round(dur - 1.5, 2)), "click": True}
+        ending = {"style": "over_footage", "at": max(0.0, round(dur - 1.5, 2)), "click": True,
+                  "logo_pos": end_meta.get("logo_pos", "centre")}
         footage_end = ending["at"]                      # no caption under the logo
     elif est == "over_black":
         ending = {"style": "over_black", "at": round(dur, 2), "hold": 1.5, "click": True}

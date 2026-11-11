@@ -208,6 +208,7 @@ function collectValues() {
     push("Show pin icon", $("loc-icon").checked);
   } else if (curEl === "ending") {
     push("Over black", $("end-black").checked);
+    push("Top right", $("end-topright").checked);   // ignored by the template while Over black is on
   } else if (curEl === "text") {
     // one control per line — matches the template's "Line 1/2/3" EGP fields.
     // Empty lines are skipped: the template's expressions close the gap.

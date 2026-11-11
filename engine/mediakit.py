@@ -22,15 +22,47 @@ COLOR = ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt7
 
 # Corner watermark ("bug") height as a fraction of frame height. Sized to a real
 # reference (references/videos/HNPW2026_USG_remarks.mp4, measured ~6.67%); bigger
-# than the ending logo's 0.054 because it must read as a persistent mark, not a
+# than the ending logo's because it must read as a persistent mark, not a
 # closing beat.
 BUG_HEIGHT_FRAC = 0.065
+
+# Ending logo height as a fraction of frame height — ONE number for both render
+# paths (ending.py once said 0.054 while social_brand.py said 0.055).
+LOGO_HEIGHT_FRAC = 0.055
 
 # Social safe-area insets for bug / lower-third placement, by orientation. landscape
 # right=.06 matches the reference's ~6.6% margin (not .045 like the LT's left inset).
 SAFE_AREA = {"landscape": {"top": .06, "right": .06, "left": .045},
              "portrait": {"top": .11, "right": .06, "left": .06},
              "square": {"top": .08, "right": .08, "left": .08}}
+
+# Fraction of frame HEIGHT reserved below the lower third, so it always sits ABOVE
+# the captions: the LT block bottom is H*(1-cap_clear). Mirrored by the plugin's
+# premiere/ae/make_assets.py `formats` table. Landscape/square moved down 51px on
+# 11 Nov 2026 (.24 -> .1926: LT bottom 821 -> 872 on 1080) because the 54/36 lower
+# third grew upward and sat on speakers' chins. Portrait is set by the Reels/TikTok
+# buttons, not by faces, and stays.
+LT_CAP_CLEAR = {"landscape": .1926, "portrait": .396, "square": .1926}
+
+
+def orient_of(w, h):
+    """landscape | portrait | square — the bucket every placement table is keyed by."""
+    r = w / h
+    return "landscape" if r > 1.25 else ("portrait" if r < 0.85 else "square")
+
+
+def lt_bottom(W, H):
+    """Default lower-third block bottom (px) for a W x H canvas."""
+    return round(H * (1 - LT_CAP_CLEAR[orient_of(W, H)]))
+
+
+def top_corner_xy(W, H, w, rtl=False):
+    """Top-right corner (top-LEFT when rtl) for an element `w` px wide, inset by the
+    format's social safe area. THE corner the watermark and the top-right ending
+    logo share — one formula, so the two always line up."""
+    safe = SAFE_AREA[orient_of(W, H)]
+    x = round(safe["left"] * W) if rtl else round(W - safe["right"] * W - w)
+    return x, round(safe["top"] * H)
 
 
 def rotation(s):

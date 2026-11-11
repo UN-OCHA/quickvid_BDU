@@ -55,9 +55,7 @@ def total(hold):
     return ENTER_END + hold + EXIT_DUR
 
 
-def orient_of(w, h):
-    r = w / h
-    return "landscape" if r > 1.25 else ("portrait" if r < 0.85 else "square")
+from mediakit import orient_of  # noqa: E402,F401 — one definition; LT.orient_of stays valid
 
 
 def _mw(text, weight, size):

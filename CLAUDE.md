@@ -22,7 +22,8 @@ logbook). This file is just the map + standing rules.
   (cut+brand orchestrator), `social_brand.py` (the ffmpeg overlay graph),
   `finish.py` (Titles path), `lower_third.py` · `pin_locator.py` · `text_on.py`
   (SVG→PNG element renderers), `mediakit.py` (the ONE colour gate: HDR/wide-gamut
-  → bt709), `look.py`, `compress.py`, `ending.py`, `webtv.py`, `svgpng.py`,
+  → bt709, plus the shared placement tables: safe area, top-right corner,
+  lower-third height `LT_CAP_CLEAR`, ending logo size), `look.py`, `compress.py`, `ending.py`, `webtv.py`, `svgpng.py`,
   `brand_preview.py` (one branded still, rendered by the REAL graph).
 - `browser/` — the SPA. `app.js` (Titles tab + engine gate), `statement.js`
   (Edit tab), and SHARED both-tab modules: `captions.js`, `look.js`,

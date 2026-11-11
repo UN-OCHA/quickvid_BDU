@@ -13,8 +13,8 @@
        REGULAR, which is the OCHA standard for UI chrome — this does. Web app only:
        the Premiere panel inlines SVGs instead, since a CDN breaks offline. -->
   <script src="https://kit.fontawesome.com/f4c1c5435d.js" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="vendor/ocha-app-kit.css?v=2026.0.40" />
-  <link rel="stylesheet" href="style.css?v=2026.0.40" />
+  <link rel="stylesheet" href="vendor/ocha-app-kit.css?v=2026.0.41" />
+  <link rel="stylesheet" href="style.css?v=2026.0.41" />
 
   <script src="field.js?v=1" defer></script>      <!-- shared required project-folder field: BOTH tabs -->
   <script src="location.js?v=2" defer></script>   <!-- shared location strip: BOTH tabs -->
@@ -23,10 +23,11 @@
   <script src="waiting.js?v=1" defer></script>   <!-- shared waiting lines: BOTH tabs -->
   <script src="look.js?v=2" defer></script>        <!-- shared footage-look picker: BOTH tabs -->
   <script src="texton.js?v=3" defer></script>      <!-- shared text-on-screen cards: BOTH tabs -->
+  <script src="logopos.js?v=1" defer></script>     <!-- shared ending-logo position: BOTH tabs -->
   <script src="brandpreview.js?v=3" defer></script>  <!-- shared element previews on real footage: BOTH tabs -->
   <script src="analytics.js?v=1" defer></script>  <!-- anonymous usage pings; opt-out in the footer -->
-  <script src="app.js?v=33" defer></script>
-  <script src="statement.js?v=27" defer></script>
+  <script src="app.js?v=34" defer></script>
+  <script src="statement.js?v=28" defer></script>
   <script src="toolbox.js?v=2" defer></script>
 </head>
 <body>
@@ -347,18 +348,11 @@
             <span class="end-opt__hint">Leave the video as it is.</span>
           </label>
         </div>
-        <!-- Over-footage only: the logo lands ON the picture, so it can collide
-             with a face. Over black there is nothing to avoid and it stays centred. -->
-        <div id="t-logoy-row" hidden>
-          <label class="cd-form__label" for="t-logoy">Logo height</label>
-          <div class="field-row">
-            <input id="t-logoy" type="range" min="25" max="75" step="1" value="50" />
-            <span class="app-hint" id="t-logoy-val">Centred</span>
-          </div>
-        </div>
+        <!-- Over-footage only: logo position, built by logopos.js (shared by both tabs) -->
+        <div id="t-logopos" hidden></div>
         <figure class="ex-thumb" id="t-bp-ending">
           <img src="img/ex-ending-footage.jpg" width="360" height="203" alt="Example: the OCHA logo over the closing shot" />
-          <figcaption>The OCHA logo over the closing footage — no scrim, modest and centred.</figcaption>
+          <figcaption>The OCHA logo over the closing footage — no scrim, modest, centred or top right.</figcaption>
         </figure>
       </div>
     </section>
@@ -739,18 +733,11 @@
             <input class="cd-form__input st-tail-input" id="st-tail" type="number" min="0" max="4" step="0.2" value="2.6" />
             <span class="app-hint">seconds — the picture keeps rolling under the logo, the sound fades out.</span>
           </div>
-          <!-- Over-footage only: the logo lands ON the picture, so it can collide
-               with a face. Over black there is nothing to avoid and it stays centred. -->
-          <div id="st-logoy-row" hidden>
-            <label class="cd-form__label" for="st-logoy">Logo height</label>
-            <div class="field-row">
-              <input id="st-logoy" type="range" min="25" max="75" step="1" value="50" />
-              <span class="app-hint" id="st-logoy-val">Centred</span>
-            </div>
-          </div>
+          <!-- Over-footage only: logo position, built by logopos.js (shared by both tabs) -->
+          <div id="st-logopos" hidden></div>
           <figure class="ex-thumb" id="st-bp-ending">
             <img src="img/ex-ending-footage.jpg" width="360" height="203" alt="Example: the OCHA logo over the closing shot" />
-            <figcaption>The OCHA logo over the closing footage — no scrim, modest and centred.</figcaption>
+            <figcaption>The OCHA logo over the closing footage — no scrim, modest, centred or top right.</figcaption>
           </figure>
         </div>
       </section>

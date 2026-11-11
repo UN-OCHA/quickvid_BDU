@@ -213,9 +213,10 @@ def main():
         # its default can never sit on the captions. The LT clamps its block
         # bottom to H*(1-cap_clear) (see buildLT). Official-template arrangement
         # (Javier, 2026-07-23): the LT sits ABOVE the captions in EVERY format.
-        #  - square/event: captions in the bottom zone (guide band 832-974 on
-        #    1080-tall ~ Premiere's default subtitle region): 0.10 margin +
-        #    2-line 44px boxed block + breathing room -> 0.24 (LT bottom 821).
+        #  - square/event: captions in the bottom zone (guide band 883-1025 on
+        #    1080-tall) -> 1-(872/1080) = 0.1926 (LT bottom 872). Moved down
+        #    51px on 2026-11-11 (was band 832-974, 0.24 = LT 821): the 54/36 LT
+        #    grew upward and sat on speakers' chins. Mirrors engine/finish.py.
         #  - portrait: captions in the MID-FRAME guide band (reels 1190-1300,
         #    feed45 837-914), LT directly above it -> 1-(1160/1920) =
         #    1-(815/1350) = 0.396 (LT bottom 1160 / 815, ~25-30px above the
@@ -223,8 +224,8 @@ def main():
         "formats": [
             {"key": "reels", "label": "Reels 9x16", "w": 1080, "h": 1920, "orient": "portrait", "cap_clear": 0.396},
             {"key": "feed45", "label": "Feed 4x5", "w": 1080, "h": 1350, "orient": "portrait", "cap_clear": 0.396},
-            {"key": "square", "label": "Square 1x1", "w": 1080, "h": 1080, "orient": "square", "cap_clear": 0.24},
-            {"key": "event", "label": "Event 16x9", "w": 1920, "h": 1080, "orient": "landscape", "cap_clear": 0.24},
+            {"key": "square", "label": "Square 1x1", "w": 1080, "h": 1080, "orient": "square", "cap_clear": 0.1926},
+            {"key": "event", "label": "Event 16x9", "w": 1920, "h": 1080, "orient": "landscape", "cap_clear": 0.1926},
         ],
         # Text on screen + the readability gradient. These were added straight to
         # the GENERATED jsx once, which meant a regeneration would have wiped both
@@ -285,7 +286,8 @@ def main():
                     "size_range": 0.25       # how far Size can push the opening, short-side fraction
         },
         "bug_height_frac": 0.065,      # mirrors finish.py BUG_HEIGHT_FRAC
-        "ending": {"logo_frac": 0.054, "lead_in": 0.30, "hold": 1.5},  # click peak @0.30s → snap
+        "ending": {"logo_frac": 0.055,   # = engine mediakit.LOGO_HEIGHT_FRAC (was 0.054 here)
+                    "lead_in": 0.30, "hold": 1.5},  # click peak @0.30s → snap
         "pin_path": {"w": vb[2], "h": vb[3], "subs": subs},
         "assets": {"logo_h": "assets/logo_horizontal_white.png",
                    "logo_v": "assets/logo_vertical_white.png",

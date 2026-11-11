@@ -42,7 +42,7 @@ FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 # style) sitting at the per-format caption GUIDE band, and the LOWER THIRD is
 # ABOVE the captions in EVERY format (portrait included — the old reels layout
 # had it below at 1620). lt.bottom = the plugin's clamped block bottom
-# (H·(1−cap_clear): portrait 0.396, square/landscape 0.24). Because the LT no
+# (H·(1−cap_clear): portrait 0.396, square/landscape 0.1926). Because the LT no
 # longer collides, captions never LIFT: bottom_hi == bottom_lo everywhere (both
 # keys kept for the renderer's sake). LT name/org sizes come from
 # browser/brand-lt.json ratios (same source as the plugin's MOGRTs) — no more
@@ -50,15 +50,20 @@ FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 # CAPTION LOOK PER FORMAT (`sub.box`): boxed for reels and 4:5, CLEAN for square
 # and event. Square moved to clean on 2026-08-06 - the video team's standard, not a
 # preference. Mirrored in browser/captions.js styleFor(); change both together.
+# SQUARE + EVENT MOVED DOWN 51px (11 Nov 2026): the 54/36 lower third grew UPWARD
+# from its bottom anchor and landed on speakers' chins (Ramunion Rescue Brigade).
+# Captions 980 -> 1025, LT 821 -> 872, plugin guides 832-974 -> 883-1025: one shift
+# everywhere, so the LT-to-caption gap is unchanged. Portrait NOT moved: its
+# caption band is set by the Reels/TikTok buttons at the bottom, not by faces.
 PRESETS = {
     "reels":  {"canvas": [1080, 1920], "sub": {"box": True,  "size": 48, "max_w": 960,  "bottom_hi": 1320, "bottom_lo": 1320},
                "lt": {"bottom": 1160}},
-    "square": {"canvas": [1080, 1080], "sub": {"box": False, "size": 48, "max_w": 870,  "bottom_hi": 980,  "bottom_lo": 980},
-               "lt": {"bottom": 821}},
+    "square": {"canvas": [1080, 1080], "sub": {"box": False, "size": 48, "max_w": 870,  "bottom_hi": 1025, "bottom_lo": 1025},
+               "lt": {"bottom": 872}},
     "feed45": {"canvas": [1080, 1350], "sub": {"box": True,  "size": 48, "max_w": 900,  "bottom_hi": 970,  "bottom_lo": 970},
                "lt": {"bottom": 815}},
-    "event":  {"canvas": [1920, 1080], "sub": {"box": False, "size": 48, "max_w": 1560, "bottom_hi": 980,  "bottom_lo": 980},
-               "lt": {"bottom": 821}},
+    "event":  {"canvas": [1920, 1080], "sub": {"box": False, "size": 48, "max_w": 1560, "bottom_hi": 1025, "bottom_lo": 1025},
+               "lt": {"bottom": 872}},
 }
 
 
@@ -519,7 +524,7 @@ def do_render(spec):
         "rtl": spec.get("rtl"),                        # None = auto-detect from the copy
         "ending": {"style": style, "at": round(footage_end + (LOGO_LEAD if style == "over_footage" else 0), 2),
                    "hold": float(ending.get("hold", 2.0)), "click": ending.get("click", True),
-                   "logo_y_frac": ending.get("logo_y_frac")},
+                   "logo_pos": ending.get("logo_pos")},
     }
     if style == "none":
         bspec["ending"] = {"style": "none"}

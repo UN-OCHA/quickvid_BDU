@@ -144,7 +144,7 @@ class LowerThirdReq(BaseModel):
 class EndingReq(BaseModel):
     style: str = "over_footage"               # over_footage | over_black | none — over_footage is the default
     darken: float = 0.0
-    logo_y_frac: Optional[float] = None       # 0.5 = centred (the standard); over_footage only
+    logo_pos: str = "centre"                  # centre (the standard) | top_right — over_footage only
 
 
 class SubtitlesReq(BaseModel):

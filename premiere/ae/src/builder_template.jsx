@@ -800,13 +800,26 @@ function buildEnding(fmt) {
 
   var ctl = ctlNull(comp);
   addCheckbox(ctl, "Over black", false);
+  // House rule (2026-11-11): CENTRED by default; "Top right" is the alternative
+  // when the centred logo would sit on a face (the other is Over black). Same
+  // corner as the Bug and as the web engine's mediakit.top_corner_xy(): the
+  // format's safe-area top/right inset. Over black always stays centred.
+  addCheckbox(ctl, "Top right", false);
   addSlider(ctl, "Size", 100);
-  // static centred logo box for the position clamp (the black card stays put —
-  // it's background, not part of the element)
   var lw = S.logoH.width * sc / 100, lh = H * E.logo_frac;
-  var endBnd = "var L = " + Math.round(W / 2 - lw / 2) + ", R = " + Math.round(W / 2 + lw / 2) +
-               ", T = " + Math.round(H / 2 - lh / 2) + ", B = " + Math.round(H / 2 + lh / 2) + ";\n";
-  sizeGroup(comp, ctl, [lyr], "" + (W / 2), "" + (H / 2),   // logo only, scales about frame centre
+  var safe = DATA.safe[fmt.orient];
+  var trX = Math.round(W - safe.right * W - lw / 2), trY = Math.round(safe.top * H + lh / 2);
+  var trOn = "(thisComp.layer('Controls').effect('Top right')('Checkbox') > 0 && " +
+             "thisComp.layer('Controls').effect('Over black')('Checkbox') == 0)";
+  lyr.transform.position.expression = trOn + " ? [" + trX + ", " + trY + "] : value;";
+  // logo box for the position clamp follows the chosen corner (the black card
+  // stays put; it is background, not part of the element)
+  var endBnd = "var _tr = " + trOn + ";\n" +
+               "var _cx = _tr ? " + trX + " : " + (W / 2) + ", _cy = _tr ? " + trY + " : " + (H / 2) + ";\n" +
+               "var L = _cx - " + Math.round(lw / 2) + ", R = _cx + " + Math.round(lw / 2) +
+               ", T = _cy - " + Math.round(lh / 2) + ", B = _cy + " + Math.round(lh / 2) + ";\n";
+  sizeGroup(comp, ctl, [lyr], "(" + trOn + " ? " + trX + " : " + (W / 2) + ")",   // scales about the logo's own centre
+            "(" + trOn + " ? " + trY + " : " + (H / 2) + ")",
             endBnd, Math.round(W / 2 - lw / 2), Math.round(H / 2 - lh / 2));
   var mv = new MarkerValue("ending"); mv.duration = DUR; mv.protectedRegion = true;
   comp.markerProperty.setValueAtTime(0, mv);      // fixed piece — protect it all
@@ -816,6 +829,7 @@ function buildEnding(fmt) {
   addEGP(ctl.effect("Position X").property(1), comp, "Position X");
   addEGP(ctl.effect("Size").property(1), comp, "Size");
   addEGP(ctl.effect("Over black").property(1), comp, "Over black");
+  addEGP(ctl.effect("Top right").property(1), comp, "Top right");
   return comp;
 }
 

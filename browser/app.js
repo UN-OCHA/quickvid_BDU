@@ -38,7 +38,7 @@ const ENGINE_MIN = "0.5.0";
 // This page's OWN version — the repo's VERSION at the time it was published. It is
 // also the newest published version by definition (the page always ships from main),
 // so ENGINE_LATEST seeds from it: one constant to bump, not two that can drift.
-const APP_VERSION = "2026.0.40";
+const APP_VERSION = "2026.0.41";
 let ENGINE_LATEST = APP_VERSION;
 const ENGINE_LATEST_URL = "https://raw.githubusercontent.com/UN-OCHA/quickvid_BDU/main/VERSION";
 
@@ -275,7 +275,7 @@ if (ftPick) ftPick.onclick = async () => {
 // full mode: hand the job to the engine (real ffmpeg) and stream the result back over localhost
 async function renderViaEngine(lowerThirds, ending, subtitles, bug, pins, cues, look, texts, rtl) {
   const body = { video: state.enginePath, lower_thirds: lowerThirds,
-                 ending: { style: ending.style, logo_y_frac: ending.logo_y_frac },
+                 ending: { style: ending.style, logo_pos: ending.logo_pos },
                  subtitles: subtitles || { on: false, style: "box" }, bug: bug || { on: false },
                  pins: pins || [], cues: cues || undefined, look: look || undefined,
                  texts: (texts && texts.length) ? texts : undefined,
@@ -393,9 +393,7 @@ function ftRestore(p) {
     ftLt.restore(p.lower_thirds);
     const end = document.querySelector(`input[name="ending"][value="${(p.ending || {}).style || "none"}"]`);
     if (end) end.checked = true;
-    const ly = (p.ending || {}).logo_y_frac;
-    if (Number.isFinite(ly)) $("#t-logoy").value = Math.round(ly * 100);
-    tLogoYLabel(); tLogoYVis();
+    tLogoPos.restore((p.ending || {}).logo_pos);
     if (p.subtitles) { $("#t-subs-on").checked = !!p.subtitles.on; tSetSubStyle(p.subtitles.style || "box"); }
     if (p.bug) $("#t-bug-on").checked = !!p.bug.on;
     tLook.restore(p.look);
@@ -452,7 +450,7 @@ function ftCollect() {
   return {
     lowerThirds: ftLt.collect(),
     ending: { style: document.querySelector('input[name="ending"]:checked').value,
-              logo_y_frac: tLogoY() },
+              logo_pos: tLogoPos.get() },
     subtitles: { on: $("#t-subs-on").checked, style: tSubsStyle },
     bug: { on: $("#t-bug-on").checked },
     pins: tLoc.collect(),
@@ -682,29 +680,19 @@ tBp.texton = OchaBrandPreview.mount({
   watch: () => [...document.querySelectorAll("#t-tx-rows input, #t-tx-rows textarea, #t-tx-rows select")],
 });
 
-/* Ending logo — the one preview with a control attached. The slider writes
-   `logo_y_frac`; 0.5 (centred) is the standard, and moving it is for the case
-   where the logo lands on a face. Same control the Edit tab has. */
+/* Ending logo — the one preview with a control attached: the SHARED logo
+   position picker (browser/logopos.js), same as the Edit tab. */
 const tEndStyle = () => (document.querySelector('input[name="ending"]:checked') || {}).value;
-const tLogoY = () => (parseInt(($("#t-logoy") || {}).value, 10) || 50) / 100;
-function tLogoYLabel() {
-  const v = Math.round(tLogoY() * 100);
-  $("#t-logoy-val").textContent = v === 50 ? "Centred (standard)" : `${v}% down the frame`;
-}
-function tLogoYVis() { $("#t-logoy-row").hidden = tEndStyle() !== "over_footage"; }
+const tLogoPos = OchaLogoPos.mount({ host: $("#t-logopos"), ending: "ending", onChange: () => ftSave() });
 tBp.ending = OchaBrandPreview.mount({
   ...tBpCommon, figure: $("#t-bp-ending"),
   atEnd: true, getDuration: () => (state.probe && state.probe.duration) || 0,
   // Only meaningful where the logo sits over the picture; over black is a card
   // the body graph never draws — see engine/brand_preview.py.
   collect: () => (tEndStyle() === "over_footage"
-    ? { ending: { style: "over_footage", logo_y_frac: tLogoY() } } : null),
-  watch: () => [...document.querySelectorAll('input[name="ending"]'), $("#t-logoy")],
+    ? { ending: { style: "over_footage", logo_pos: tLogoPos.get() } } : null),
+  watch: () => [...document.querySelectorAll('input[name="ending"]'), ...tLogoPos.watch()],
 });
-$("#t-logoy").addEventListener("input", () => { tLogoYLabel(); ftSave(); });
-document.querySelectorAll('input[name="ending"]').forEach((r) =>
-  r.addEventListener("change", tLogoYVis));
-tLogoYLabel(); tLogoYVis();
 
 // ---- step help (?) toggles — kit component .cd-help__btn / .cd-help__panel ----
 document.addEventListener("click", (e) => {

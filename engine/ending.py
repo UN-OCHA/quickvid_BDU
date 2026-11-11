@@ -25,6 +25,7 @@ import threading
 
 from svgpng import svg2png as _svg2png
 from PIL import Image
+from mediakit import LOGO_HEIGHT_FRAC, top_corner_xy
 
 import sys
 
@@ -33,6 +34,36 @@ LOGO_SVG = os.path.join(ROOT, "assets", "OCHA_logo_horizontal_white.svg")
 BRAND_JSON = os.path.join(ROOT, "brand", "brand.json")
 COLOR = ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"]
 HOLD = 1.5           # video cuts this long after the logo appears (both styles)
+LOGO_POSITIONS = ("centre", "top_right")
+
+
+def logo_xy(W, H, lw, lh, pos="centre"):
+    """Where the ending logo sits. THE one placement rule, shared by this module
+    (Titles tab, every over_black) and social_brand.py (Edit tab over_footage).
+
+    House rule (Javier, 11 Nov 2026): CENTRED by default. If a centred logo would
+    land on a face, the two alternatives are over black (nothing to avoid) or
+    "top_right" — the corner the watermark uses, inset by the same social safe
+    area. There is deliberately no free vertical slider any more: a logo nudged
+    to 0.78 of the frame read as a mistake (Ramunion Rescue Brigade, Nov 2026)."""
+    if pos == "top_right":
+        return top_corner_xy(W, H, lw)
+    return (W - lw) // 2, (H - lh) // 2
+
+
+def logo_pos_of(ending):
+    """The ending's logo position, validated. Unknown values fall back to centre
+    (the standard)."""
+    pos = (ending or {}).get("logo_pos") or "centre"
+    return pos if pos in LOGO_POSITIONS else "centre"
+
+
+def bug_steps_aside(ending, rtl=False):
+    """True when the ending logo takes the watermark's corner, so the bug must
+    leave as the logo snaps on. RTL puts the bug top-LEFT, so no clash there.
+    Both render paths ask this one question; each builds its own enable time."""
+    return ((ending or {}).get("style") == "over_footage" and not rtl
+            and logo_pos_of(ending) == "top_right")
 
 
 def ffprobe_of(ff):
@@ -97,8 +128,8 @@ def _has_audio(video, fp):
 
 def render_logo(W, H, tmp):
     """The OCHA horizontal white lockup, rendered CRISP from the SVG. Sized by
-    frame HEIGHT (~5.4%), so it reads the same weight in every format."""
-    logo_h = round(H * 0.054)
+    frame HEIGHT (LOGO_HEIGHT_FRAC), so it reads the same weight in every format."""
+    logo_h = round(H * LOGO_HEIGHT_FRAC)
     png = os.path.join(tmp, "logo.png")
     _svg2png(url=LOGO_SVG, write_to=png, output_height=logo_h)
     im = Image.open(png)
@@ -106,23 +137,19 @@ def render_logo(W, H, tmp):
 
 
 def add_ending(FF_, video, style, darken, bitrate, tmp, out, p_lo=0, p_hi=100,
-               logo_y_frac=None):
+               logo_pos="centre"):
     """style 'over_black' | 'over_footage'. The logo is the crisp SVG; it SNAPS on
     (no fade — a rough cut) and HOLDS to the end. The darken (over_footage) and the
     cut to black (over_black) are hard too. Click SOUND from brand.json's asset.
 
-    `logo_y_frac` moves the logo vertically (0.5 = centred, the standard). It only
+    `logo_pos` is "centre" (the standard) or "top_right" (see logo_xy). It only
     applies OVER FOOTAGE, where the logo can land on a face; over black there is
-    nothing to avoid, so that stays centred whatever is passed. Same name and
-    meaning as social_brand.py's — the Edit tab reaches the logo through that
-    graph and the Titles tab through this one, and the two must agree."""
+    nothing to avoid, so that stays centred whatever is passed."""
     fp = ffprobe_of(FF_)
     dur, W, H = _probe(video, fp)
     silent = not _has_audio(video, fp)               # e.g. a screen recording
     logo, lw, lh = render_logo(W, H, tmp)
-    lx, ly = (W - lw) // 2, (H - lh) // 2
-    if style == "over_footage" and logo_y_frac is not None:
-        ly = max(0, min(H - lh, round(H * float(logo_y_frac) - lh / 2)))
+    lx, ly = logo_xy(W, H, lw, lh, logo_pos if style == "over_footage" else "centre")
     asset = json.loads(open(BRAND_JSON, encoding="utf-8").read()).get("ending", {}).get("asset", "")
     mov = os.path.join(ROOT, asset) if asset else ""
     click = bool(mov) and os.path.exists(mov)

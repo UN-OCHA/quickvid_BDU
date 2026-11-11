@@ -44,8 +44,8 @@ Spec (JSON; library entry point is render(spec, log)):
                                     //   omit = auto-detected from any Arabic in the copy
   "ending": {"style": "over_footage" | "over_black" | "none",
               "at": secs?,          // logo snap time; default footage_end
-              "hold": 2.0, "click": true, "logo_ratio": 0.055,
-              "logo_y_frac": 0.5?}  // over_footage only; 0.5 = centred (the standard)
+              "hold": 2.0, "click": true,
+              "logo_pos": "centre" | "top_right"?}  // over_footage only; centre = the standard
 }
 """
 import argparse
@@ -63,6 +63,7 @@ from PIL import ImageFont
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FF = os.environ.get("IMAGEIO_FFMPEG_EXE") or "/opt/homebrew/bin/ffmpeg"
 FFPROBE = FF.replace("ffmpeg", "ffprobe")
+from mediakit import LOGO_HEIGHT_FRAC, lt_bottom, top_corner_xy
 from mediakit import (COLOR, LOGO_SVG, BUG_SVG, BUG_HEIGHT_FRAC, SAFE_AREA, BRAND_JSON,  # noqa: F401
                       rotation as _rotation, ffmpeg_hdr as _ffmpeg_hdr, to_sdr, normalize_709)
 import look as look_mod   # shared footage looks (eq presets) + the phone-colour flag
@@ -181,7 +182,7 @@ def probe(src):
 # table; 2026-07-23: size 48 = the plugin's "OCHA Boxed" style, captions at the
 # guide band, no lift — the LT sits ABOVE them in every format).
 SUB_DEFAULTS = dict(size=48, max_w=870, box=True, box_color="#3F3F3F", opacity=0.75, radius=16,
-                    pad=[22, 14], line_h=1.28, weight=500, bottom_hi=980, bottom_lo=980,
+                    pad=[22, 14], line_h=1.28, weight=500, bottom_hi=1025, bottom_lo=1025,
                     gradient_h_frac=0.42, gradient_opacity=0.80)
 
 
@@ -314,17 +315,15 @@ def render(spec: dict, log=print) -> str:
         _svg2png(url=BUG_SVG, write_to=bug_png, output_height=round(H * BUG_HEIGHT_FRAC))
         from PIL import Image
         bw, bh = Image.open(bug_png).size
-        safe = SAFE_AREA[LT.orient_of(W, H)]
         # RTL puts the location strip in the top-RIGHT, so the bug takes the corner
         # it vacates — otherwise the two land on top of each other.
-        bx = round(safe["left"] * W) if rtl else round(W - safe["right"] * W - bw)
-        by = round(safe["top"] * H)
+        bx, by = top_corner_xy(W, H, bw, rtl)
 
     logo_png = None; lw = lh_ = 0; click_mov = None
     if style == "over_footage":                   # over_black's logo+click live in pass 2
         logo_png = os.path.join(work, "logo.png")     # always rasterized fresh from the SVG
         _svg2png(url=LOGO_SVG, write_to=logo_png,
-                         output_height=round(H * float(end.get("logo_ratio", 0.055))))
+                         output_height=round(H * LOGO_HEIGHT_FRAC))
         from PIL import Image
         lw, lh_ = Image.open(logo_png).size
         if end.get("click", True) and os.path.exists(BRAND_JSON):
@@ -394,7 +393,10 @@ def render(spec: dict, log=print) -> str:
         fc.append(f"[{prev}]scale={W}:{H},setsar=1[v0]"); prev = "v0"
     if bug_png:                                         # base layer — everything else stacks above it
         fc.append(f"[{bug_idx}:v]format=rgba[bug]")
-        fc.append(f"[{prev}][bug]overlay={bx}:{by}[vbug]"); prev = "vbug"
+        # A top-right ending logo takes the bug's corner: the bug steps aside the
+        # moment the logo snaps on, or the two lockups would sit on top of each other.
+        bug_end = f":enable='lt(t,{at})'" if ending_mod.bug_steps_aside(end, rtl) else ""
+        fc.append(f"[{prev}][bug]overlay={bx}:{by}{bug_end}[vbug]"); prev = "vbug"
     if grad_png:                                       # under LT + captions
         fc.append(f"[{grad_idx}:v]format=rgba[grad]")
         fc.append(f"[{prev}][grad]overlay=0:{H - grad_h}[vg]"); prev = "vg"
@@ -413,7 +415,11 @@ def render(spec: dict, log=print) -> str:
              if g.get("rtl") else
              ((g["left"] if g["left"] is not None else round(W * 0.06)) - g["pan"])) if g["align"] == "left" \
             else (W - g["W"]) // 2
-        y = (g["bottom"] if g["bottom"] is not None else round(H * 0.90)) - g["H"]
+        # LOAD-BEARING default: the per-format LT bottom (mediakit.LT_CAP_CLEAR), the
+        # same table the captions are laid out against. The old 0.90·H fallback put
+        # the lower third ON the captions for any caller that omitted `bottom`
+        # (the Titles tab with subtitles did; found 11 Nov 2026).
+        y = (g["bottom"] if g["bottom"] is not None else lt_bottom(W, H)) - g["H"]
         fc.append(f"[{lt_idx[k]}:v]setpts=PTS+{g['t_in']}/TB[ltv{k}]")
         fc.append(f"[{prev}][ltv{k}]overlay={x}:{y}:eof_action=pass:enable='gte(t,{g['t_in']})'[lb{k}]")
         prev = f"lb{k}"
@@ -434,13 +440,10 @@ def render(spec: dict, log=print) -> str:
 
     if style == "over_footage":                        # logo snaps on over the running footage — no scrim, ever
         fc.append(f"[{logo_idx}:v]format=rgba[lg]")
-        # TRUE vertical centre, same as ending.py's own placement — these are two
-        # implementations of one thing and they used to disagree: this default was
-        # 0.58 ("below the face, above the caption zone"), which on a 1080x1920 reel
-        # put the logo 154px BELOW centre while the Titles path centred it exactly.
-        # Nothing sets logo_y_frac yet, so 0.58 was what every Edit-tab ending shipped.
-        logo_y = round(H * float(end.get("logo_y_frac", 0.5)) - lh_ / 2)
-        fc.append(f"[{prev}][lg]overlay={(W - lw) // 2}:{logo_y}:eof_action=pass:enable='gte(t,{at})',format=yuv420p[vout]")
+        # ONE placement rule for both render paths — ending.logo_xy(). This used to
+        # be a second implementation here, and the two once disagreed (0.58 vs 0.5).
+        logo_x, logo_y = ending_mod.logo_xy(W, H, lw, lh_, ending_mod.logo_pos_of(end))
+        fc.append(f"[{prev}][lg]overlay={logo_x}:{logo_y}:eof_action=pass:enable='gte(t,{at})',format=yuv420p[vout]")
         if has_aud:
             fc.append("[0:a]anull[amain]")
     else:                                              # "none", and the over_black BODY

@@ -874,31 +874,19 @@ stBp.texton = OchaBrandPreview.mount({
   watch: () => [...document.querySelectorAll("#st-tx-rows input, #st-tx-rows textarea, #st-tx-rows select")],
 });
 
-/* Ending logo — the one preview with a control attached. The slider writes
-   `logo_y_frac`, which the render already honours; 0.5 (centred) is the standard,
-   and moving it is for the case where the logo lands on a face. */
+/* Ending logo — the one preview with a control attached: the SHARED logo
+   position picker (browser/logopos.js), same as the Titles tab. */
 const stEndStyle = () => (document.querySelector('input[name="st-ending"]:checked') || {}).value;
-const stLogoY = () => (parseInt(($st("#st-logoy") || {}).value, 10) || 50) / 100;
-function stLogoYLabel() {
-  const v = Math.round(stLogoY() * 100);
-  $st("#st-logoy-val").textContent = v === 50 ? "Centred (standard)" : `${v}% down the frame`;
-}
-function stLogoYVis() {
-  $st("#st-logoy-row").hidden = stEndStyle() !== "over_footage";
-}
+const stLogoPos = OchaLogoPos.mount({ host: $st("#st-logopos"), ending: "st-ending", onChange: () => stSave() });
 stBp.ending = OchaBrandPreview.mount({
   ...stBpCommon, figure: $st("#st-bp-ending"),
   atEnd: true, getDuration: () => (ST.probe && ST.probe.duration) || 0,
   // A preview only means something where the logo sits over the picture. Over
   // black it is a black card the body graph never draws — see brand_preview.py.
   collect: () => (stEndStyle() === "over_footage"
-    ? { ending: { style: "over_footage", logo_y_frac: stLogoY() } } : null),
-  watch: () => [...document.querySelectorAll('input[name="st-ending"]'), $st("#st-logoy")],
+    ? { ending: { style: "over_footage", logo_pos: stLogoPos.get() } } : null),
+  watch: () => [...document.querySelectorAll('input[name="st-ending"]'), ...stLogoPos.watch()],
 });
-$st("#st-logoy").addEventListener("input", () => { stLogoYLabel(); stSave(); });
-document.querySelectorAll('input[name="st-ending"]').forEach((r) =>
-  r.addEventListener("change", stLogoYVis));
-stLogoYLabel(); stLogoYVis();
 
 
 // ---------- E7: lower thirds — the SHARED component (browser/lowerthird.js) ----------
@@ -927,7 +915,7 @@ $st("#st-render").onclick = async () => {
     lower_thirds: stCollectLts(),
     ending: { style: document.querySelector('input[name="st-ending"]:checked').value,
               tail: (() => { const v = parseFloat(($st("#st-tail") || {}).value); return Number.isFinite(v) ? v : undefined; })(),
-              logo_y_frac: stLogoY() },
+              logo_pos: stLogoPos.get() },
     captions: $st("#st-captions").checked,
     subtitles: { on: $st("#st-captions").checked, style: ST.subsStyle || "box" },
     // reviewed caption text — only while it still matches the selection + format
@@ -1346,7 +1334,7 @@ function stSnapshot() {
     bug: $st("#st-bug-on").checked,
     pins: stLoc.collect(),
     tail: parseFloat(($st("#st-tail") || {}).value),
-    logoY: stLogoY(),
+    logoPos: stLogoPos.get(),
     lts: stCollectLts(),
     look: stLook.collect(),
     texts: stTexts.collect(),
@@ -1409,8 +1397,7 @@ function stRestore(p) {
     check("st-preset", p.preset || "reels");
     check("st-ending", p.ending || "over_footage");
     if (Number.isFinite(p.tail)) $st("#st-tail").value = p.tail;
-    if (Number.isFinite(p.logoY)) $st("#st-logoy").value = Math.round(p.logoY * 100);
-    stLogoYLabel(); stLogoYVis();
+    stLogoPos.restore(p.logoPos);
     stTailVis();
     stLook.restore(p.look);
     stTexts.restore(p.texts);

@@ -3,6 +3,43 @@
 Decisions locked during the build, with the reasoning, so the next person
 (or future me) doesn't relitigate them. Append-only.
 
+## 2026-11-11 — Web app 2026.0.41: ending logo centred or top right; LT + captions lower on 16:9 and square
+
+From Javier's notes on Joel's two Ramunion Rescue Brigade messages (Sarah Muscroft, Sebastian
+Rhodes Stampa): the lower third sat on Sarah's chin, and the end logo nudged to 0.78 of the
+frame "looks odd".
+
+**Ending logo rule.** Centred by default. If the centred logo would land on a face, the two
+alternatives are **over black** or **top right**. No free height any more: the `logo_y_frac`
+slider is retired (both tabs) and replaced by `logo_pos: "centre" | "top_right"`. Old saved
+projects open centred. Placement lives in ONE function, `ending.logo_xy()`; the top-right
+corner is `mediakit.top_corner_xy()`, the same corner the watermark uses, so when the logo
+takes it the watermark steps aside as the logo snaps on (`ending.bug_steps_aside()`, used by
+both render paths). Logo height unified at `mediakit.LOGO_HEIGHT_FRAC` 0.055 (ending.py said
+0.054, social_brand.py 0.055; the plugin's MOGRT said 0.054 too).
+
+**Positions.** The 54/36 lower third (2026-08-20) grew UPWARD from its bottom anchor, about
+40 px on 16:9 and 63 px on square. Square and 16:9 now sit 51 px lower everywhere: captions
+end at 1025 (was 980), the lower third at 872 (was 821), plugin caption guides 883-1025 (was
+832-974). The gap between them is unchanged. Checked on real frames of both videos with
+`brand_preview` and full test renders. Joel had independently landed on 1025 / 880 for
+Sarah's re-cut. Portrait (reels, 4:5) is NOT moved: its caption band is set by the
+Reels/TikTok buttons, not by faces.
+
+The lower-third heights now come from one table, `mediakit.LT_CAP_CLEAR` (`lt_bottom()`),
+read by `finish.profile()` and by `social_brand`'s fallback. That fallback used to be 0.90·H,
+which put the lower third ON the captions whenever a caller left `bottom` out; the Titles
+tab with subtitles did (found on a 16:9 test render).
+
+**Premiere plugin (source only, not released):** the Ending MOGRT gets a "Top right"
+checkbox (ignored while Over black is on), the panel a Top right switch, the LT cap_clear
+0.1926 for square/event, the caption guides 883-1025 and logo 0.055. Needs the After Effects
+build run and a signed .zxp before it reaches anyone.
+
+Still copied by hand across files (kept in step by comments): the caption bottoms in
+`statement.PRESETS`, `social_brand.SUB_DEFAULTS` and the plugin guide sets. A single table
+that `make_assets.py` also generates from would remove that; not done here.
+
 ## 2026-10-19 — Text on screen: optional centred alignment (engine only)
 
 For the ASG vote message's end card ("Thanks for voting!"). Javier chose "this video only"

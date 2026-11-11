@@ -20,7 +20,7 @@ Job spec (JSON or dict):
      {"name":"Vanessa May","org":"OCHA Venezuela","start":2.0,"duration":4.0,"align":"center"}
   ],
   "bug": {"on": false},
-  "ending": {"style":"over_black"}          # or {"style":"over_footage","darken":0.4} or {"style":"none"}
+  "ending": {"style":"over_black"}          # or {"style":"over_footage","darken":0.4,"logo_pos":"top_right"?} or {"style":"none"}
 }
 """
 import os
@@ -41,6 +41,7 @@ import ending as ending_mod   # THE ending — shared with social_brand.py
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BRAND = os.path.join(ROOT, "brand", "brand.json")
+from mediakit import LT_CAP_CLEAR, top_corner_xy
 from mediakit import (COLOR, LOGO_SVG, BUG_SVG, BUG_HEIGHT_FRAC,  # noqa: F401 — re-exported
                       rotation as _rotation, ffmpeg_hdr as _ffmpeg_hdr, to_sdr, normalize_709)
 import look as look_mod   # shared footage looks (eq presets) + the phone-colour flag
@@ -106,17 +107,17 @@ def profile(W, H):
     # premiere/ae/make_assets.py table, 2026-07-23): the LT block bottom clamps
     # to H·(1−cap_clear) so it always sits ABOVE the caption band — portrait
     # captions live mid-frame (reels band 1190-1300), square/landscape in the
-    # bottom zone (832-974 on 1080-tall).
+    # bottom zone (883-1025 on 1080-tall).
     if r > 1.25:                                     # 16:9-ish landscape
-        return {"orient": "landscape", "cap_clear": .24,
+        return {"orient": "landscape", "cap_clear": LT_CAP_CLEAR["landscape"],
                 # right=.06 (not .045 like left/LT) — matches the bug's real-world
                 # margin in references/videos/HNPW2026_USG_remarks.mp4 (measured ~6.6%);
                 # "right"/"top" here are consumed only by the bug, not by LT placement.
                 "safe": {"top": .06, "bottom": .09, "left": .045, "right": .06}}
     if r < 0.85:                                     # 9:16 / 4:5 portrait
-        return {"orient": "portrait", "cap_clear": .396,
+        return {"orient": "portrait", "cap_clear": LT_CAP_CLEAR["portrait"],
                 "safe": {"top": .11, "bottom": .20, "left": .06, "right": .06}}
-    return {"orient": "square", "cap_clear": .24,     # 1:1
+    return {"orient": "square", "cap_clear": LT_CAP_CLEAR["square"],     # 1:1
             "safe": {"top": .08, "bottom": .10, "left": .08, "right": .08}}
 
 
@@ -151,9 +152,7 @@ def bug_pos(W, H, prof, bw, bh, rtl=False):
     """Top-right corner, inset by the format's own social safe-area margins —
     the same convention lower thirds are placed against. RTL mirrors it to the
     LEFT, because the location strip takes the top-right there (they'd collide)."""
-    x = round(prof["safe"]["left"] * W) if rtl else round(W - prof["safe"]["right"] * W - bw)
-    y = round(prof["safe"]["top"] * H)
-    return x, y
+    return top_corner_xy(W, H, bw, rtl)   # the corner the top-right ending logo shares
 
 
 def run(spec, bitrate=12.0):
@@ -198,7 +197,11 @@ def run(spec, bitrate=12.0):
         bx, by = bug_pos(W, H, prof, bw, bh, rtl)
         inputs += ["-loop", "1", "-i", bug_png]
         filt.append(f"[{idx}:v]format=rgba[bug]")
-        filt.append(f"[{prev}][bug]overlay={bx}:{by}[v{idx}]")
+        # A top-right ending logo takes the bug's corner: the bug steps aside as the
+        # logo snaps on (ending.HOLD before the end), or the two lockups collide.
+        bug_end = (f":enable='lt(t,{max(0.0, info['dur'] - ending_mod.HOLD):.2f})'"
+                   if ending_mod.bug_steps_aside(spec.get("ending"), rtl) else "")
+        filt.append(f"[{prev}][bug]overlay={bx}:{by}{bug_end}[v{idx}]")
         prev = f"v{idx}"
         idx += 1
         print(f"  bug: OCHA vertical logo → {bx},{by}")
@@ -267,7 +270,7 @@ def run(spec, bitrate=12.0):
         print(f"  ending: {style}")
         ending_mod.add_ending(FF, body, style, float(ending.get("darken", 0.0)),
                               bitrate, tmp, out, p_lo=(body_hi if filt else 0), p_hi=100,
-                              logo_y_frac=ending.get("logo_y_frac"))
+                              logo_pos=ending_mod.logo_pos_of(ending))
     else:
         subprocess.run([FF, "-y", "-v", "error", "-i", body, "-c", "copy",
                         "-movflags", "+faststart", out], check=True)
