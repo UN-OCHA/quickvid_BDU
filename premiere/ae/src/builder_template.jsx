@@ -3,7 +3,7 @@
 // build_ocha_mogrts.jsx by hand; edit src/builder_template.jsx and re-run
 // premiere/ae/make_assets.py, which injects the baked brand data below).
 //
-// Run in After Effects 2026: File → Scripts → Run Script File…
+// Run in After Effects 2027: File → Scripts → Run Script File…
 // Builds, for each QuickVid format (Reels 9:16, Feed 4:5, Square 1:1,
 // Event 16:9), four comps with Essential Graphics controls:
 //   1. OCHA Lower Third   — name (black on white, uppercase) + title bar
